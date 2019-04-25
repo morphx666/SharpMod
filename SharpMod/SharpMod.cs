@@ -78,8 +78,8 @@ namespace SharpMod {
         }
 
         private FileStream m_File;
-        private MODINSTRUMENT[] Ins = new MODINSTRUMENT[32];
-        private MODCHANNEL[] Chn = new MODCHANNEL[32];
+        private MODINSTRUMENT[] Instruments = new MODINSTRUMENT[32];
+        private MODCHANNEL[] Channels = new MODCHANNEL[32];
         private byte[][] m_szNames = new byte[32][];
         private byte[] Order = new byte[256];
         private byte[][] Patterns = new byte[64][];
@@ -142,26 +142,26 @@ namespace SharpMod {
                 Array.Copy(bTab, m_szNames[i], 22);
 
                 if((j = (bTab[22] << 9) | (bTab[23] << 1)) < 4) j = 0;
-                Ins[i].nLength = (uint)j;
+                Instruments[i].nLength = (uint)j;
                 if((j = bTab[24]) > 7) j &= 7; else j = (j & 7) + 8;
-                Ins[i].nFineTune = FineTuneTable[j];
-                Ins[i].nVolume = bTab[25];
-                if(Ins[i].nVolume > 0x40) Ins[i].nVolume = 0x40;
-                Ins[i].nVolume <<= 2;
+                Instruments[i].nFineTune = FineTuneTable[j];
+                Instruments[i].nVolume = bTab[25];
+                if(Instruments[i].nVolume > 0x40) Instruments[i].nVolume = 0x40;
+                Instruments[i].nVolume <<= 2;
 
                 if((j = (int)((uint)bTab[26] << 9) | (int)((uint)bTab[27] << 1)) < 4) j = 0;
                 if((k = (int)((uint)bTab[28] << 9) | (int)((uint)bTab[29] << 1)) < 4) k = 0;
-                if(j + k > (int)Ins[i].nLength) {
+                if(j + k > (int)Instruments[i].nLength) {
                     j >>= 1;
                     k = j + ((k + 1) >> 1);
                 } else k += j;
-                if(Ins[i].nLength != 0) {
-                    if(j >= (int)Ins[i].nLength) j = (int)(Ins[i].nLength - 1);
-                    if(k > (int)Ins[i].nLength) k = (int)Ins[i].nLength;
+                if(Instruments[i].nLength != 0) {
+                    if(j >= (int)Instruments[i].nLength) j = (int)(Instruments[i].nLength - 1);
+                    if(k > (int)Instruments[i].nLength) k = (int)Instruments[i].nLength;
                     if((j > k) || (k < 4) || (k - j <= 4)) j = k = 0;
                 }
-                Ins[i].nLoopStart = (uint)j;
-                Ins[i].nLoopEnd = (uint)k;
+                Instruments[i].nLoopStart = (uint)j;
+                Instruments[i].nLoopEnd = (uint)k;
             }
 
             for(i = 0; i < 32; i++) {
@@ -194,10 +194,10 @@ namespace SharpMod {
             }
 
             // Reading instruments
-            for(i = 1; i <= (int)m_nSamples; i++) if(Ins[i].nLength != 0) {
-                    Ins[i].pSample = new byte[Ins[i].nLength + 1];
-                    m_File.Read(Ins[i].pSample, 0, (int)Ins[i].nLength);
-                    Ins[i].pSample[Ins[i].nLength] = Ins[i].pSample[Ins[i].nLength - 1];
+            for(i = 1; i <= (int)m_nSamples; i++) if(Instruments[i].nLength != 0) {
+                    Instruments[i].pSample = new byte[Instruments[i].nLength + 1];
+                    m_File.Read(Instruments[i].pSample, 0, (int)Instruments[i].nLength);
+                    Instruments[i].pSample[Instruments[i].nLength] = Instruments[i].pSample[Instruments[i].nLength - 1];
                 }
 
             m_File.Close();
@@ -217,6 +217,56 @@ namespace SharpMod {
         public uint GetNumPatterns() {
             for(uint i = 0; i < 128; i++) if(Order[i] >= 64) return i;
             return 128;
+        }
+
+        public uint GetLength() {
+            uint dwElapsedTime = 0, nRow = 0, nSpeedCount = 0, nCurrentPattern = 0, nNextPattern = 0, nPattern = 0;
+            uint nMusicSpeed = 6, nMusicTempo = 125;
+
+            for(; ; ) {
+                if(nSpeedCount == 0) {
+                    nRow = (nRow + 1) & 0x3F;
+                    if(nRow == 0) {
+                        nCurrentPattern = nNextPattern;
+                        nNextPattern++;
+                        nPattern = Order[nCurrentPattern];
+                    }
+                    if(nPattern >= 64) goto EndMod;
+
+                    int pIndex = (int)(nRow * m_nChannels * 4);
+                    byte[] p = Patterns[nPattern];
+                    for(uint nChn = 0; nChn < m_nChannels; nChn++, pIndex += 4) {
+                        uint command = (uint)(p[2] & 0x0F);
+                        uint param = p[3];
+
+                        switch(command) {
+                            // 0B: Position Jump
+                            case 0x0B:
+                                param &= 0x7F;
+                                if(param <= nCurrentPattern) goto EndMod;
+                                nNextPattern = param;
+                                nRow = 0x3F;
+                                break;
+                            // 0B: Pattern Break
+                            case 0x0D:
+                                nRow = 0x3F;
+                                break;
+                            // 0F: Set Speed
+                            case 0x0F:
+                                if((param != 0) && (param < 0x20)) nMusicSpeed = param;
+                                else
+                                    if(param >= 0x20) nMusicTempo = param;
+                                break;
+                        }
+                    }
+                    nSpeedCount = nMusicSpeed;
+                }
+                if(nPattern >= 64) goto EndMod;
+                dwElapsedTime += 5000 / (nMusicTempo * 2);
+                nSpeedCount--;
+            }
+        EndMod:
+            return (dwElapsedTime + 500) / 1000;
         }
 
         public void SetCurrentPos(uint nPos) {
@@ -257,10 +307,10 @@ namespace SharpMod {
 
             // Memorize channels settings
             for(j = 0; j < m_nChannels; j++) {
-                CurrentVol[j] = Chn[j].nCurrentVol;
-                if(Chn[j].nLength != 0) {
-                    pSample[j] = new byte[Chn[j].pSample.Length];
-                    Array.Copy(Chn[j].pSample, pSample[j], Chn[j].pSample.Length);
+                CurrentVol[j] = Channels[j].nCurrentVol;
+                if(Channels[j].nLength != 0) {
+                    pSample[j] = new byte[Channels[j].pSample.Length];
+                    Array.Copy(Channels[j].pSample, pSample[j], Channels[j].pSample.Length);
                 } else {
                 }
                 if(m_nChannels == 4)
@@ -277,10 +327,10 @@ namespace SharpMod {
                     ReadNote();
                     // Memorize channels settings
                     for(j = 0; j < m_nChannels; j++) {
-                        CurrentVol[j] = Chn[j].nCurrentVol;
-                        if(Chn[j].nLength != 0) {
-                            pSample[j] = new byte[Chn[j].pSample.Length];
-                            Array.Copy(Chn[j].pSample, pSample[j], Chn[j].pSample.Length);
+                        CurrentVol[j] = Channels[j].nCurrentVol;
+                        if(Channels[j].nLength != 0) {
+                            pSample[j] = new byte[Channels[j].pSample.Length];
+                            Array.Copy(Channels[j].pSample, pSample[j], Channels[j].pSample.Length);
                         } else {
                             pSample[j] = null;
                         }
@@ -291,22 +341,22 @@ namespace SharpMod {
                 int vRight = 0, vLeft = 0;
                 for(uint i = 0; i < m_nChannels; i++) if(pSample[i] != null) {
                         // Read sample
-                        int poshi = (int)(Chn[i].nPos >> MOD_PRECISION);
-                        short poslo = (short)(Chn[i].nPos & MOD_FRACMASK);
+                        int poshi = (int)(Channels[i].nPos >> MOD_PRECISION);
+                        short poslo = (short)(Channels[i].nPos & MOD_FRACMASK);
                         short srcvol = (sbyte)pSample[i][poshi];
                         short destvol = (sbyte)pSample[i][poshi + 1];
                         int vol = srcvol + ((int)(poslo * (destvol - srcvol)) >> MOD_PRECISION);
                         vol *= CurrentVol[i];
                         if(bTrkDest[i]) vRight += vol; else vLeft += vol;
-                        Chn[i].nOldVol = vol;
-                        Chn[i].nPos += Chn[i].nInc;
-                        if(Chn[i].nPos >= Chn[i].nLength) {
-                            Chn[i].nLength = Chn[i].nLoopEnd;
-                            Chn[i].nPos = (Chn[i].nPos & MOD_FRACMASK) + Chn[i].nLoopStart;
-                            if(Chn[i].nLength != 0) pSample[i] = null;
+                        Channels[i].nOldVol = vol;
+                        Channels[i].nPos += Channels[i].nInc;
+                        if(Channels[i].nPos >= Channels[i].nLength) {
+                            Channels[i].nLength = Channels[i].nLoopEnd;
+                            Channels[i].nPos = (Channels[i].nPos & MOD_FRACMASK) + Channels[i].nLoopStart;
+                            if(Channels[i].nLength != 0) pSample[i] = null;
                         }
                     } else {
-                        int vol = Chn[i].nOldVol;
+                        int vol = Channels[i].nOldVol;
                         if(bTrkDest[i]) vRight += vol; else vLeft += vol;
                     }
 
@@ -370,113 +420,113 @@ namespace SharpMod {
                     uint instr = ((uint)A2 >> 4) | (uint)(A0 & 0x10);
                     uint command = (uint)(A2 & 0x0F);
                     uint param = A3;
-                    bool bVib = Chn[nChn].bVibrato;
-                    bool bTrem = Chn[nChn].bTremolo;
+                    bool bVib = Channels[nChn].bVibrato;
+                    bool bTrem = Channels[nChn].bTremolo;
 
                     // Reset channels data
-                    Chn[nChn].nVolumeSlide = 0;
-                    Chn[nChn].nFreqSlide = 0;
-                    Chn[nChn].nOldPeriod = Chn[nChn].nPeriod;
-                    Chn[nChn].bPortamento = false;
-                    Chn[nChn].bVibrato = false;
-                    Chn[nChn].bTremolo = false;
+                    Channels[nChn].nVolumeSlide = 0;
+                    Channels[nChn].nFreqSlide = 0;
+                    Channels[nChn].nOldPeriod = Channels[nChn].nPeriod;
+                    Channels[nChn].bPortamento = false;
+                    Channels[nChn].bVibrato = false;
+                    Channels[nChn].bTremolo = false;
                     if(instr > 31) instr = 0;
-                    if(instr != 0) Chn[nChn].nNextIns = (short)instr;
+                    if(instr != 0) Channels[nChn].nNextIns = (short)instr;
                     if(period != 0) {
-                        if(Chn[nChn].nNextIns != 0) {
-                            Chn[nChn].nSample = instr;
-                            Chn[nChn].nVolume = Ins[instr].nVolume;
-                            Chn[nChn].nPos = 0;
-                            Chn[nChn].nLength = Ins[instr].nLength << MOD_PRECISION;
-                            Chn[nChn].nFineTune = Ins[instr].nFineTune << MOD_PRECISION;
-                            Chn[nChn].nLoopStart = Ins[instr].nLoopStart << MOD_PRECISION;
-                            Chn[nChn].nLoopEnd = Ins[instr].nLoopEnd << MOD_PRECISION;
-                            Chn[nChn].pSample = Ins[instr].pSample;
-                            Chn[nChn].nNextIns = 0;
+                        if(Channels[nChn].nNextIns != 0) {
+                            Channels[nChn].nSample = instr;
+                            Channels[nChn].nVolume = Instruments[instr].nVolume;
+                            Channels[nChn].nPos = 0;
+                            Channels[nChn].nLength = Instruments[instr].nLength << MOD_PRECISION;
+                            Channels[nChn].nFineTune = Instruments[instr].nFineTune << MOD_PRECISION;
+                            Channels[nChn].nLoopStart = Instruments[instr].nLoopStart << MOD_PRECISION;
+                            Channels[nChn].nLoopEnd = Instruments[instr].nLoopEnd << MOD_PRECISION;
+                            Channels[nChn].pSample = Instruments[instr].pSample;
+                            Channels[nChn].nNextIns = 0;
                         }
-                        if((command != 0x03) || (Chn[nChn].nPeriod == 0)) {
-                            Chn[nChn].nPeriod = (int)period;
-                            Chn[nChn].nLength = Ins[Chn[nChn].nSample].nLength << MOD_PRECISION;
-                            Chn[nChn].nPos = 0;
+                        if((command != 0x03) || (Channels[nChn].nPeriod == 0)) {
+                            Channels[nChn].nPeriod = (int)period;
+                            Channels[nChn].nLength = Instruments[Channels[nChn].nSample].nLength << MOD_PRECISION;
+                            Channels[nChn].nPos = 0;
                         }
-                        Chn[nChn].nPortamentoDest = (int)period;
+                        Channels[nChn].nPortamentoDest = (int)period;
                     }
                     switch(command) {
                         // 00: Arpeggio
                         case 0x00:
-                            if((param == 0) || (Chn[nChn].nPeriod == 0)) break;
-                            Chn[nChn].nCount2 = 3;
-                            Chn[nChn].nPeriod2 = Chn[nChn].nPeriod;
-                            Chn[nChn].nCount1 = 2;
-                            Chn[nChn].nPeriod1 = (int)(Chn[nChn].nPeriod + (param & 0x0F));
-                            Chn[nChn].nPeriod += (int)((param >> 4) & 0x0F);
+                            if((param == 0) || (Channels[nChn].nPeriod == 0)) break;
+                            Channels[nChn].nCount2 = 3;
+                            Channels[nChn].nPeriod2 = Channels[nChn].nPeriod;
+                            Channels[nChn].nCount1 = 2;
+                            Channels[nChn].nPeriod1 = (int)(Channels[nChn].nPeriod + (param & 0x0F));
+                            Channels[nChn].nPeriod += (int)((param >> 4) & 0x0F);
                             break;
                         // 01: Portamento Up
                         case 0x01:
-                            if(param == 0) param = (uint)Chn[nChn].nOldFreqSlide;
-                            Chn[nChn].nOldFreqSlide = (int)param;
-                            Chn[nChn].nFreqSlide = -(int)param;
+                            if(param == 0) param = (uint)Channels[nChn].nOldFreqSlide;
+                            Channels[nChn].nOldFreqSlide = (int)param;
+                            Channels[nChn].nFreqSlide = -(int)param;
                             break;
                         // 02: Portamento Down
                         case 0x02:
-                            if(param == 0) param = (uint)Chn[nChn].nOldFreqSlide;
-                            Chn[nChn].nOldFreqSlide = (int)param;
-                            Chn[nChn].nFreqSlide = (int)param;
+                            if(param == 0) param = (uint)Channels[nChn].nOldFreqSlide;
+                            Channels[nChn].nOldFreqSlide = (int)param;
+                            Channels[nChn].nFreqSlide = (int)param;
                             break;
                         // 03: Tone-Portamento
                         case 0x03:
-                            if(param == 0) param = (uint)Chn[nChn].nPortamentoSlide;
-                            Chn[nChn].nPortamentoSlide = (int)param;
-                            Chn[nChn].bPortamento = false;
+                            if(param == 0) param = (uint)Channels[nChn].nPortamentoSlide;
+                            Channels[nChn].nPortamentoSlide = (int)param;
+                            Channels[nChn].bPortamento = false;
                             break;
                         // 04: Vibrato
                         case 0x04:
-                            if(!bVib) Chn[nChn].nVibratoPos = 0;
-                            if(param == 0) Chn[nChn].nVibratoSlide = (int)param;
-                            Chn[nChn].bVibrato = false;
+                            if(!bVib) Channels[nChn].nVibratoPos = 0;
+                            if(param == 0) Channels[nChn].nVibratoSlide = (int)param;
+                            Channels[nChn].bVibrato = false;
                             break;
                         // 05: Tone-Portamento + Volume Slide
                         case 0x05:
                             if(period != 0) {
-                                Chn[nChn].nPortamentoDest = (int)period;
-                                if(Chn[nChn].nOldPeriod != 0) Chn[nChn].nPeriod = Chn[nChn].nOldPeriod;
+                                Channels[nChn].nPortamentoDest = (int)period;
+                                if(Channels[nChn].nOldPeriod != 0) Channels[nChn].nPeriod = Channels[nChn].nOldPeriod;
                             }
-                            Chn[nChn].bPortamento = false;
+                            Channels[nChn].bPortamento = false;
                             if(param != 0) {
-                                if((param & 0xF0) != 0) Chn[nChn].nVolumeSlide = (int)((param >> 4) << 2);
-                                else Chn[nChn].nVolumeSlide = -(int)((param & 0x0F) << 2);
-                                Chn[nChn].nOldVolumeSlide = Chn[nChn].nVolumeSlide;
+                                if((param & 0xF0) != 0) Channels[nChn].nVolumeSlide = (int)((param >> 4) << 2);
+                                else Channels[nChn].nVolumeSlide = -(int)((param & 0x0F) << 2);
+                                Channels[nChn].nOldVolumeSlide = Channels[nChn].nVolumeSlide;
                             }
                             break;
                         // 06: Vibrato + Volume Slide
                         case 0x06:
-                            if(!bVib) Chn[nChn].nVibratoPos = 0;
-                            Chn[nChn].bVibrato = false;
+                            if(!bVib) Channels[nChn].nVibratoPos = 0;
+                            Channels[nChn].bVibrato = false;
                             if(param != 0) {
-                                if((param & 0xF0) != 0) Chn[nChn].nVolumeSlide = (int)((param >> 4) << 2);
-                                else Chn[nChn].nVolumeSlide = -(int)((param & 0x0F) << 2);
-                                Chn[nChn].nOldVolumeSlide = Chn[nChn].nVolumeSlide;
+                                if((param & 0xF0) != 0) Channels[nChn].nVolumeSlide = (int)((param >> 4) << 2);
+                                else Channels[nChn].nVolumeSlide = -(int)((param & 0x0F) << 2);
+                                Channels[nChn].nOldVolumeSlide = Channels[nChn].nVolumeSlide;
                             }
                             break;
                         // 07: Tremolo
                         case 0x07:
-                            if(!bTrem) Chn[nChn].nTremoloPos = 0;
-                            if(param == 0) Chn[nChn].nTremoloSlide = (int)param;
-                            Chn[nChn].bTremolo = false;
+                            if(!bTrem) Channels[nChn].nTremoloPos = 0;
+                            if(param == 0) Channels[nChn].nTremoloSlide = (int)param;
+                            Channels[nChn].bTremolo = false;
                             break;
                         // 09: Set Offset
                         case 0x09:
                             if(param > 0) {
                                 param <<= 8 + MOD_PRECISION;
-                                if(param < Chn[nChn].nLength) Chn[nChn].nPos = param;
+                                if(param < Channels[nChn].nLength) Channels[nChn].nPos = param;
                             }
                             break;
                         // 0A: Volume Slide
                         case 0x0A:
                             if(param != 0) {
-                                if((param & 0xF0) != 0) Chn[nChn].nVolumeSlide = (int)((param >> 4) << 2);
-                                else Chn[nChn].nVolumeSlide = -(int)((param & 0x0F) << 2);
-                                Chn[nChn].nOldVolumeSlide = Chn[nChn].nVolumeSlide;
+                                if((param & 0xF0) != 0) Channels[nChn].nVolumeSlide = (int)((param >> 4) << 2);
+                                else Channels[nChn].nVolumeSlide = -(int)((param & 0x0F) << 2);
+                                Channels[nChn].nOldVolumeSlide = Channels[nChn].nVolumeSlide;
                             }
                             break;
                         // 0B: Position Jump
@@ -489,7 +539,7 @@ namespace SharpMod {
                         case 0x0C:
                             if(param > 0x40) param = 0x40;
                             param <<= 2;
-                            Chn[nChn].nVolume = (int)param;
+                            Channels[nChn].nVolume = (int)param;
                             break;
                         // 0B: Pattern Break
                         case 0x0D:
@@ -502,44 +552,44 @@ namespace SharpMod {
                             switch(command) {
                                 // 0xE1: Fine Portamento Up
                                 case 0x01:
-                                    if(Chn[nChn].nPeriod != 0) {
-                                        Chn[nChn].nPeriod -= (int)param;
-                                        if(Chn[nChn].nPeriod < 1) Chn[nChn].nPeriod = 1;
+                                    if(Channels[nChn].nPeriod != 0) {
+                                        Channels[nChn].nPeriod -= (int)param;
+                                        if(Channels[nChn].nPeriod < 1) Channels[nChn].nPeriod = 1;
                                     }
                                     break;
                                 // 0xE2: Fine Portamento Down
                                 case 0x02:
-                                    if(Chn[nChn].nPeriod != 0) {
-                                        Chn[nChn].nPeriod += (int)param;
+                                    if(Channels[nChn].nPeriod != 0) {
+                                        Channels[nChn].nPeriod += (int)param;
                                     }
                                     break;
                                 // 0xE3: Set Glissando Control (???)
                                 // 0xE4: Set Vibrato WaveForm
                                 case 0x04:
-                                    Chn[nChn].nVibratoType = (int)(param & 0x03);
+                                    Channels[nChn].nVibratoType = (int)(param & 0x03);
                                     break;
                                 // 0xE5: Set Finetune
                                 case 0x05:
-                                    Chn[nChn].nFineTune = FineTuneTable[param];
+                                    Channels[nChn].nFineTune = FineTuneTable[param];
                                     break;
                                 // 0xE6: Pattern Loop
                                 // 0xE7: Set Tremolo WaveForm
                                 case 0x07:
-                                    Chn[nChn].nTremoloType = (int)(param & 0x03);
+                                    Channels[nChn].nTremoloType = (int)(param & 0x03);
                                     break;
                                 // 0xE9: Retrig + Fine Volume Slide
                                 // 0xEA: Fine Volume Up
                                 case 0x0A:
-                                    Chn[nChn].nVolume += (int)(param << 2);
+                                    Channels[nChn].nVolume += (int)(param << 2);
                                     break;
                                 // 0xEB: Fine Volume Down
                                 case 0x0B:
-                                    Chn[nChn].nVolume -= (int)(param << 2);
+                                    Channels[nChn].nVolume -= (int)(param << 2);
                                     break;
                                 // 0xEC: Note Cut
                                 case 0x0C:
-                                    Chn[nChn].nCount1 = (int)(param + 1);
-                                    Chn[nChn].nPeriod1 = 0;
+                                    Channels[nChn].nCount1 = (int)(param + 1);
+                                    Channels[nChn].nPeriod1 = 0;
                                     break;
                             }
                             break;
@@ -557,83 +607,87 @@ namespace SharpMod {
             if(m_nPattern >= 64) return false;
             // Update channels data
             for(uint nChn = 0; nChn < m_nChannels; nChn++) {
-                Chn[nChn].nVolume += Chn[nChn].nVolumeSlide;
-                if(Chn[nChn].nVolume < 0) Chn[nChn].nVolume = 0;
-                if(Chn[nChn].nVolume > 0x100) Chn[nChn].nVolume = 0x100;
-                if(Chn[nChn].nCount1 != 0) {
-                    Chn[nChn].nCount1--;
-                    if(Chn[nChn].nCount1 == 0) Chn[nChn].nPeriod = Chn[nChn].nPeriod1;
+                Channels[nChn].nVolume += Channels[nChn].nVolumeSlide;
+                if(Channels[nChn].nVolume < 0) Channels[nChn].nVolume = 0;
+                if(Channels[nChn].nVolume > 0x100) Channels[nChn].nVolume = 0x100;
+                if(Channels[nChn].nCount1 != 0) {
+                    Channels[nChn].nCount1--;
+                    if(Channels[nChn].nCount1 == 0) Channels[nChn].nPeriod = Channels[nChn].nPeriod1;
                 }
-                if(Chn[nChn].nCount2 != 0) {
-                    Chn[nChn].nCount2--;
-                    if(Chn[nChn].nCount2 == 0) Chn[nChn].nPeriod = Chn[nChn].nPeriod2;
+                if(Channels[nChn].nCount2 != 0) {
+                    Channels[nChn].nCount2--;
+                    if(Channels[nChn].nCount2 == 0) Channels[nChn].nPeriod = Channels[nChn].nPeriod2;
                 }
-                if(Chn[nChn].nPeriod != 0) {
-                    Chn[nChn].nCurrentVol = (short)Chn[nChn].nVolume;
-                    if(Chn[nChn].bTremolo) {
-                        int vol = Chn[nChn].nCurrentVol;
-                        switch(Chn[nChn].nTremoloType) {
+                if(Channels[nChn].nPeriod != 0) {
+                    Channels[nChn].nCurrentVol = (short)Channels[nChn].nVolume;
+                    if(Channels[nChn].bTremolo) {
+                        int vol = Channels[nChn].nCurrentVol;
+                        switch(Channels[nChn].nTremoloType) {
                             case 1:
-                                vol += ModRampDownTable[Chn[nChn].nTremoloPos] * (Chn[nChn].nTremoloSlide & 0x0F) / 127;
+                                vol += ModRampDownTable[Channels[nChn].nTremoloPos] * (Channels[nChn].nTremoloSlide & 0x0F) / 127;
                                 break;
                             case 2:
-                                vol += ModSquareTable[Chn[nChn].nTremoloPos] * (Chn[nChn].nTremoloSlide & 0x0F) / 127;
+                                vol += ModSquareTable[Channels[nChn].nTremoloPos] * (Channels[nChn].nTremoloSlide & 0x0F) / 127;
                                 break;
                             case 3:
-                                vol += ModRandomTable[Chn[nChn].nTremoloPos] * (Chn[nChn].nTremoloSlide & 0x0F) / 127;
+                                vol += ModRandomTable[Channels[nChn].nTremoloPos] * (Channels[nChn].nTremoloSlide & 0x0F) / 127;
                                 break;
                             default:
-                                vol += ModSinusTable[Chn[nChn].nTremoloPos] * (Chn[nChn].nTremoloSlide & 0x0F) / 127;
+                                vol += ModSinusTable[Channels[nChn].nTremoloPos] * (Channels[nChn].nTremoloSlide & 0x0F) / 127;
                                 break;
                         }
                         if(vol < 0) vol = 0;
                         if(vol > 0x100) vol = 0x100;
-                        Chn[nChn].nCurrentVol = (short)vol;
-                        Chn[nChn].nTremoloPos = (Chn[nChn].nTremoloPos + (Chn[nChn].nTremoloSlide >> 4)) & 0x3F;
+                        Channels[nChn].nCurrentVol = (short)vol;
+                        Channels[nChn].nTremoloPos = (Channels[nChn].nTremoloPos + (Channels[nChn].nTremoloSlide >> 4)) & 0x3F;
                     }
-                    if((Chn[nChn].bPortamento) && (Chn[nChn].nPortamentoDest != 0)) {
-                        if(Chn[nChn].nPeriod < Chn[nChn].nPortamentoDest) {
-                            Chn[nChn].nPeriod += Chn[nChn].nPortamentoSlide;
-                            if(Chn[nChn].nPeriod > Chn[nChn].nPortamentoDest)
-                                Chn[nChn].nPeriod = Chn[nChn].nPortamentoDest;
+                    if((Channels[nChn].bPortamento) && (Channels[nChn].nPortamentoDest != 0)) {
+                        if(Channels[nChn].nPeriod < Channels[nChn].nPortamentoDest) {
+                            Channels[nChn].nPeriod += Channels[nChn].nPortamentoSlide;
+                            if(Channels[nChn].nPeriod > Channels[nChn].nPortamentoDest)
+                                Channels[nChn].nPeriod = Channels[nChn].nPortamentoDest;
                         }
-                        if(Chn[nChn].nPeriod > Chn[nChn].nPortamentoDest) {
-                            Chn[nChn].nPeriod -= Chn[nChn].nPortamentoSlide;
-                            if(Chn[nChn].nPeriod < Chn[nChn].nPortamentoDest)
-                                Chn[nChn].nPeriod = Chn[nChn].nPortamentoDest;
+                        if(Channels[nChn].nPeriod > Channels[nChn].nPortamentoDest) {
+                            Channels[nChn].nPeriod -= Channels[nChn].nPortamentoSlide;
+                            if(Channels[nChn].nPeriod < Channels[nChn].nPortamentoDest)
+                                Channels[nChn].nPeriod = Channels[nChn].nPortamentoDest;
                         }
                     }
-                    Chn[nChn].nPeriod += Chn[nChn].nFreqSlide;
-                    if(Chn[nChn].nPeriod < 1) Chn[nChn].nPeriod = 1;
-                    int period = Chn[nChn].nPeriod;
-                    if(Chn[nChn].bVibrato) {
-                        switch(Chn[nChn].nVibratoType) {
+                    Channels[nChn].nPeriod += Channels[nChn].nFreqSlide;
+                    if(Channels[nChn].nPeriod < 1) Channels[nChn].nPeriod = 1;
+                    int period = Channels[nChn].nPeriod;
+                    if(Channels[nChn].bVibrato) {
+                        switch(Channels[nChn].nVibratoType) {
                             case 1:
-                                period += ModRampDownTable[Chn[nChn].nVibratoPos] * (Chn[nChn].nVibratoSlide & 0x0F) / 127;
+                                period += ModRampDownTable[Channels[nChn].nVibratoPos] * (Channels[nChn].nVibratoSlide & 0x0F) / 127;
                                 break;
                             case 2:
-                                period += ModSquareTable[Chn[nChn].nVibratoPos] * (Chn[nChn].nVibratoSlide & 0x0F) / 127;
+                                period += ModSquareTable[Channels[nChn].nVibratoPos] * (Channels[nChn].nVibratoSlide & 0x0F) / 127;
                                 break;
                             case 3:
-                                period += ModRandomTable[Chn[nChn].nVibratoPos] * (Chn[nChn].nVibratoSlide & 0x0F) / 127;
+                                period += ModRandomTable[Channels[nChn].nVibratoPos] * (Channels[nChn].nVibratoSlide & 0x0F) / 127;
                                 break;
                             default:
-                                period += ModSinusTable[Chn[nChn].nVibratoPos] * (Chn[nChn].nVibratoSlide & 0x0F) / 127;
+                                period += ModSinusTable[Channels[nChn].nVibratoPos] * (Channels[nChn].nVibratoSlide & 0x0F) / 127;
                                 break;
                         }
-                        Chn[nChn].nVibratoPos = (Chn[nChn].nVibratoPos + (Chn[nChn].nVibratoSlide >> 4)) & 0x3F;
+                        Channels[nChn].nVibratoPos = (Channels[nChn].nVibratoPos + (Channels[nChn].nVibratoSlide >> 4)) & 0x3F;
                     }
                     if(period < 1) period = 1;
-                    Chn[nChn].nInc = (uint)((Chn[nChn].nFineTune * MOD_AMIGAC2) / (period * m_nRate));
+                    Channels[nChn].nInc = (uint)((Channels[nChn].nFineTune * MOD_AMIGAC2) / (period * m_nRate));
                 } else {
-                    Chn[nChn].nInc = 0;
-                    Chn[nChn].nPos = 0;
-                    Chn[nChn].nLength = 0;
+                    Channels[nChn].nInc = 0;
+                    Channels[nChn].nPos = 0;
+                    Channels[nChn].nLength = 0;
                 }
             }
             m_nBufferCount = (m_nRate * 5) / (m_nMusicTempo * 2);
             m_nSpeedCount--;
             return true;
+        }
+
+        public string GetName(int index) {
+            return Encoding.UTF8.GetString(m_szNames[index]).Trim('\0');
         }
     }
 }
