@@ -6,3 +6,5 @@ This code is a verbatim implementation of the magnificent code developed by Oliv
 For more information, visit https://openmpt.org/legacy_software
 
 Code ported to c# by Xavier Flix (https://github.com/morphx666) on 2014/ 04/25
+
+![SharpMod](https://xfx.net/stackoverflow/sharpMod/sm01.png)
