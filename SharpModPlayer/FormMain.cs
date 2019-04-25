@@ -31,7 +31,7 @@ namespace SharpModPlayer {
             sf = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
 
             string str = "";
-            uint s = sf.GetLength();
+            uint s = sf.Length;
             uint m = s / 60;
             s %= 60;
             string ds = $"{m:00}:{s:00}";
@@ -48,14 +48,14 @@ namespace SharpModPlayer {
 
             audioProvider = new CustomBufferProvider(new CustomBufferProvider.FillBuffer(FillAudioBuffer), sampleRate, bitDepth, channels);
             waveOut.Init(audioProvider);
-            waveOut.Volume = 1f;
+            waveOut.Volume = 1.0f;
             waveOut.Play();
 
             this.Paint += new PaintEventHandler(RenderWaveForm);
             Task.Run(() => {
                 while(true) {
                     Thread.Sleep(60);
-                    base.Invalidate();
+                    this.Invalidate();
                 }
             });
         }
