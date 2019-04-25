@@ -5,7 +5,7 @@ This is a verbatim implementation of the magnificent code developed by Olivier L
 
 For more information, visit https://openmpt.org/legacy_software
 
-![SharpMod](https://xfx.net/stackoverflow/sharpMod/sm02.png)
+![SharpMod](https://xfx.net/stackoverflow/sharpMod/sm03.png)
 
 ## Using SharpMod
 
