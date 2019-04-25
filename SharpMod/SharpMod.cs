@@ -12,7 +12,7 @@ using System.Text;
 
 namespace SharpMod {
     public partial class SoundFile {
-        public SoundFile(string lpszPathName, uint nRate, bool bHigh, bool bStereo, bool bLoop) {
+        public SoundFile(string fileName, uint sampleRate, bool is16Bit, bool isStereo, bool loop) {
             byte[] s = new byte[1024];
             string ss;
             int i, j, k, nbp;
@@ -23,13 +23,13 @@ namespace SharpMod {
             }
 
             Type = 0;
-            Rate = nRate;
-            Is16Bit = bHigh;
-            IsStereo = bStereo;
-            Loop = bLoop;
+            Rate = sampleRate;
+            Is16Bit = is16Bit;
+            IsStereo = isStereo;
+            Loop = loop;
             ActiveChannels = 0;
 
-            mFile = new FileInfo(lpszPathName).Open(FileMode.Open, FileAccess.Read, FileShare.Read);
+            mFile = new FileInfo(fileName).Open(FileMode.Open, FileAccess.Read, FileShare.Read);
 
             Type = 1;
             mFile.Seek(0x438, SeekOrigin.Begin);

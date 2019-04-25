@@ -1,13 +1,8 @@
 ﻿using NAudio.Wave;
 using SharpMod;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -17,7 +12,8 @@ namespace SharpModPlayer {
         private readonly WaveOut waveOut;
         private CustomBufferProvider audioProvider;
         private readonly SoundFile sf;
-        private readonly Pen wfPen = new Pen(Color.Green);
+        private readonly Pen oWfPen = new Pen(Color.Green);
+        private readonly Pen cWfPen = new Pen(Color.FromArgb(128, Color.OrangeRed));
         private byte[] currentBuffer = new byte[0];
         private const int sampleRate = 44100;
         private const int bitDepth = 16; // 8 | 15
@@ -36,7 +32,7 @@ namespace SharpModPlayer {
             s %= 60;
             this.Text = $"SharpMod: '{sf.Title}' [{m:00}:{s:00}]";
             for(int i = 1; i < 32; i++) {
-                str += $"{sf.Instruments[i].Name} {Environment.NewLine}";
+                str += $"{sf.Instruments[i].Name}{Environment.NewLine}";
             }
             LabelInfo.Text = str;
 
@@ -66,63 +62,34 @@ namespace SharpModPlayer {
         }
 
         private string GetRandomFile() {
+            //return @"D:\Users\Xavier Flix\Dropbox\Projects\SharpModPlayer\Release\mods\Spike Mix.mod";
             FileInfo[] files = (new DirectoryInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mods"))).GetFiles("*.mod");
-            //return files[1].FullName;
             return files[(new Random()).Next(files.Length)].FullName;
         }
 
 
         private void RenderWaveForm(object sender, PaintEventArgs e) {
-            lock(this.currentBuffer) {
-                int w = this.DisplayRectangle.Width;
-                int h = this.DisplayRectangle.Height;
+            lock(currentBuffer) {
+                Graphics g = e.Graphics;
+                Rectangle r = this.DisplayRectangle;
 
-                float hh = (float)(h / 2);
-                float hh2 = hh / 2f;
+                r.X = 400;
+                r.Width -= r.X;
+                Renderer.RenderOutput(sf, currentBuffer, g, oWfPen, r);
 
-                int ds = bitDepth / 8;
-                int ss = channels * ds;
-                int bl = currentBuffer.Length / ss;
-
-                PointF[] pL = new PointF[bl];
-                PointF[] pR = new PointF[bl];
-
-                byte[] tmpB = new byte[ds + (ds % 2)];
-                float x;
-
-                for(int i = 0, j = 0; i < bl; i++, j += ss) {
-                    x = (float)i * w / bl;
-                    switch(channels) {
-                        case 1:
-                            switch(bitDepth) {
-                                case 8:
-                                    pL[i] = new PointF(x, hh - currentBuffer[j] + 0x80);
-                                    break;
-                                case 16:
-                                    Array.Copy(currentBuffer, j, tmpB, 0, ds);
-                                    pL[i] = new PointF(x, hh - BitConverter.ToInt16(tmpB, 0) / 256);
-                                    break;
-                            }
-                            break;
-                        case 2:
-                            switch(bitDepth) {
-                                case 8:
-                                    pL[i] = new PointF(x, hh - hh2 - currentBuffer[j] + 0x80);
-                                    pR[i] = new PointF(x, hh + hh2 - currentBuffer[j + 1] + 0x80);
-                                    break;
-                                case 16:
-                                    Array.Copy(currentBuffer, j, tmpB, 0, ds);
-                                    pL[i] = new PointF(x, hh - hh2 - BitConverter.ToInt16(tmpB, 0) / 256);
-
-                                    Array.Copy(currentBuffer, j + ds, tmpB, 0, ds);
-                                    pR[i] = new PointF(x, hh + hh2 - BitConverter.ToInt16(tmpB, 0) / 256);
-                                    break;
-                            }
-                            break;
+                // This is VERY inefficient!
+                // Since the sample doesn't change, we should "cache it" and then simply paste the bitmap, instead of re-drawing it every time.
+                r = new Rectangle(200, this.FontHeight * 2, 200, this.FontHeight + 2);
+                for(int i = 0; i < sf.Instruments.Length; i++) {
+                    if(sf.Instruments[i].Sample != null) {
+                        Renderer.RenderInstrument(sf, i, g, cWfPen, r);
                     }
+                    g.DrawLine(Pens.DimGray, 0, r.Y, r.Right, r.Y);
+                    //g.DrawString(i.ToString(), this.Font, Brushes.White, r.Location);
+                    r.Y += (r.Height + 4);
                 }
-                e.Graphics.DrawCurve(wfPen, pL);
-                if(channels == 2) e.Graphics.DrawCurve(wfPen, pR);
+
+                g.DrawLine(Pens.LightGray, 400, 0, 400, this.DisplayRectangle.Bottom);
             }
         }
     }

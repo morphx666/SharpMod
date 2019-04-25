@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace SharpMod {
+﻿namespace SharpMod {
     public partial class SoundFile {
         public string Title { get => Instruments[0].Name; }
         public uint Type { get; }

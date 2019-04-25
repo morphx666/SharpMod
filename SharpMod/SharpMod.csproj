@@ -2,12 +2,31 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <AssemblyVersion>2019.4.25.81</AssemblyVersion>
-    <FileVersion>2019.4.25.81</FileVersion>
+    <AssemblyVersion>2019.4.25.98</AssemblyVersion>
+    <FileVersion>2019.4.25.98</FileVersion>
+    <Authors>Xavier Flix</Authors>
+    <Company>xFX JumpStart</Company>
+    <Description>This is a verbatim implementation of the magnificent code developed by Olivier Lapicque for his Mod95 player.
+
+For more information, visit https://openmpt.org/legacy_software
+
+Code ported to c# by Xavier Flix (https://github.com/morphx666) on 2014/ 04/25</Description>
+    <PackageProjectUrl>https://github.com/morphx666/SharpMod</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/morphx666/SharpMod</RepositoryUrl>
+    <RepositoryType>GitHub</RepositoryType>
+    <PackageTags>mod, mod95, csharp, tracker</PackageTags>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\..\..\..\Projects\SharpModPlayer\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
 
 </Project>

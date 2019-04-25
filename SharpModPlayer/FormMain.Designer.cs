@@ -32,12 +32,13 @@
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.LabelInfo.BackColor = System.Drawing.Color.Transparent;
-            this.LabelInfo.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.LabelInfo.Font = new System.Drawing.Font("Consolas", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.LabelInfo.Location = new System.Drawing.Point(12, 9);
             this.LabelInfo.Name = "LabelInfo";
             this.LabelInfo.Size = new System.Drawing.Size(776, 432);
             this.LabelInfo.TabIndex = 0;
             this.LabelInfo.Text = "ModInfo";
+            this.LabelInfo.UseCompatibleTextRendering = true;
             // 
             // FormMain
             // 

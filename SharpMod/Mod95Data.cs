@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.IO;
 using System.Text;
 
 namespace SharpMod {
@@ -52,7 +50,7 @@ namespace SharpMod {
             public uint FineTune;
             public int Volume;
             public byte[] Sample;
-            public byte[] name;
+            internal byte[] name;
             public string Name { get { return Encoding.UTF8.GetString(name).Trim('\0'); } }
         }
 
