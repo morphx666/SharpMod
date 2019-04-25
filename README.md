@@ -1,5 +1,5 @@
 # SharpMod
-A .NET (c#)( implementation of the Mod95 MOD tracker
+A .NET implementation of the Mod95 MOD tracker
 
 This code is a verbatim implementation of the magnificent code developed by Olivier Lapicque for his [Mod95](https://download.openmpt.org/archive/mod95/) player.
 
