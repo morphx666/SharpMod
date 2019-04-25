@@ -33,7 +33,7 @@
             this.ClientSize = new System.Drawing.Size(800, 450);
             this.Name = "FormMain";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Form1";
+            this.Text = "SharpMod Player";
             this.ResumeLayout(false);
 
         }

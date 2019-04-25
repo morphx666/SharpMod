@@ -57,8 +57,7 @@ namespace SharpModPlayer {
 
         private string GetRandomFile() {
             FileInfo[] files = (new DirectoryInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mods"))).GetFiles("*.mod");
-            //return files[(new Random()).Next(files.Length]].FullName;
-            return files[1].FullName;
+            return files[(new Random()).Next(files.Length)].FullName;
         }
 
 
