@@ -100,7 +100,7 @@ namespace SharpMod {
             mFile.Read(bTab, 0, 2);
             k = bTab[0];
             if(mFile.Read(order, 0, 128) != 128) {
-                CloseFile();
+                CloseFile(false);
                 return;
             }
 
@@ -114,7 +114,7 @@ namespace SharpMod {
             while((j >= k) && (order[j] == 0)) order[j--] = 0xFF;
             if(ActiveSamples == 31) mFile.Seek(4, SeekOrigin.Current);
             if(nbp == 0) {
-                CloseFile();
+                CloseFile(false);
                 return;
             }
 
@@ -132,10 +132,10 @@ namespace SharpMod {
                 }
 
             Type = 2;
-            CloseFile();
+            CloseFile(true);
         }
 
-        private void CloseFile() {
+        private void CloseFile(bool isValid) {
             mFile.Close();
 
             // Default settings	
@@ -147,6 +147,7 @@ namespace SharpMod {
             BufferCount = 0;
             SpeedCount = 0;
             Row = 0x3F;
+            IsValid = isValid;
         }
     }
 }

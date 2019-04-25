@@ -18,6 +18,7 @@ namespace SharpModPlayer {
             byte[] tmpB = new byte[ds + (ds % 2)];
             float x;
 
+            //TODO: Adjust height of waveforms so it's proportional to r.Height
             for(int i = 0, j = 0; i < bl; i++, j += ss) {
                 x = r.Left + i * xf;
                 if(sf.IsStereo) {
@@ -45,7 +46,7 @@ namespace SharpModPlayer {
             if(sf.IsStereo) g.DrawCurve(color, pR);
         }
 
-        public static void RenderInstrument(SharpMod.SoundFile sf, int instrumentIndex, Graphics g, Pen color, Rectangle r, int resolution = 8) {
+        public static void RenderInstrument(SharpMod.SoundFile sf, int instrumentIndex, Graphics g, Pen color, Rectangle r, int resolution = 32) {
             SharpMod.SoundFile.ModInstrument instrument = sf.Instruments[instrumentIndex];
             if(instrument.Sample != null) {
                 float x;

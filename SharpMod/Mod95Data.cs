@@ -70,7 +70,7 @@ namespace SharpMod {
             public bool Portamento, Vibrato, Tremolo;
             public byte[] Sample;
             public int OldVol;
-            public short CurrentVol, NextIns;
+            public short CurrentVolume, NextInstrumentIndex;
         }
 
         private readonly FileStream mFile;

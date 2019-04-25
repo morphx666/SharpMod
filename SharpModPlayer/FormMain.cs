@@ -3,15 +3,16 @@ using SharpMod;
 using System;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace SharpModPlayer {
     public partial class FormMain : Form {
-        private readonly WaveOut waveOut;
+        private WaveOut waveOut;
         private CustomBufferProvider audioProvider;
-        private readonly SoundFile sf;
+        private SoundFile sf;
         private readonly Pen oWfPen = new Pen(Color.Green);
         private readonly Pen cWfPen = new Pen(Color.FromArgb(128, Color.OrangeRed));
         private byte[] currentBuffer = new byte[0];
@@ -25,13 +26,51 @@ namespace SharpModPlayer {
             base.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
 
             sf = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
+            UpdateTitleBarText();
 
-            string str = "";
-            uint s = sf.Length;
-            uint m = s / 60;
-            s %= 60;
-            this.Text = $"SharpMod: '{sf.Title}' [{m:00}:{s:00}]";
+            this.Paint += new PaintEventHandler(RenderWaveForm);
+            Task.Run(() => {
+                while(true) {
+                    Thread.Sleep(60);
+                    this.Invalidate();
+                }
+            });
 
+            SetupDragDropSupport();
+            InitAudio();
+        }
+
+        private void SetupDragDropSupport() {
+            this.DragOver += (object sender, DragEventArgs e) => e.Effect = DropFileIsValid(e) ? DragDropEffects.Copy : DragDropEffects.None;
+
+            this.DragDrop += (object sender, DragEventArgs e) => {
+                if(DropFileIsValid(e)) {
+                    lock(currentBuffer) {
+                        string[] files = (string[])(e.Data.GetData("FileDrop"));
+
+                        waveOut.Stop();
+                        sf = new SoundFile(files[0], sampleRate, bitDepth == 16, channels == 2, false);
+                        waveOut.Play();
+                    }
+                }
+            };
+        }
+
+        private bool DropFileIsValid(DragEventArgs e) {
+            bool isValid = false;
+            if(e.Data.GetFormats().Contains("FileDrop")) {
+                string[] files = (string[])(e.Data.GetData("FileDrop"));
+                if(files.Length == 1) {
+                    if(files[0].ToLower().EndsWith(".mod")) {
+                        SoundFile tmpSf = new SoundFile(files[0], sampleRate, bitDepth == 16, channels == 2, false);
+                        isValid = tmpSf.IsValid;
+                    }
+                }
+            }
+            return isValid;
+        }
+
+        private void InitAudio() {
             waveOut = new WaveOut() {
                 NumberOfBuffers = 32,
                 DesiredLatency = 300
@@ -41,14 +80,13 @@ namespace SharpModPlayer {
             waveOut.Init(audioProvider);
             waveOut.Volume = 1.0f;
             waveOut.Play();
+        }
 
-            this.Paint += new PaintEventHandler(RenderWaveForm);
-            Task.Run(() => {
-                while(true) {
-                    Thread.Sleep(60);
-                    this.Invalidate();
-                }
-            });
+        private void UpdateTitleBarText() {
+            uint s = sf.Length;
+            uint m = s / 60;
+            s %= 60;
+            this.Text = $"SharpMod: '{sf.Title}' [{m:00}:{s:00}]";
         }
 
         private int FillAudioBuffer(byte[] buffer) {

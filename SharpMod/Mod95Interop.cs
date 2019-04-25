@@ -17,6 +17,7 @@
         public bool IsStereo { get; }
         public bool Loop { get; }
         public uint Length => GetLength();
+        public bool IsValid { get; private set; }
 
         public uint Position {
             get { return (CurrentPattern * 64) + Row; }

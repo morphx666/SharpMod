@@ -95,7 +95,7 @@ namespace SharpMod {
 
             // Memorize channels settings
             for(j = 0; j < ActiveChannels; j++) {
-                CurrentVol[j] = Channels[j].CurrentVol;
+                CurrentVol[j] = Channels[j].CurrentVolume;
                 if(Channels[j].Length != 0) {
                     pSample[j] = new byte[Channels[j].Sample.Length];
                     Array.Copy(Channels[j].Sample, pSample[j], Channels[j].Sample.Length);
@@ -115,7 +115,7 @@ namespace SharpMod {
                     ReadNote();
                     // Memorize channels settings
                     for(j = 0; j < ActiveChannels; j++) {
-                        CurrentVol[j] = Channels[j].CurrentVol;
+                        CurrentVol[j] = Channels[j].CurrentVolume;
                         if(Channels[j].Length != 0) {
                             pSample[j] = new byte[Channels[j].Sample.Length];
                             Array.Copy(Channels[j].Sample, pSample[j], Channels[j].Sample.Length);
@@ -219,9 +219,9 @@ namespace SharpMod {
                     Channels[chnIdx].Vibrato = false;
                     Channels[chnIdx].Tremolo = false;
                     if(instIdx > 31) instIdx = 0;
-                    if(instIdx != 0) Channels[chnIdx].NextIns = (short)instIdx;
+                    if(instIdx != 0) Channels[chnIdx].NextInstrumentIndex = (short)instIdx;
                     if(period != 0) {
-                        if(Channels[chnIdx].NextIns != 0) {
+                        if(Channels[chnIdx].NextInstrumentIndex != 0) {
                             Channels[chnIdx].InstrumentIndex = instIdx;
                             Channels[chnIdx].Volume = Instruments[instIdx].Volume;
                             Channels[chnIdx].Pos = 0;
@@ -230,7 +230,7 @@ namespace SharpMod {
                             Channels[chnIdx].LoopStart = Instruments[instIdx].LoopStart << MOD_PRECISION;
                             Channels[chnIdx].LoopEnd = Instruments[instIdx].LoopEnd << MOD_PRECISION;
                             Channels[chnIdx].Sample = Instruments[instIdx].Sample;
-                            Channels[chnIdx].NextIns = 0;
+                            Channels[chnIdx].NextInstrumentIndex = 0;
                         }
                         if((command != 0x03) || (Channels[chnIdx].Period == 0)) {
                             Channels[chnIdx].Period = (int)period;
@@ -407,9 +407,9 @@ namespace SharpMod {
                     if(Channels[nChn].Count2 == 0) Channels[nChn].Period = Channels[nChn].Period2;
                 }
                 if(Channels[nChn].Period != 0) {
-                    Channels[nChn].CurrentVol = (short)Channels[nChn].Volume;
+                    Channels[nChn].CurrentVolume = (short)Channels[nChn].Volume;
                     if(Channels[nChn].Tremolo) {
-                        int vol = Channels[nChn].CurrentVol;
+                        int vol = Channels[nChn].CurrentVolume;
                         switch(Channels[nChn].TremoloType) {
                             case 1:
                                 vol += ModRampDownTable[Channels[nChn].TremoloPos] * (Channels[nChn].TremoloSlide & 0x0F) / 127;
@@ -426,7 +426,7 @@ namespace SharpMod {
                         }
                         if(vol < 0) vol = 0;
                         if(vol > 0x100) vol = 0x100;
-                        Channels[nChn].CurrentVol = (short)vol;
+                        Channels[nChn].CurrentVolume = (short)vol;
                         Channels[nChn].TremoloPos = (Channels[nChn].TremoloPos + (Channels[nChn].TremoloSlide >> 4)) & 0x3F;
                     }
                     if((Channels[nChn].Portamento) && (Channels[nChn].PortamentoDest != 0)) {
