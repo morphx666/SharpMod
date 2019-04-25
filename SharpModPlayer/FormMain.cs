@@ -31,10 +31,6 @@ namespace SharpModPlayer {
             uint m = s / 60;
             s %= 60;
             this.Text = $"SharpMod: '{sf.Title}' [{m:00}:{s:00}]";
-            for(int i = 1; i < 32; i++) {
-                str += $"{sf.Instruments[i].Name}{Environment.NewLine}";
-            }
-            LabelInfo.Text = str;
 
             waveOut = new WaveOut() {
                 NumberOfBuffers = 32,
@@ -79,13 +75,14 @@ namespace SharpModPlayer {
 
                 // This is VERY inefficient!
                 // Since the sample doesn't change, we should "cache it" and then simply paste the bitmap, instead of re-drawing it every time.
-                r = new Rectangle(200, this.FontHeight * 2, 200, this.FontHeight + 2);
-                for(int i = 0; i < sf.Instruments.Length; i++) {
+                // Even better, when the surface is invalidated, we could just simply invalidate the output waveform area.
+                r = new Rectangle(200, (int)(this.FontHeight * 1.5), 200, this.FontHeight + 2);
+                for(int i = 1; i < sf.Instruments.Length; i++) {
+                    g.DrawString(sf.Instruments[i].Name, this.Font, Brushes.White, 0, r.Y - r.Height);
                     if(sf.Instruments[i].Sample != null) {
                         Renderer.RenderInstrument(sf, i, g, cWfPen, r);
                     }
-                    g.DrawLine(Pens.DimGray, 0, r.Y, r.Right, r.Y);
-                    //g.DrawString(i.ToString(), this.Font, Brushes.White, r.Location);
+                    g.DrawLine(Pens.DimGray, 0, r.Y + 1, r.Right, r.Y + 1);
                     r.Y += (r.Height + 4);
                 }
 
