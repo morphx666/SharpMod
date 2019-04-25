@@ -23,9 +23,9 @@ namespace SharpMod {
                     }
                     if(nPattern >= 64) goto EndMod;
 
-                    int pIndex = (int)(nRow * mChannels * 4);
+                    int pIndex = (int)(nRow * ActiveChannels * 4);
                     byte[] p = patterns[nPattern];
-                    for(uint nChn = 0; nChn < mChannels; nChn++, pIndex += 4) {
+                    for(uint nChn = 0; nChn < ActiveChannels; nChn++, pIndex += 4) {
                         uint command = (uint)(p[2] & 0x0F);
                         uint param = p[3];
 
@@ -64,99 +64,99 @@ namespace SharpMod {
             uint nRow = nPos & 0x3F;
             if(nPattern > 127) nPattern = 0;
             if(nRow != 0) {
-                mCurrentPattern = nPattern;
-                mNextPattern = nPattern + 1;
-                mPattern = order[mCurrentPattern];
-                mRow = nRow - 1;
+                CurrentPattern = nPattern;
+                NextPattern = nPattern + 1;
+                Pattern = order[CurrentPattern];
+                Row = nRow - 1;
             } else {
-                mCurrentPattern = nPattern;
-                mNextPattern = nPattern;
-                mPattern = order[mCurrentPattern];
-                mRow = 0x3F;
+                CurrentPattern = nPattern;
+                NextPattern = nPattern;
+                Pattern = order[CurrentPattern];
+                Row = 0x3F;
             }
-            mBufferCount = 0;
+            BufferCount = 0;
         }
 
         public uint Read(byte[] lpBuffer, uint cbBuffer) {
             //byte[] p = (byte[])lpBuffer.Clone(); // Clone???
             byte[] p = lpBuffer; // Clone???
             uint lRead, lMax, lSampleSize;
-            short adjustvol = (short)mChannels;
+            short adjustvol = (short)ActiveChannels;
             short[] CurrentVol = new short[32];
             byte[][] pSample = new byte[32][];
             bool[] bTrkDest = new bool[32];
             uint j;
 
-            if(mType == 0) return 0;
+            if(Type == 0) return 0;
             lSampleSize = 1;
-            if(m16Bit) lSampleSize *= 2;
-            if(mStereo) lSampleSize *= 2;
+            if(Is16Bit) lSampleSize *= 2;
+            if(IsStereo) lSampleSize *= 2;
             lMax = cbBuffer / lSampleSize;
             if((lMax == 0) || (p == null)) return 0;
-            if(mType == 1) return (uint)(mFile.Read(lpBuffer, 0, (int)(lMax * lSampleSize)) / lSampleSize);
+            if(Type == 1) return (uint)(mFile.Read(lpBuffer, 0, (int)(lMax * lSampleSize)) / lSampleSize);
 
             // Memorize channels settings
-            for(j = 0; j < mChannels; j++) {
-                CurrentVol[j] = channels[j].CurrentVol;
-                if(channels[j].Length != 0) {
-                    pSample[j] = new byte[channels[j].Sample.Length];
-                    Array.Copy(channels[j].Sample, pSample[j], channels[j].Sample.Length);
+            for(j = 0; j < ActiveChannels; j++) {
+                CurrentVol[j] = Channels[j].CurrentVol;
+                if(Channels[j].Length != 0) {
+                    pSample[j] = new byte[Channels[j].Sample.Length];
+                    Array.Copy(Channels[j].Sample, pSample[j], Channels[j].Sample.Length);
                 } else {
                 }
-                if(mChannels == 4)
+                if(ActiveChannels == 4)
                     bTrkDest[j] = (((j & 3) == 1) || ((j & 3) == 2)) ? true : false;
                 else
                     bTrkDest[j] = ((j & 1) != 0) ? false : true;
             }
-            if(mPattern >= 64) return 0;
+            if(Pattern >= 64) return 0;
 
             // Fill audio buffer
             int pIndex = 0;
             for(lRead = 0; lRead < lMax; lRead++, pIndex += (int)lSampleSize) {
-                if(mBufferCount == 0) {
+                if(BufferCount == 0) {
                     ReadNote();
                     // Memorize channels settings
-                    for(j = 0; j < mChannels; j++) {
-                        CurrentVol[j] = channels[j].CurrentVol;
-                        if(channels[j].Length != 0) {
-                            pSample[j] = new byte[channels[j].Sample.Length];
-                            Array.Copy(channels[j].Sample, pSample[j], channels[j].Sample.Length);
+                    for(j = 0; j < ActiveChannels; j++) {
+                        CurrentVol[j] = Channels[j].CurrentVol;
+                        if(Channels[j].Length != 0) {
+                            pSample[j] = new byte[Channels[j].Sample.Length];
+                            Array.Copy(Channels[j].Sample, pSample[j], Channels[j].Sample.Length);
                         } else {
                             pSample[j] = null;
                         }
                     }
                 }
-                mBufferCount--;
+                BufferCount--;
 
                 int vRight = 0, vLeft = 0;
-                for(uint i = 0; i < mChannels; i++) if(pSample[i] != null) {
+                for(uint i = 0; i < ActiveChannels; i++) if(pSample[i] != null) {
                         // Read sample
-                        int poshi = (int)(channels[i].Pos >> MOD_PRECISION);
-                        short poslo = (short)(channels[i].Pos & MOD_FRACMASK);
+                        int poshi = (int)(Channels[i].Pos >> MOD_PRECISION);
+                        short poslo = (short)(Channels[i].Pos & MOD_FRACMASK);
                         short srcvol = (sbyte)pSample[i][poshi];
                         short destvol = (sbyte)pSample[i][poshi + 1];
                         int vol = srcvol + ((int)(poslo * (destvol - srcvol)) >> MOD_PRECISION);
                         vol *= CurrentVol[i];
                         if(bTrkDest[i]) vRight += vol; else vLeft += vol;
-                        channels[i].OldVol = vol;
-                        channels[i].Pos += channels[i].Inc;
-                        if(channels[i].Pos >= channels[i].Length) {
-                            channels[i].Length = channels[i].LoopEnd;
-                            channels[i].Pos = (channels[i].Pos & MOD_FRACMASK) + channels[i].LoopStart;
-                            if(channels[i].Length != 0) pSample[i] = null;
+                        Channels[i].OldVol = vol;
+                        Channels[i].Pos += Channels[i].Inc;
+                        if(Channels[i].Pos >= Channels[i].Length) {
+                            Channels[i].Length = Channels[i].LoopEnd;
+                            Channels[i].Pos = (Channels[i].Pos & MOD_FRACMASK) + Channels[i].LoopStart;
+                            if(Channels[i].Length != 0) pSample[i] = null;
                         }
                     } else {
-                        int vol = channels[i].OldVol;
+                        int vol = Channels[i].OldVol;
                         if(bTrkDest[i]) vRight += vol; else vLeft += vol;
                     }
 
                 // Sample ready
-                if(mStereo) {
+                if(IsStereo) {
                     // Stereo - Surround
                     int vol = vRight;
                     vRight = (vRight * 13 + vLeft * 3) / (adjustvol * 8);
                     vLeft = (vLeft * 13 + vol * 3) / (adjustvol * 8);
-                    if(m16Bit) {
+                    if(Is16Bit) {
                         // 16-Bit
                         p[pIndex + 0] = (byte)(((uint)vRight) & 0xFF);
                         p[pIndex + 1] = (byte)(((uint)vRight) >> 8);
@@ -170,7 +170,7 @@ namespace SharpMod {
                 } else {
                     // Mono
                     int vol = (vRight + vLeft) / adjustvol;
-                    if(m16Bit) {
+                    if(Is16Bit) {
                         // 16-Bit
                         p[pIndex + 0] = (byte)(((uint)vol) & 0xFF);
                         p[pIndex + 1] = (byte)(((uint)vol) >> 8);
@@ -184,156 +184,156 @@ namespace SharpMod {
         }
 
         private bool ReadNote() {
-            if(mSpeedCount == 0) {
-                mRow = (mRow + 1) & 0x3F;
-                if(mRow == 0) {
-                    mCurrentPattern = mNextPattern;
-                    mNextPattern++;
-                    mPattern = order[mCurrentPattern];
+            if(SpeedCount == 0) {
+                Row = (Row + 1) & 0x3F;
+                if(Row == 0) {
+                    CurrentPattern = NextPattern;
+                    NextPattern++;
+                    Pattern = order[CurrentPattern];
                 }
-                if(mPattern >= 64) {
-                    mMusicSpeed = 6;
-                    mMusicTempo = 125;
-                    if(!mLoop) {
-                        mBufferCount = (mRate * 5) / (mMusicTempo * 2);
+                if(Pattern >= 64) {
+                    MusicSpeed = 6;
+                    MusicTempo = 125;
+                    if(!Loop) {
+                        BufferCount = (Rate * 5) / (MusicTempo * 2);
                         return false;
                     }
-                    mCurrentPattern = 0;
-                    mNextPattern = 1;
-                    mPattern = order[mCurrentPattern];
+                    CurrentPattern = 0;
+                    NextPattern = 1;
+                    Pattern = order[CurrentPattern];
                 }
-                int pIndex = (int)(mRow * mChannels * 4);
-                byte[] p = patterns[mPattern];
-                for(uint chnIdx = 0; chnIdx < mChannels; chnIdx++, pIndex += 4) {
+                int pIndex = (int)(Row * ActiveChannels * 4);
+                byte[] p = patterns[Pattern];
+                for(uint chnIdx = 0; chnIdx < ActiveChannels; chnIdx++, pIndex += 4) {
                     byte A0 = p[pIndex + 0], A1 = p[pIndex + 1], A2 = p[pIndex + 2], A3 = p[pIndex + 3];
                     uint period = (((uint)A0 & 0x0F) << 8) | (A1);
                     uint instIdx = ((uint)A2 >> 4) | (uint)(A0 & 0x10);
                     uint command = (uint)(A2 & 0x0F);
                     uint param = A3;
-                    bool bVib = channels[chnIdx].Vibrato;
-                    bool bTrem = channels[chnIdx].Tremolo;
+                    bool bVib = Channels[chnIdx].Vibrato;
+                    bool bTrem = Channels[chnIdx].Tremolo;
 
                     // Reset channels data
-                    channels[chnIdx].VolumeSlide = 0;
-                    channels[chnIdx].FreqSlide = 0;
-                    channels[chnIdx].OldPeriod = channels[chnIdx].Period;
-                    channels[chnIdx].Portamento = false;
-                    channels[chnIdx].Vibrato = false;
-                    channels[chnIdx].Tremolo = false;
+                    Channels[chnIdx].VolumeSlide = 0;
+                    Channels[chnIdx].FreqSlide = 0;
+                    Channels[chnIdx].OldPeriod = Channels[chnIdx].Period;
+                    Channels[chnIdx].Portamento = false;
+                    Channels[chnIdx].Vibrato = false;
+                    Channels[chnIdx].Tremolo = false;
                     if(instIdx > 31) instIdx = 0;
-                    if(instIdx != 0) channels[chnIdx].NextIns = (short)instIdx;
+                    if(instIdx != 0) Channels[chnIdx].NextIns = (short)instIdx;
                     if(period != 0) {
-                        if(channels[chnIdx].NextIns != 0) {
-                            channels[chnIdx].InstrumentIndex = instIdx;
-                            channels[chnIdx].Volume = instruments[instIdx].Volume;
-                            channels[chnIdx].Pos = 0;
-                            channels[chnIdx].Length = instruments[instIdx].Length << MOD_PRECISION;
-                            channels[chnIdx].FineTune = instruments[instIdx].FineTune << MOD_PRECISION;
-                            channels[chnIdx].LoopStart = instruments[instIdx].LoopStart << MOD_PRECISION;
-                            channels[chnIdx].LoopEnd = instruments[instIdx].LoopEnd << MOD_PRECISION;
-                            channels[chnIdx].Sample = instruments[instIdx].Sample;
-                            channels[chnIdx].NextIns = 0;
+                        if(Channels[chnIdx].NextIns != 0) {
+                            Channels[chnIdx].InstrumentIndex = instIdx;
+                            Channels[chnIdx].Volume = Instruments[instIdx].Volume;
+                            Channels[chnIdx].Pos = 0;
+                            Channels[chnIdx].Length = Instruments[instIdx].Length << MOD_PRECISION;
+                            Channels[chnIdx].FineTune = Instruments[instIdx].FineTune << MOD_PRECISION;
+                            Channels[chnIdx].LoopStart = Instruments[instIdx].LoopStart << MOD_PRECISION;
+                            Channels[chnIdx].LoopEnd = Instruments[instIdx].LoopEnd << MOD_PRECISION;
+                            Channels[chnIdx].Sample = Instruments[instIdx].Sample;
+                            Channels[chnIdx].NextIns = 0;
                         }
-                        if((command != 0x03) || (channels[chnIdx].Period == 0)) {
-                            channels[chnIdx].Period = (int)period;
-                            channels[chnIdx].Length = instruments[channels[chnIdx].InstrumentIndex].Length << MOD_PRECISION;
-                            channels[chnIdx].Pos = 0;
+                        if((command != 0x03) || (Channels[chnIdx].Period == 0)) {
+                            Channels[chnIdx].Period = (int)period;
+                            Channels[chnIdx].Length = Instruments[Channels[chnIdx].InstrumentIndex].Length << MOD_PRECISION;
+                            Channels[chnIdx].Pos = 0;
                         }
-                        channels[chnIdx].PortamentoDest = (int)period;
+                        Channels[chnIdx].PortamentoDest = (int)period;
                     }
                     switch(command) {
                         // 00: Arpeggio
                         case 0x00:
-                            if((param == 0) || (channels[chnIdx].Period == 0)) break;
-                            channels[chnIdx].Count2 = 3;
-                            channels[chnIdx].Period2 = channels[chnIdx].Period;
-                            channels[chnIdx].Count1 = 2;
-                            channels[chnIdx].Period1 = (int)(channels[chnIdx].Period + (param & 0x0F));
-                            channels[chnIdx].Period += (int)((param >> 4) & 0x0F);
+                            if((param == 0) || (Channels[chnIdx].Period == 0)) break;
+                            Channels[chnIdx].Count2 = 3;
+                            Channels[chnIdx].Period2 = Channels[chnIdx].Period;
+                            Channels[chnIdx].Count1 = 2;
+                            Channels[chnIdx].Period1 = (int)(Channels[chnIdx].Period + (param & 0x0F));
+                            Channels[chnIdx].Period += (int)((param >> 4) & 0x0F);
                             break;
                         // 01: Portamento Up
                         case 0x01:
-                            if(param == 0) param = (uint)channels[chnIdx].OldFreqSlide;
-                            channels[chnIdx].OldFreqSlide = (int)param;
-                            channels[chnIdx].FreqSlide = -(int)param;
+                            if(param == 0) param = (uint)Channels[chnIdx].OldFreqSlide;
+                            Channels[chnIdx].OldFreqSlide = (int)param;
+                            Channels[chnIdx].FreqSlide = -(int)param;
                             break;
                         // 02: Portamento Down
                         case 0x02:
-                            if(param == 0) param = (uint)channels[chnIdx].OldFreqSlide;
-                            channels[chnIdx].OldFreqSlide = (int)param;
-                            channels[chnIdx].FreqSlide = (int)param;
+                            if(param == 0) param = (uint)Channels[chnIdx].OldFreqSlide;
+                            Channels[chnIdx].OldFreqSlide = (int)param;
+                            Channels[chnIdx].FreqSlide = (int)param;
                             break;
                         // 03: Tone-Portamento
                         case 0x03:
-                            if(param == 0) param = (uint)channels[chnIdx].PortamentoSlide;
-                            channels[chnIdx].PortamentoSlide = (int)param;
-                            channels[chnIdx].Portamento = false;
+                            if(param == 0) param = (uint)Channels[chnIdx].PortamentoSlide;
+                            Channels[chnIdx].PortamentoSlide = (int)param;
+                            Channels[chnIdx].Portamento = false;
                             break;
                         // 04: Vibrato
                         case 0x04:
-                            if(!bVib) channels[chnIdx].VibratoPos = 0;
-                            if(param == 0) channels[chnIdx].VibratoSlide = (int)param;
-                            channels[chnIdx].Vibrato = false;
+                            if(!bVib) Channels[chnIdx].VibratoPos = 0;
+                            if(param == 0) Channels[chnIdx].VibratoSlide = (int)param;
+                            Channels[chnIdx].Vibrato = false;
                             break;
                         // 05: Tone-Portamento + Volume Slide
                         case 0x05:
                             if(period != 0) {
-                                channels[chnIdx].PortamentoDest = (int)period;
-                                if(channels[chnIdx].OldPeriod != 0) channels[chnIdx].Period = channels[chnIdx].OldPeriod;
+                                Channels[chnIdx].PortamentoDest = (int)period;
+                                if(Channels[chnIdx].OldPeriod != 0) Channels[chnIdx].Period = Channels[chnIdx].OldPeriod;
                             }
-                            channels[chnIdx].Portamento = false;
+                            Channels[chnIdx].Portamento = false;
                             if(param != 0) {
-                                if((param & 0xF0) != 0) channels[chnIdx].VolumeSlide = (int)((param >> 4) << 2);
-                                else channels[chnIdx].VolumeSlide = -(int)((param & 0x0F) << 2);
-                                channels[chnIdx].OldVolumeSlide = channels[chnIdx].VolumeSlide;
+                                if((param & 0xF0) != 0) Channels[chnIdx].VolumeSlide = (int)((param >> 4) << 2);
+                                else Channels[chnIdx].VolumeSlide = -(int)((param & 0x0F) << 2);
+                                Channels[chnIdx].OldVolumeSlide = Channels[chnIdx].VolumeSlide;
                             }
                             break;
                         // 06: Vibrato + Volume Slide
                         case 0x06:
-                            if(!bVib) channels[chnIdx].VibratoPos = 0;
-                            channels[chnIdx].Vibrato = false;
+                            if(!bVib) Channels[chnIdx].VibratoPos = 0;
+                            Channels[chnIdx].Vibrato = false;
                             if(param != 0) {
-                                if((param & 0xF0) != 0) channels[chnIdx].VolumeSlide = (int)((param >> 4) << 2);
-                                else channels[chnIdx].VolumeSlide = -(int)((param & 0x0F) << 2);
-                                channels[chnIdx].OldVolumeSlide = channels[chnIdx].VolumeSlide;
+                                if((param & 0xF0) != 0) Channels[chnIdx].VolumeSlide = (int)((param >> 4) << 2);
+                                else Channels[chnIdx].VolumeSlide = -(int)((param & 0x0F) << 2);
+                                Channels[chnIdx].OldVolumeSlide = Channels[chnIdx].VolumeSlide;
                             }
                             break;
                         // 07: Tremolo
                         case 0x07:
-                            if(!bTrem) channels[chnIdx].TremoloPos = 0;
-                            if(param == 0) channels[chnIdx].TremoloSlide = (int)param;
-                            channels[chnIdx].Tremolo = false;
+                            if(!bTrem) Channels[chnIdx].TremoloPos = 0;
+                            if(param == 0) Channels[chnIdx].TremoloSlide = (int)param;
+                            Channels[chnIdx].Tremolo = false;
                             break;
                         // 09: Set Offset
                         case 0x09:
                             if(param > 0) {
                                 param <<= 8 + MOD_PRECISION;
-                                if(param < channels[chnIdx].Length) channels[chnIdx].Pos = param;
+                                if(param < Channels[chnIdx].Length) Channels[chnIdx].Pos = param;
                             }
                             break;
                         // 0A: Volume Slide
                         case 0x0A:
                             if(param != 0) {
-                                if((param & 0xF0) != 0) channels[chnIdx].VolumeSlide = (int)((param >> 4) << 2);
-                                else channels[chnIdx].VolumeSlide = -(int)((param & 0x0F) << 2);
-                                channels[chnIdx].OldVolumeSlide = channels[chnIdx].VolumeSlide;
+                                if((param & 0xF0) != 0) Channels[chnIdx].VolumeSlide = (int)((param >> 4) << 2);
+                                else Channels[chnIdx].VolumeSlide = -(int)((param & 0x0F) << 2);
+                                Channels[chnIdx].OldVolumeSlide = Channels[chnIdx].VolumeSlide;
                             }
                             break;
                         // 0B: Position Jump
                         case 0x0B:
                             param &= 0x7F;
-                            mNextPattern = param;
-                            mRow = 0x3F;
+                            NextPattern = param;
+                            Row = 0x3F;
                             break;
                         // 0C: Set Volume
                         case 0x0C:
                             if(param > 0x40) param = 0x40;
                             param <<= 2;
-                            channels[chnIdx].Volume = (int)param;
+                            Channels[chnIdx].Volume = (int)param;
                             break;
                         // 0B: Pattern Break
                         case 0x0D:
-                            mRow = 0x3F;
+                            Row = 0x3F;
                             break;
                         // 0E: Extended Effects
                         case 0x0E:
@@ -342,142 +342,138 @@ namespace SharpMod {
                             switch(command) {
                                 // 0xE1: Fine Portamento Up
                                 case 0x01:
-                                    if(channels[chnIdx].Period != 0) {
-                                        channels[chnIdx].Period -= (int)param;
-                                        if(channels[chnIdx].Period < 1) channels[chnIdx].Period = 1;
+                                    if(Channels[chnIdx].Period != 0) {
+                                        Channels[chnIdx].Period -= (int)param;
+                                        if(Channels[chnIdx].Period < 1) Channels[chnIdx].Period = 1;
                                     }
                                     break;
                                 // 0xE2: Fine Portamento Down
                                 case 0x02:
-                                    if(channels[chnIdx].Period != 0) {
-                                        channels[chnIdx].Period += (int)param;
+                                    if(Channels[chnIdx].Period != 0) {
+                                        Channels[chnIdx].Period += (int)param;
                                     }
                                     break;
                                 // 0xE3: Set Glissando Control (???)
                                 // 0xE4: Set Vibrato WaveForm
                                 case 0x04:
-                                    channels[chnIdx].VibratoType = (int)(param & 0x03);
+                                    Channels[chnIdx].VibratoType = (int)(param & 0x03);
                                     break;
                                 // 0xE5: Set Finetune
                                 case 0x05:
-                                    channels[chnIdx].FineTune = FineTuneTable[param];
+                                    Channels[chnIdx].FineTune = FineTuneTable[param];
                                     break;
                                 // 0xE6: Pattern Loop
                                 // 0xE7: Set Tremolo WaveForm
                                 case 0x07:
-                                    channels[chnIdx].TremoloType = (int)(param & 0x03);
+                                    Channels[chnIdx].TremoloType = (int)(param & 0x03);
                                     break;
                                 // 0xE9: Retrig + Fine Volume Slide
                                 // 0xEA: Fine Volume Up
                                 case 0x0A:
-                                    channels[chnIdx].Volume += (int)(param << 2);
+                                    Channels[chnIdx].Volume += (int)(param << 2);
                                     break;
                                 // 0xEB: Fine Volume Down
                                 case 0x0B:
-                                    channels[chnIdx].Volume -= (int)(param << 2);
+                                    Channels[chnIdx].Volume -= (int)(param << 2);
                                     break;
                                 // 0xEC: Note Cut
                                 case 0x0C:
-                                    channels[chnIdx].Count1 = (int)(param + 1);
-                                    channels[chnIdx].Period1 = 0;
+                                    Channels[chnIdx].Count1 = (int)(param + 1);
+                                    Channels[chnIdx].Period1 = 0;
                                     break;
                             }
                             break;
                         // 0F: Set Speed
                         case 0x0F:
-                            if((param != 0) && (param < 0x20)) mMusicSpeed = param;
+                            if((param != 0) && (param < 0x20)) MusicSpeed = param;
                             else
-                                if(param >= 0x20) mMusicTempo = param;
+                                if(param >= 0x20) MusicTempo = param;
                             break;
                     }
                 }
-                mSpeedCount = mMusicSpeed;
+                SpeedCount = MusicSpeed;
             }
 
-            if(mPattern >= 64) return false;
+            if(Pattern >= 64) return false;
             // Update channels data
-            for(uint nChn = 0; nChn < mChannels; nChn++) {
-                channels[nChn].Volume += channels[nChn].VolumeSlide;
-                if(channels[nChn].Volume < 0) channels[nChn].Volume = 0;
-                if(channels[nChn].Volume > 0x100) channels[nChn].Volume = 0x100;
-                if(channels[nChn].Count1 != 0) {
-                    channels[nChn].Count1--;
-                    if(channels[nChn].Count1 == 0) channels[nChn].Period = channels[nChn].Period1;
+            for(uint nChn = 0; nChn < ActiveChannels; nChn++) {
+                Channels[nChn].Volume += Channels[nChn].VolumeSlide;
+                if(Channels[nChn].Volume < 0) Channels[nChn].Volume = 0;
+                if(Channels[nChn].Volume > 0x100) Channels[nChn].Volume = 0x100;
+                if(Channels[nChn].Count1 != 0) {
+                    Channels[nChn].Count1--;
+                    if(Channels[nChn].Count1 == 0) Channels[nChn].Period = Channels[nChn].Period1;
                 }
-                if(channels[nChn].Count2 != 0) {
-                    channels[nChn].Count2--;
-                    if(channels[nChn].Count2 == 0) channels[nChn].Period = channels[nChn].Period2;
+                if(Channels[nChn].Count2 != 0) {
+                    Channels[nChn].Count2--;
+                    if(Channels[nChn].Count2 == 0) Channels[nChn].Period = Channels[nChn].Period2;
                 }
-                if(channels[nChn].Period != 0) {
-                    channels[nChn].CurrentVol = (short)channels[nChn].Volume;
-                    if(channels[nChn].Tremolo) {
-                        int vol = channels[nChn].CurrentVol;
-                        switch(channels[nChn].TremoloType) {
+                if(Channels[nChn].Period != 0) {
+                    Channels[nChn].CurrentVol = (short)Channels[nChn].Volume;
+                    if(Channels[nChn].Tremolo) {
+                        int vol = Channels[nChn].CurrentVol;
+                        switch(Channels[nChn].TremoloType) {
                             case 1:
-                                vol += ModRampDownTable[channels[nChn].TremoloPos] * (channels[nChn].TremoloSlide & 0x0F) / 127;
+                                vol += ModRampDownTable[Channels[nChn].TremoloPos] * (Channels[nChn].TremoloSlide & 0x0F) / 127;
                                 break;
                             case 2:
-                                vol += ModSquareTable[channels[nChn].TremoloPos] * (channels[nChn].TremoloSlide & 0x0F) / 127;
+                                vol += ModSquareTable[Channels[nChn].TremoloPos] * (Channels[nChn].TremoloSlide & 0x0F) / 127;
                                 break;
                             case 3:
-                                vol += ModRandomTable[channels[nChn].TremoloPos] * (channels[nChn].TremoloSlide & 0x0F) / 127;
+                                vol += ModRandomTable[Channels[nChn].TremoloPos] * (Channels[nChn].TremoloSlide & 0x0F) / 127;
                                 break;
                             default:
-                                vol += ModSinusTable[channels[nChn].TremoloPos] * (channels[nChn].TremoloSlide & 0x0F) / 127;
+                                vol += ModSinusTable[Channels[nChn].TremoloPos] * (Channels[nChn].TremoloSlide & 0x0F) / 127;
                                 break;
                         }
                         if(vol < 0) vol = 0;
                         if(vol > 0x100) vol = 0x100;
-                        channels[nChn].CurrentVol = (short)vol;
-                        channels[nChn].TremoloPos = (channels[nChn].TremoloPos + (channels[nChn].TremoloSlide >> 4)) & 0x3F;
+                        Channels[nChn].CurrentVol = (short)vol;
+                        Channels[nChn].TremoloPos = (Channels[nChn].TremoloPos + (Channels[nChn].TremoloSlide >> 4)) & 0x3F;
                     }
-                    if((channels[nChn].Portamento) && (channels[nChn].PortamentoDest != 0)) {
-                        if(channels[nChn].Period < channels[nChn].PortamentoDest) {
-                            channels[nChn].Period += channels[nChn].PortamentoSlide;
-                            if(channels[nChn].Period > channels[nChn].PortamentoDest)
-                                channels[nChn].Period = channels[nChn].PortamentoDest;
+                    if((Channels[nChn].Portamento) && (Channels[nChn].PortamentoDest != 0)) {
+                        if(Channels[nChn].Period < Channels[nChn].PortamentoDest) {
+                            Channels[nChn].Period += Channels[nChn].PortamentoSlide;
+                            if(Channels[nChn].Period > Channels[nChn].PortamentoDest)
+                                Channels[nChn].Period = Channels[nChn].PortamentoDest;
                         }
-                        if(channels[nChn].Period > channels[nChn].PortamentoDest) {
-                            channels[nChn].Period -= channels[nChn].PortamentoSlide;
-                            if(channels[nChn].Period < channels[nChn].PortamentoDest)
-                                channels[nChn].Period = channels[nChn].PortamentoDest;
+                        if(Channels[nChn].Period > Channels[nChn].PortamentoDest) {
+                            Channels[nChn].Period -= Channels[nChn].PortamentoSlide;
+                            if(Channels[nChn].Period < Channels[nChn].PortamentoDest)
+                                Channels[nChn].Period = Channels[nChn].PortamentoDest;
                         }
                     }
-                    channels[nChn].Period += channels[nChn].FreqSlide;
-                    if(channels[nChn].Period < 1) channels[nChn].Period = 1;
-                    int period = channels[nChn].Period;
-                    if(channels[nChn].Vibrato) {
-                        switch(channels[nChn].VibratoType) {
+                    Channels[nChn].Period += Channels[nChn].FreqSlide;
+                    if(Channels[nChn].Period < 1) Channels[nChn].Period = 1;
+                    int period = Channels[nChn].Period;
+                    if(Channels[nChn].Vibrato) {
+                        switch(Channels[nChn].VibratoType) {
                             case 1:
-                                period += ModRampDownTable[channels[nChn].VibratoPos] * (channels[nChn].VibratoSlide & 0x0F) / 127;
+                                period += ModRampDownTable[Channels[nChn].VibratoPos] * (Channels[nChn].VibratoSlide & 0x0F) / 127;
                                 break;
                             case 2:
-                                period += ModSquareTable[channels[nChn].VibratoPos] * (channels[nChn].VibratoSlide & 0x0F) / 127;
+                                period += ModSquareTable[Channels[nChn].VibratoPos] * (Channels[nChn].VibratoSlide & 0x0F) / 127;
                                 break;
                             case 3:
-                                period += ModRandomTable[channels[nChn].VibratoPos] * (channels[nChn].VibratoSlide & 0x0F) / 127;
+                                period += ModRandomTable[Channels[nChn].VibratoPos] * (Channels[nChn].VibratoSlide & 0x0F) / 127;
                                 break;
                             default:
-                                period += ModSinusTable[channels[nChn].VibratoPos] * (channels[nChn].VibratoSlide & 0x0F) / 127;
+                                period += ModSinusTable[Channels[nChn].VibratoPos] * (Channels[nChn].VibratoSlide & 0x0F) / 127;
                                 break;
                         }
-                        channels[nChn].VibratoPos = (channels[nChn].VibratoPos + (channels[nChn].VibratoSlide >> 4)) & 0x3F;
+                        Channels[nChn].VibratoPos = (Channels[nChn].VibratoPos + (Channels[nChn].VibratoSlide >> 4)) & 0x3F;
                     }
                     if(period < 1) period = 1;
-                    channels[nChn].Inc = (uint)((channels[nChn].FineTune * MOD_AMIGAC2) / (period * mRate));
+                    Channels[nChn].Inc = (uint)((Channels[nChn].FineTune * MOD_AMIGAC2) / (period * Rate));
                 } else {
-                    channels[nChn].Inc = 0;
-                    channels[nChn].Pos = 0;
-                    channels[nChn].Length = 0;
+                    Channels[nChn].Inc = 0;
+                    Channels[nChn].Pos = 0;
+                    Channels[nChn].Length = 0;
                 }
             }
-            mBufferCount = (mRate * 5) / (mMusicTempo * 2);
-            mSpeedCount--;
+            BufferCount = (Rate * 5) / (MusicTempo * 2);
+            SpeedCount--;
             return true;
-        }
-
-        public string GetName(int index) {
-            return Encoding.UTF8.GetString(names[index]).Trim('\0');
         }
     }
 }

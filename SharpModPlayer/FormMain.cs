@@ -14,10 +14,10 @@ using System.Windows.Forms;
 
 namespace SharpModPlayer {
     public partial class FormMain : Form {
-        private WaveOut waveOut;
+        private readonly WaveOut waveOut;
         private CustomBufferProvider audioProvider;
-        private SoundFile sf;
-        private Pen wfPen = new Pen(Color.Green);
+        private readonly SoundFile sf;
+        private readonly Pen wfPen = new Pen(Color.Green);
         private byte[] currentBuffer = new byte[0];
         private const int sampleRate = 44100;
         private const int bitDepth = 16; // 8 | 15
@@ -34,10 +34,9 @@ namespace SharpModPlayer {
             uint s = sf.Length;
             uint m = s / 60;
             s %= 60;
-            string ds = $"{m:00}:{s:00}";
-            for(int i = 0; i < 32; i++) {
-                ds = i == 0 ? ds : "";
-                str += $"{sf.GetName(i)} {ds} {Environment.NewLine}";
+            this.Text = $"SharpMod: '{sf.Title}' [{m:00}:{s:00}]";
+            for(int i = 1; i < 32; i++) {
+                str += $"{sf.Instruments[i].Name} {Environment.NewLine}";
             }
             LabelInfo.Text = str;
 
