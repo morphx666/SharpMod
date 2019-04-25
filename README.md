@@ -5,6 +5,14 @@ This code is a verbatim implementation of the magnificent code developed by Oliv
 
 For more information, visit https://openmpt.org/legacy_software
 
-Code ported to c# by Xavier Flix (https://github.com/morphx666) on 2014/ 04/25
-
 ![SharpMod](https://xfx.net/stackoverflow/sharpMod/sm01.png)
+
+## Using SharpMod
+
+Instantiating a new `SoundFile`:
+
+A new `SoundFile` object is instantiated by calling the `SoundFile` ctor and passing the audio backend's parameters, such as the desired sample rate, bit bepth (8/16) and channel count (1/2).
+
+    SoundFile sf = new SoundFile(modFileFullPath, sampleRate, bitDepth == 16, channels == 2, false);
+  
+Once instatieed, call the `SoundFile.Read` method to parse the MOD file and recive back a raw audio buffer, which can the be passed back to the audio renderer.
