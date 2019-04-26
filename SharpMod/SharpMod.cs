@@ -43,14 +43,14 @@ namespace SharpMod {
             if(ss == "M.K.") {
                 ActiveChannels = 4;
             } else {
-                if((ss == "FLT1") && (s[3] <= '9')) {
-                    ActiveChannels = s[3];
+                if((s[0] == 'F') && (s[1] == 'L') && (s[2] == 'T') && (s[3] >= '1') && (s[3] <= '9')) {
+                    ActiveChannels = (uint)s[3] - 48;
                 } else {
                     if((s[0] >= '1') && (s[0] <= '9') && (s[1] == 'C') && (s[2] == 'H') && (s[3] == 'N')) {
-                        ActiveChannels = s[0];
+                        ActiveChannels = (uint)s[0] - 48;
                     } else {
                         if((s[0] == '1') && (s[1] >= '0') && (s[1] <= '6') && (s[2] == 'C') && (s[3] == 'H')) {
-                            ActiveChannels = s[1] - (uint)10;
+                            ActiveChannels = (uint)s[1] - 48 + 10;
                         } else {
                             ActiveSamples = 15;
                         }

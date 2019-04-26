@@ -76,8 +76,7 @@ namespace SharpMod {
         }
 
         public uint Read(byte[] lpBuffer, uint cbBuffer) {
-            //byte[] p = (byte[])lpBuffer.Clone(); // Clone???
-            byte[] p = lpBuffer; // Clone???
+            byte[] p = lpBuffer;
             uint lRead, lMax, lSampleSize;
             short adjustvol = (short)ActiveChannels;
             short[] CurrentVol = new short[32];
@@ -99,7 +98,6 @@ namespace SharpMod {
                 if(Channels[j].Length != 0) {
                     pSample[j] = new byte[Channels[j].Sample.Length];
                     Array.Copy(Channels[j].Sample, pSample[j], Channels[j].Sample.Length);
-                } else {
                 }
                 if(ActiveChannels == 4)
                     bTrkDest[j] = (((j & 3) == 1) || ((j & 3) == 2)) ? true : false;

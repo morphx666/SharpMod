@@ -25,10 +25,10 @@ namespace SharpModPlayer {
 
             base.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
 
-            sf = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
-            UpdateTitleBarText();
+            //sf = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
+            //UpdateTitleBarText();
 
-            this.Paint += new PaintEventHandler(RenderWaveForm);
+            this.Paint += new PaintEventHandler(RenderWaveForms);
             Task.Run(() => {
                 while(true) {
                     Thread.Sleep(60);
@@ -51,6 +51,8 @@ namespace SharpModPlayer {
                         waveOut.Stop();
                         sf = new SoundFile(files[0], sampleRate, bitDepth == 16, channels == 2, false);
                         waveOut.Play();
+
+                        this.Invoke((MethodInvoker)delegate { UpdateTitleBarText(); });
                     }
                 }
             };
@@ -90,8 +92,11 @@ namespace SharpModPlayer {
         }
 
         private int FillAudioBuffer(byte[] buffer) {
-            int n = (int)sf.Read(buffer, (uint)buffer.Length);
-            currentBuffer = (byte[])buffer.Clone();
+            int n = 0;
+            if(sf != null) {
+                n = (int)sf.Read(buffer, (uint)buffer.Length);
+                currentBuffer = (byte[])buffer.Clone();
+            }
             return n;
         }
 
@@ -102,7 +107,8 @@ namespace SharpModPlayer {
         }
 
 
-        private void RenderWaveForm(object sender, PaintEventArgs e) {
+        private void RenderWaveForms(object sender, PaintEventArgs e) {
+            if(sf == null) return;
             lock(currentBuffer) {
                 Graphics g = e.Graphics;
                 Rectangle r = this.DisplayRectangle;
