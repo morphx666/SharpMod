@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <AssemblyVersion>2019.4.27.133</AssemblyVersion>
-    <FileVersion>2019.4.27.133</FileVersion>
+    <AssemblyVersion>2019.4.27.136</AssemblyVersion>
+    <FileVersion>2019.4.27.136</FileVersion>
     <Authors>Xavier Flix</Authors>
     <Company>xFX JumpStart</Company>
     <Description>This is a verbatim implementation of the magnificent code developed by Olivier Lapicque for his Mod95 player.
@@ -13,9 +13,12 @@ For more information, visit https://openmpt.org/legacy_software
 Code ported to c# by Xavier Flix (https://github.com/morphx666) on 2014/ 04/25</Description>
     <PackageProjectUrl>https://github.com/morphx666/SharpMod</PackageProjectUrl>
     <RepositoryUrl>https://github.com/morphx666/SharpMod</RepositoryUrl>
-    <RepositoryType>GitHub</RepositoryType>
-    <PackageTags>mod, mod95, csharp, tracker</PackageTags>
+    <RepositoryType></RepositoryType>
+    <PackageTags>mod, mod95, csharp, player</PackageTags>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <ApplicationIcon />
+    <PackageIconUrl>https://icons8.com/icon/48278/audio-wave</PackageIconUrl>
+    <NeutralLanguage>en</NeutralLanguage>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -27,6 +30,21 @@ Code ported to c# by Xavier Flix (https://github.com/morphx666) on 2014/ 04/25</
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>
