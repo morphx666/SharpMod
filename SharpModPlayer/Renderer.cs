@@ -3,12 +3,12 @@ using System.Drawing;
 
 namespace SharpModPlayer {
     public class Renderer {
-        public static void RenderOutput(SharpMod.SoundFile sf, byte[] buffer, Graphics g, Pen color, Rectangle r) {
+        public static void RenderOutput(SharpMod.SoundFile sf, byte[] buffer, Graphics g, Pen colorL, Pen colorR, Rectangle r) {
             float hh = r.Height / 2.0f;
             float hh2 = hh / 2.0f;
 
             int ds = sf.Is16Bit ? 2 : 1;
-            int ss = (sf.Is16Bit ? 2 : 1) * ds;
+            int ss = (sf.IsStereo ? 2 : 1) * ds;
             int bl = buffer.Length / ss;
             float xf = (float)r.Width / bl;
 
@@ -18,39 +18,40 @@ namespace SharpModPlayer {
             byte[] tmpB = new byte[ds + (ds % 2)];
             float x;
 
-            //TODO: Adjust height of waveforms so it's proportional to r.Height
             for(int i = 0, j = 0; i < bl; i++, j += ss) {
                 x = r.Left + i * xf;
                 if(sf.IsStereo) {
                     if(sf.Is16Bit) {
                         Array.Copy(buffer, j, tmpB, 0, ds);
-                        pL[i] = new PointF(x, hh - hh2 - BitConverter.ToInt16(tmpB, 0) / 256.0f);
+                        pL[i] = new PointF(x, hh - hh2 - (BitConverter.ToInt16(tmpB, 0) / 32768.0f) * hh2);
 
                         Array.Copy(buffer, j + ds, tmpB, 0, ds);
-                        pR[i] = new PointF(x, hh + hh2 - BitConverter.ToInt16(tmpB, 0) / 256.0f);
+                        pR[i] = new PointF(x, hh + hh2 - (BitConverter.ToInt16(tmpB, 0) / 32768.0f) * hh2);
                     } else {
-                        pL[i] = new PointF(x, hh - hh2 - buffer[j] + 0x80);
-                        pR[i] = new PointF(x, hh + hh2 - buffer[j + 1] + 0x80);
+                        pL[i] = new PointF(x, ((buffer[j] + 0x80) / 256.0f) * hh2);
+                        pR[i] = new PointF(x, hh + ((buffer[j + 1] + 0x80) / 256.0f) * hh2);
                     }
                 } else {
                     if(sf.Is16Bit) {
                         Array.Copy(buffer, j, tmpB, 0, ds);
-                        pL[i] = new PointF(x, hh - BitConverter.ToInt16(tmpB, 0) / 256.0f);
+                        pL[i] = new PointF(x, hh - (BitConverter.ToInt16(tmpB, 0) / 32768.0f) * hh);
                     } else {
-                        pL[i] = new PointF(x, hh - buffer[j] + 0x80);
+                        pL[i] = new PointF(x, ((buffer[j] + 0x80) / 256.0f) * hh);
                     }
                 }
             }
 
-            g.DrawCurve(color, pL);
-            if(sf.IsStereo) g.DrawCurve(color, pR);
+            g.DrawCurve(colorL, pL);
+            if(sf.IsStereo) {
+                g.DrawCurve(colorR, pR);
+                g.DrawLine(Pens.Gray, r.Left, hh, r.Right, hh);
+            }
         }
 
         public static void RenderInstrument(SharpMod.SoundFile sf, int instrumentIndex, Graphics g, Pen color, Rectangle r, int resolution = 32) {
             SharpMod.SoundFile.ModInstrument instrument = sf.Instruments[instrumentIndex];
             if(instrument.Sample != null) {
                 float x;
-                float hh = r.Height / 2;
                 int bl = instrument.Sample.Length / resolution;
                 float xf = (float)r.Width / bl;
                 PointF[] pL = new PointF[bl];

@@ -13,7 +13,8 @@ namespace SharpModPlayer {
         private WaveOut waveOut;
         private CustomBufferProvider audioProvider;
         private SoundFile sf;
-        private readonly Pen oWfPen = new Pen(Color.Green);
+        private readonly Pen oWfPenL = new Pen(Color.FromArgb(0, 115, 170));
+        private readonly Pen oWfPenR = new Pen(Color.FromArgb(0, 115, 170)); // new Pen(Color.FromArgb(0, 255, 255));
         private readonly Pen cWfPen = new Pen(Color.FromArgb(128, Color.OrangeRed));
         private byte[] currentBuffer = new byte[0];
         private const int sampleRate = 44100;
@@ -25,8 +26,8 @@ namespace SharpModPlayer {
 
             base.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
 
-            //sf = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
-            //UpdateTitleBarText();
+            sf = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
+            UpdateTitleBarText();
 
             this.Paint += new PaintEventHandler(RenderWaveForms);
             Task.Run(() => {
@@ -115,7 +116,7 @@ namespace SharpModPlayer {
 
                 r.X = 400;
                 r.Width -= r.X;
-                Renderer.RenderOutput(sf, currentBuffer, g, oWfPen, r);
+                Renderer.RenderOutput(sf, currentBuffer, g, oWfPenL, oWfPenR, r);
 
                 // This is VERY inefficient!
                 // Since the sample doesn't change, we should "cache it" and then simply paste the bitmap, instead of re-drawing it every time.

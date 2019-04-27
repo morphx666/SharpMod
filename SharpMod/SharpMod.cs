@@ -14,7 +14,6 @@ namespace SharpMod {
     public partial class SoundFile {
         public SoundFile(string fileName, uint sampleRate, bool is16Bit, bool isStereo, bool loop) {
             byte[] s = new byte[1024];
-            string ss;
             int i, j, k, nbp;
             byte[] bTab = new byte[32];
 
@@ -38,9 +37,7 @@ namespace SharpMod {
             ActiveSamples = 31;
             ActiveChannels = 4;
 
-            ss = Encoding.Default.GetString(s).TrimEnd((char)0);
-
-            if(ss == "M.K.") {
+            if(Encoding.Default.GetString(s).TrimEnd((char)0) == "M.K.") {
                 ActiveChannels = 4;
             } else {
                 if((s[0] == 'F') && (s[1] == 'L') && (s[2] == 'T') && (s[3] >= '1') && (s[3] <= '9')) {
@@ -52,7 +49,13 @@ namespace SharpMod {
                         if((s[0] == '1') && (s[1] >= '0') && (s[1] <= '6') && (s[2] == 'C') && (s[3] == 'H')) {
                             ActiveChannels = (uint)s[1] - 48 + 10;
                         } else {
-                            ActiveSamples = 15;
+                            mFile.Seek(0x2c, SeekOrigin.Begin);
+                            mFile.Read(s, 0, 4);
+                            if(Encoding.Default.GetString(s).TrimEnd((char)0) == "SCRM") {
+
+                            } else {
+                                ActiveSamples = 15;
+                            }
                         }
                     }
                 }
