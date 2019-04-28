@@ -14,12 +14,9 @@ namespace SharpMod {
     public partial class SoundFile {
         public SoundFile(string fileName, uint sampleRate, bool is16Bit, bool isStereo, bool loop) {
             byte[] s = new byte[1024];
-            int i, j, k, nbp;
-            byte[] bTab = new byte[32];
-
-            for(i = 0; i < Instruments.Length; i++) {
-                Instruments[i].name = new byte[32];
-            }
+            int i;
+            S3MTools.S3MFileHeader s3mFH = new S3MTools.S3MFileHeader();
+            bool isS3M = false;
 
             Type = 0;
             Rate = sampleRate;
@@ -52,7 +49,15 @@ namespace SharpMod {
                             mFile.Seek(0x2c, SeekOrigin.Begin);
                             mFile.Read(s, 0, 4);
                             if(Encoding.Default.GetString(s).TrimEnd((char)0) == "SCRM") {
+                                isS3M = true;
+                                mFile.Seek(0, SeekOrigin.Begin);
+                                s3mFH = S3MTools.LoadStruct<S3MTools.S3MFileHeader>(mFile);
 
+                                ActiveSamples = (uint)(s3mFH.smpNum - 1);
+                                for(i = 0; i < s3mFH.channels.Length; i++) {
+                                    if(s3mFH.channels[i] == 0xFF) break;
+                                    ActiveChannels = (uint)i;
+                                }
                             } else {
                                 ActiveSamples = 15;
                             }
@@ -61,8 +66,30 @@ namespace SharpMod {
                 }
             }
 
+            Instruments = new ModInstrument[ActiveSamples + 1];
+            for(i = 0; i < Instruments.Length; i++) {
+                Instruments[i].name = new byte[32];
+            }
+
             mFile.Seek(0, SeekOrigin.Begin);
-            mFile.Read(Instruments[0].name, 0, 20);
+            if(isS3M) {
+                ParseS3MFile(96, s3mFH);
+                Type = 3;
+            } else {
+                ParseModFile(20);
+                Type = 2;
+            }
+            CloseFile(true);
+        }
+
+        private void ParseModFile(int offset) {
+            int i, j, k, nbp;
+            byte[] bTab = new byte[32];
+
+            MusicSpeed = 6;
+            MusicTempo = 125;
+
+            mFile.Read(Instruments[0].name, 0, offset);
 
             for(i = 1; i <= (int)ActiveSamples; i++) {
                 mFile.Read(bTab, 0, 30);
@@ -70,6 +97,7 @@ namespace SharpMod {
 
                 if((j = (bTab[22] << 9) | (bTab[23] << 1)) < 4) j = 0;
                 Instruments[i].Length = (uint)j;
+
                 if((j = bTab[24]) > 7) j &= 7; else j = (j & 7) + 8;
                 Instruments[i].FineTune = FineTuneTable[j];
                 Instruments[i].Volume = bTab[25];
@@ -133,17 +161,77 @@ namespace SharpMod {
                     mFile.Read(Instruments[i].Sample, 0, (int)Instruments[i].Length);
                     Instruments[i].Sample[Instruments[i].Length] = Instruments[i].Sample[Instruments[i].Length - 1];
                 }
+        }
 
-            Type = 2;
-            CloseFile(true);
+        private void ParseS3MFile(int offset, S3MTools.S3MFileHeader s3m) {
+            int i, j;
+            long p;
+            S3MTools.S3MSampleHeader smpH;
+
+            MusicSpeed = s3m.speed;
+            MusicTempo = s3m.tempo;
+
+            mFile.Seek(offset, SeekOrigin.Begin);
+
+            order = new byte[s3m.ordNum];
+            mFile.Read(order, 0, s3m.ordNum);
+
+            // Skip Sample Header Offsets (for now?)
+            UInt16[] sampleHeaderOffsets = new UInt16[s3m.smpNum];
+            for(i = 0; i < s3m.smpNum * 2; i += 2) {
+                byte[] tmp = new byte[2];
+                mFile.Read(tmp, 0, 2);
+                sampleHeaderOffsets[i / 2] = (UInt16)(BitConverter.ToUInt16(tmp, 0));
+            }
+
+            UInt16[] patternsOffsets = new UInt16[s3m.patNum];
+            for(i = 0; i < s3m.patNum * 2; i += 2) {
+                byte[] tmp = new byte[2];
+                mFile.Read(tmp, 0, 2);
+                patternsOffsets[i / 2] = BitConverter.ToUInt16(tmp, 0);
+            }
+
+            for(i = 1; i <= (int)ActiveSamples; i++) {
+                mFile.Position = sampleHeaderOffsets[i - 1] * 16;
+                smpH = S3MTools.LoadStruct<S3MTools.S3MSampleHeader>(mFile);
+
+                Array.Copy(smpH.name, Instruments[i].name, smpH.name.Length);
+                Instruments[i].Length = smpH.length;
+
+                Instruments[i].FineTune = (uint)((smpH.c5speed / 8363.0) * 261.63);
+
+                Instruments[i].LoopStart = smpH.loopStart;
+                Instruments[i].LoopEnd = smpH.loopEnd;
+
+                Instruments[i].Volume = smpH.defaultVolume;
+                if(Instruments[i].Volume > 0x40) Instruments[i].Volume = 0x40;
+                Instruments[i].Volume <<= 2;
+
+                if(smpH.Magic == "SCRS") {
+                    Instruments[i].Sample = new byte[Instruments[i].Length];
+                    UInt32 sampleOffset = (uint)((smpH.dataPointer[1] << 4) | (smpH.dataPointer[2] << 12) | (smpH.dataPointer[0] << 20));
+                    p = mFile.Position;
+                    mFile.Seek(sampleOffset, SeekOrigin.Begin);
+                    mFile.Read(Instruments[i].Sample, 0, (int)Instruments[i].Length);
+                    mFile.Position = p;
+
+                    for(j = 0; j < Instruments[i].Sample.Length; j++) {
+                        Instruments[i].Sample[j] -= 0x80;
+                    }
+                }
+            }
+
+            for(i = 0; i < s3m.patNum; i++) {
+                mFile.Position = patternsOffsets[i] * 16 + 2;
+                patterns[i] = new byte[ActiveChannels * 64 * 6];
+                mFile.Read(patterns[i], 0, patterns[i].Length);
+            }
         }
 
         private void CloseFile(bool isValid) {
             mFile.Close();
 
             // Default settings	
-            MusicSpeed = 6;
-            MusicTempo = 125;
             Pattern = 0;
             CurrentPattern = 0;
             NextPattern = 0;

@@ -74,9 +74,9 @@ namespace SharpMod {
         }
 
         private readonly FileStream mFile;
-        public readonly ModInstrument[] Instruments = new ModInstrument[32];
+        public readonly ModInstrument[] Instruments;
         public readonly ModChannel[] Channels = new ModChannel[32];
-        private readonly byte[] order = new byte[256];
+        private byte[] order = new byte[256];
         private readonly byte[][] patterns = new byte[64][];
     }
 }

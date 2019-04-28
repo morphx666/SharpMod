@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 
 namespace SharpMod {
     public partial class SoundFile {
@@ -128,6 +129,7 @@ namespace SharpMod {
                 for(uint i = 0; i < ActiveChannels; i++) if(pSample[i] != null) {
                         // Read sample
                         int poshi = (int)(Channels[i].Pos >> MOD_PRECISION);
+                        if((poshi + 1) >= pSample[i].Length) continue; // Until S3M's FineTune is correctly set, this will overflow...
                         short poslo = (short)(Channels[i].Pos & MOD_FRACMASK);
                         short srcvol = (sbyte)pSample[i][poshi];
                         short destvol = (sbyte)pSample[i][poshi + 1];
@@ -198,14 +200,51 @@ namespace SharpMod {
                     NextPattern = 1;
                     Pattern = order[CurrentPattern];
                 }
-                int pIndex = (int)(Row * ActiveChannels * 4);
+                int pIndex = (int)(Row * ActiveChannels * (Type == 2 ? 4 : 6));
                 byte[] p = patterns[Pattern];
-                for(uint chnIdx = 0; chnIdx < ActiveChannels; chnIdx++, pIndex += 4) {
-                    byte A0 = p[pIndex + 0], A1 = p[pIndex + 1], A2 = p[pIndex + 2], A3 = p[pIndex + 3];
-                    uint period = (((uint)A0 & 0x0F) << 8) | (A1);
-                    uint instIdx = ((uint)A2 >> 4) | (uint)(A0 & 0x10);
-                    uint command = (uint)(A2 & 0x0F);
-                    uint param = A3;
+                int chnIdx;
+                for(int i = 0; i < ActiveChannels; i++, pIndex += (Type == 2 ? 4 : 6)) {
+                    uint period;
+                    uint instIdx;
+                    uint command;
+                    uint param;
+
+                    if(Type == 3) { // S3M
+                        chnIdx = p[pIndex + 0] & 0x1F;
+                        if((p[pIndex + 0] & 0x20) != 0) {
+                            instIdx = p[pIndex + 2];
+
+                            int octave = (p[pIndex + 1] & 0xF0) >> 4;
+                            int semitone = (p[pIndex + 1] & 0x0F);
+
+                            int note = (semitone + 1) + (octave + 1) * 12 - 9;
+                            double f = Math.Pow(2, (note - 49) / 12.0) * 261.43;
+                            period = (uint)(8363.0 / f) & 0xFFF;
+                        } else {
+                            period = 0;
+                            instIdx = 0;
+                        }
+
+                        if((p[pIndex + 0] & 0x20) != 0) {
+                            // Set Volume = p[pIndex + 3];
+                        }
+
+                        if((p[pIndex + 0] & 0x80) != 0) {
+                            command = p[pIndex + 4];
+                            param = p[pIndex + 5];
+                        } else {
+                            command = 0;
+                            param = 0;
+                        }
+                    } else { // MOD
+                        chnIdx = i;
+
+                        byte A0 = p[pIndex + 0], A1 = p[pIndex + 1], A2 = p[pIndex + 2], A3 = p[pIndex + 3];
+                        period = (((uint)A0 & 0x0F) << 8) | (A1);
+                        instIdx = ((uint)A2 >> 4) | (uint)(A0 & 0x10);
+                        command = (uint)(A2 & 0x0F);
+                        param = A3;
+                    }
                     bool bVib = Channels[chnIdx].Vibrato;
                     bool bTrem = Channels[chnIdx].Tremolo;
 

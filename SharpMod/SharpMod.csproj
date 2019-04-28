@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <AssemblyVersion>2019.4.27.136</AssemblyVersion>
-    <FileVersion>2019.4.27.136</FileVersion>
+    <AssemblyVersion>2019.4.28.606</AssemblyVersion>
+    <FileVersion>2019.4.28.606</FileVersion>
     <Authors>Xavier Flix</Authors>
     <Company>xFX JumpStart</Company>
     <Description>This is a verbatim implementation of the magnificent code developed by Olivier Lapicque for his Mod95 player.
@@ -14,7 +14,7 @@ Code ported to c# by Xavier Flix (https://github.com/morphx666) on 2014/ 04/25</
     <PackageProjectUrl>https://github.com/morphx666/SharpMod</PackageProjectUrl>
     <RepositoryUrl>https://github.com/morphx666/SharpMod</RepositoryUrl>
     <RepositoryType></RepositoryType>
-    <PackageTags>mod, mod95, csharp, player</PackageTags>
+    <PackageTags>mod, mod95, csharp, player, mod-player, module-player</PackageTags>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <ApplicationIcon />
     <PackageIconUrl>https://icons8.com/icon/48278/audio-wave</PackageIconUrl>
@@ -23,6 +23,12 @@ Code ported to c# by Xavier Flix (https://github.com/morphx666) on 2014/ 04/25</
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <OutputPath>bin\</OutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <OutputPath>bin\</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>

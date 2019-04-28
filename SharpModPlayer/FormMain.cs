@@ -32,6 +32,7 @@ namespace SharpModPlayer {
 
             base.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
 
+            //sndFile = new SoundFile(@"\\media-center\c\Users\xavie\Music\MODS\new mods\br.s3m", sampleRate, bitDepth == 16, channels == 2, false);
             sndFile = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
             UpdateTitleBarText();
 
@@ -71,10 +72,10 @@ namespace SharpModPlayer {
             if(e.Data.GetFormats().Contains("FileDrop")) {
                 string[] files = (string[])(e.Data.GetData("FileDrop"));
                 if(files.Length == 1) {
-                    if(files[0].ToLower().EndsWith(".mod")) {
+                    //if(files[0].ToLower().EndsWith(".mod")) {
                         SoundFile tmpSf = new SoundFile(files[0], sampleRate, bitDepth == 16, channels == 2, false);
                         isValid = tmpSf.IsValid;
-                    }
+                    //}
                 }
             }
             return isValid;
@@ -93,10 +94,14 @@ namespace SharpModPlayer {
         }
 
         private void UpdateTitleBarText() {
-            uint s = sndFile.Length;
-            uint m = s / 60;
-            s %= 60;
-            this.Text = $"SharpMod: '{sndFile.Title}' [{m:00}m {s:00}s]";
+            if(sndFile != null) {
+                uint s = sndFile.Length;
+                uint m = s / 60;
+                s %= 60;
+                this.Text = $"SharpMod: '{sndFile.Title}' [{m:00}m {s:00}s]";
+            } else {
+                this.Text = $"SharpMod";
+            }
         }
 
         private int FillAudioBuffer(byte[] buffer) {
@@ -109,7 +114,6 @@ namespace SharpModPlayer {
         }
 
         private string GetRandomFile() {
-            //return @"D:\Users\Xavier Flix\Dropbox\Projects\SharpModPlayer\Release\mods\Spike Mix.mod";
             FileInfo[] files = (new DirectoryInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mods"))).GetFiles("*.mod");
             return files[(new Random()).Next(files.Length)].FullName;
         }

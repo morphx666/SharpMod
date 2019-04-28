@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "SharpMod": {
+      "commandName": "Executable",
+      "executablePath": "D:\\Users\\Xavier Flix\\Dropbox\\Projects\\SharpModPlayer\\Release\\SharpModPlayer.exe"
+    }
+  }
+}
