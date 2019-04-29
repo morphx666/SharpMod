@@ -1,7 +1,7 @@
 ﻿namespace SharpMod {
     public partial class SoundFile {
         public string Title { get => Instruments[0].Name; }
-        public uint Type { get; }
+        public uint Type { get; } // 1 = WAVE? | 2 = MOD | 3 = S3M
         public uint Rate { get; }
         public uint ActiveChannels { get; }
         public uint ActiveSamples { get; }

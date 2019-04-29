@@ -32,8 +32,8 @@ namespace SharpModPlayer {
 
             base.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
 
-            //sndFile = new SoundFile(@"\\media-center\c\Users\xavie\Music\MODS\new mods\br.s3m", sampleRate, bitDepth == 16, channels == 2, false);
-            sndFile = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
+            sndFile = new SoundFile(@"\\media-center\C\Users\xavie\Music\MODS\new mods\temp\MOVE_IT.S3M", sampleRate, bitDepth == 16, channels == 2, false);
+            //sndFile = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
             UpdateTitleBarText();
 
             this.Paint += new PaintEventHandler(RenderWaveForms);
@@ -83,7 +83,7 @@ namespace SharpModPlayer {
 
         private void InitAudio() {
             waveOut = new WaveOut() {
-                NumberOfBuffers = 32,
+                NumberOfBuffers = 16,
                 DesiredLatency = 300
             };
 

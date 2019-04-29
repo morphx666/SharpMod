@@ -190,61 +190,73 @@ namespace SharpMod {
                     Pattern = order[CurrentPattern];
                 }
                 if(Pattern >= 64) {
-                    MusicSpeed = 6;
-                    MusicTempo = 125;
+                    if(Type == 2) {
+                        MusicSpeed = 6;
+                        MusicTempo = 125;
+                    }
                     if(!Loop) {
-                        BufferCount = (Rate * 5) / (MusicTempo * 2);
+                        BufferCount = GetBufferCount();
                         return false;
                     }
                     CurrentPattern = 0;
                     NextPattern = 1;
                     Pattern = order[CurrentPattern];
                 }
-                int pIndex = (int)(Row * ActiveChannels * (Type == 2 ? 4 : 6));
+                int inc = Type == 2 ? 4 : 6;
+                int pIndex = (int)(Row * ActiveChannels * inc);
                 byte[] p = patterns[Pattern];
-                int chnIdx;
-                for(int i = 0; i < ActiveChannels; i++, pIndex += (Type == 2 ? 4 : 6)) {
+                for(int i = 0; (i < ActiveChannels) && (pIndex < p.Length); i++, pIndex += inc) {
                     uint period;
                     uint instIdx;
                     uint command;
                     uint param;
+                    int chnIdx;
 
                     if(Type == 3) { // S3M
-                        chnIdx = p[pIndex + 0] & 0x1F;
-                        if((p[pIndex + 0] & 0x20) != 0) {
-                            instIdx = p[pIndex + 2];
+                        period = 0;
+                        instIdx = 0;
+                        command = 0xFF;
+                        param = 0;
+                        chnIdx = -1;
 
-                            int octave = (p[pIndex + 1] & 0xF0) >> 4;
-                            int semitone = (p[pIndex + 1] & 0x0F);
+                        if(p[pIndex + 0] != 0) {
+                            chnIdx = p[pIndex + 0] & 0x1F;
+                            if((p[pIndex + 0] & 0x20) != 0) {
+                                instIdx = (uint)(p[pIndex + 2]);
 
-                            int note = (semitone + 1) + (octave + 1) * 12 - 9;
-                            double f = Math.Pow(2, (note - 49) / 12.0) * 261.43;
-                            period = (uint)(8363.0 / f) & 0xFFF;
-                        } else {
-                            period = 0;
-                            instIdx = 0;
-                        }
+                                int note = p[pIndex + 1];
+                                if(note < 0xF0) {
+                                    int octave = note >> 4;
+                                    int semitone = note & 0x0F;
+                                    note = (semitone) + 12 * (octave) + 12 + 1;
 
-                        if((p[pIndex + 0] & 0x20) != 0) {
-                            // Set Volume = p[pIndex + 3];
-                        }
+                                    double f = Math.Pow(2.0, (note - 69.0) / 12.0) * 146.0;
+                                    period = (uint)(Rate / f);
+                                }
+                            }
 
-                        if((p[pIndex + 0] & 0x80) != 0) {
-                            command = p[pIndex + 4];
-                            param = p[pIndex + 5];
-                        } else {
-                            command = 0;
-                            param = 0;
+                            if((p[pIndex + 3] != 0xFF) && (p[pIndex + 0] & 0x40) != 0) {
+                                Channels[chnIdx].Volume = p[pIndex + 3];
+                            } else {
+                                if(instIdx < Instruments.Length) Channels[chnIdx].Volume = Instruments[instIdx].Volume;
+                            }
+
+                            if((p[pIndex + 0] & 0x80) != 0) {
+                                command = p[pIndex + 4];
+                                command = (uint)S3MTools.ConvertEffect(p[pIndex + 4]);
+                                param = p[pIndex + 5];
+                            }
                         }
                     } else { // MOD
                         chnIdx = i;
-
                         byte A0 = p[pIndex + 0], A1 = p[pIndex + 1], A2 = p[pIndex + 2], A3 = p[pIndex + 3];
                         period = (((uint)A0 & 0x0F) << 8) | (A1);
                         instIdx = ((uint)A2 >> 4) | (uint)(A0 & 0x10);
                         command = (uint)(A2 & 0x0F);
                         param = A3;
                     }
+                    if(chnIdx == -1) continue;
+
                     bool bVib = Channels[chnIdx].Vibrato;
                     bool bTrem = Channels[chnIdx].Tremolo;
 
@@ -255,12 +267,12 @@ namespace SharpMod {
                     Channels[chnIdx].Portamento = false;
                     Channels[chnIdx].Vibrato = false;
                     Channels[chnIdx].Tremolo = false;
-                    if(instIdx > 31) instIdx = 0;
+                    if(instIdx >= (Instruments.Length - 1)) instIdx = 0;
                     if(instIdx != 0) Channels[chnIdx].NextInstrumentIndex = (short)instIdx;
                     if(period != 0) {
                         if(Channels[chnIdx].NextInstrumentIndex != 0) {
                             Channels[chnIdx].InstrumentIndex = instIdx;
-                            Channels[chnIdx].Volume = Instruments[instIdx].Volume;
+                            if(Type == 2) Channels[chnIdx].Volume = Instruments[instIdx].Volume;
                             Channels[chnIdx].Pos = 0;
                             Channels[chnIdx].Length = Instruments[instIdx].Length << MOD_PRECISION;
                             Channels[chnIdx].FineTune = Instruments[instIdx].FineTune << MOD_PRECISION;
@@ -430,6 +442,7 @@ namespace SharpMod {
             }
 
             if(Pattern >= 64) return false;
+
             // Update channels data
             for(uint nChn = 0; nChn < ActiveChannels; nChn++) {
                 Channels[nChn].Volume += Channels[nChn].VolumeSlide;
@@ -506,9 +519,14 @@ namespace SharpMod {
                     Channels[nChn].Length = 0;
                 }
             }
-            BufferCount = (Rate * 5) / (MusicTempo * 2);
+            BufferCount = GetBufferCount();
             SpeedCount--;
             return true;
+        }
+
+        private uint GetBufferCount() {
+            return (Rate * (uint)(Type == 2 ? 5 : 17)) / (MusicTempo * 2);
+            //return (Rate * 5) / ((uint)(MusicTempo * (Type == 2 ? 2.0 : 0.5)));
         }
     }
 }

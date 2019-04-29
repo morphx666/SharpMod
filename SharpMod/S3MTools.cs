@@ -4,6 +4,11 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 
+// http://www.shikadi.net/moddingwiki/S3M_Format
+// https://www.fileformat.info/format/mod/corion.htm
+// https://en.wikipedia.org/wiki/C_(musical_note
+
+
 namespace SharpMod {
     class S3MTools {
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -124,6 +129,15 @@ namespace SharpMod {
             var s = (T)Marshal.PtrToStructure(pb.AddrOfPinnedObject(), typeof(T));
             pb.Free();
             return s;
+        }
+
+        public static int ConvertEffect(int c) {
+            switch(c) {
+                case 1: c = 0xF; break;
+                case 20: c = 0xF; break;
+                default: c = 0xFF; break; ;
+            }
+            return c;
         }
     }
 }

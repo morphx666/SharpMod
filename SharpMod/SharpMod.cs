@@ -53,11 +53,12 @@ namespace SharpMod {
                                 mFile.Seek(0, SeekOrigin.Begin);
                                 s3mFH = S3MTools.LoadStruct<S3MTools.S3MFileHeader>(mFile);
 
-                                ActiveSamples = (uint)(s3mFH.smpNum - 1);
+                                ActiveSamples = (uint)s3mFH.smpNum;
+                                int j = 0;
                                 for(i = 0; i < s3mFH.channels.Length; i++) {
-                                    if(s3mFH.channels[i] == 0xFF) break;
-                                    ActiveChannels = (uint)i;
+                                    if(s3mFH.channels[i] != 0xFF) j++;
                                 }
+                                ActiveChannels = (uint)j;
                             } else {
                                 ActiveSamples = 15;
                             }
@@ -150,6 +151,7 @@ namespace SharpMod {
             }
 
             // Reading channels
+            patterns = new byte[64][];
             for(i = 0; i < nbp; i++) {
                 patterns[i] = new byte[ActiveChannels * 256];
                 mFile.Read(patterns[i], 0, (int)ActiveChannels * 256);
@@ -166,6 +168,7 @@ namespace SharpMod {
         private void ParseS3MFile(int offset, S3MTools.S3MFileHeader s3m) {
             int i, j;
             long p;
+            byte[] tmp = new byte[2];
             S3MTools.S3MSampleHeader smpH;
 
             MusicSpeed = s3m.speed;
@@ -179,14 +182,12 @@ namespace SharpMod {
             // Skip Sample Header Offsets (for now?)
             UInt16[] sampleHeaderOffsets = new UInt16[s3m.smpNum];
             for(i = 0; i < s3m.smpNum * 2; i += 2) {
-                byte[] tmp = new byte[2];
                 mFile.Read(tmp, 0, 2);
                 sampleHeaderOffsets[i / 2] = (UInt16)(BitConverter.ToUInt16(tmp, 0));
             }
 
             UInt16[] patternsOffsets = new UInt16[s3m.patNum];
             for(i = 0; i < s3m.patNum * 2; i += 2) {
-                byte[] tmp = new byte[2];
                 mFile.Read(tmp, 0, 2);
                 patternsOffsets[i / 2] = BitConverter.ToUInt16(tmp, 0);
             }
@@ -198,7 +199,7 @@ namespace SharpMod {
                 Array.Copy(smpH.name, Instruments[i].name, smpH.name.Length);
                 Instruments[i].Length = smpH.length;
 
-                Instruments[i].FineTune = (uint)((smpH.c5speed / 8363.0) * 261.63);
+                Instruments[i].FineTune = smpH.c5speed;
 
                 Instruments[i].LoopStart = smpH.loopStart;
                 Instruments[i].LoopEnd = smpH.loopEnd;
@@ -221,9 +222,13 @@ namespace SharpMod {
                 }
             }
 
+            patterns = new byte[s3m.patNum][];
             for(i = 0; i < s3m.patNum; i++) {
                 mFile.Position = patternsOffsets[i] * 16 + 2;
-                patterns[i] = new byte[ActiveChannels * 64 * 6];
+                //mFile.Read(tmp, 0, 2);
+                //UInt16 len = BitConverter.ToUInt16(tmp, 0);
+                //Console.WriteLine($"{i}: {len}");
+                patterns[i] = new byte[ActiveChannels * 64 * 6]; // 64 = # of rows, 6 = bytes per row
                 mFile.Read(patterns[i], 0, patterns[i].Length);
             }
         }
