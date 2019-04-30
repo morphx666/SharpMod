@@ -131,8 +131,8 @@ namespace SharpMod {
             return s;
         }
 
-        public static SoundFile.Effects ConvertEffect(SoundFile.Effects c) {
-            SoundFile.Effects e;
+        public static SoundFile.Effects ConvertEffect(SoundFile.Effects c, int p) {
+            SoundFile.Effects e = SoundFile.Effects.INVALID;
             switch((int)c | 0x40) {
                 case 'A': e = SoundFile.Effects.CMD_SPEED; break;
                 case 'B': e = SoundFile.Effects.CMD_POSITIONJUMP; break;
@@ -160,7 +160,6 @@ namespace SharpMod {
                 case 'X': e = SoundFile.Effects.CMD_PANNING8; break;
                 case 'Y': e = SoundFile.Effects.CMD_PANBRELLO; break;
                 case 'Z': e = SoundFile.Effects.CMD_MIDI; break;
-                default: e = SoundFile.Effects.INVALID; break;
             }
             return e;
         }

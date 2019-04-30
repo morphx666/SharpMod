@@ -244,8 +244,8 @@ namespace SharpMod {
 
                         if((mode & 0x80) != 0) {
                             command = p[pIndex + 4];
-                            command = (uint)S3MTools.ConvertEffect((Effects)command);
                             param = p[pIndex + 5];
+                            command = (uint)S3MTools.ConvertEffect((Effects)command, (int)param);
                         }
                     } else { // MOD
                         chnIdx = i;
@@ -286,7 +286,7 @@ namespace SharpMod {
                         }
                         Channels[chnIdx].PortamentoDest = (int)period;
                     }
-                    switch((Effects)(command + 1)) {
+                    switch((Effects)(command + (Type == 2 ? 1 : 0))) {
                         // 00: Arpeggio
                         case Effects.CMD_ARPEGGIO:
                             if((param == 0) || (Channels[chnIdx].Period == 0)) break;
