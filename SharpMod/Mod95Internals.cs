@@ -4,7 +4,7 @@ using System.Diagnostics;
 namespace SharpMod {
     public partial class SoundFile {
         private uint GetNumPatterns() {
-            for(uint i = 0; i < 128; i++) if(order[i] >= 64) return i;
+            for(uint i = 0; i < 128; i++) if(Order[i] >= 64) return i;
             return 128;
         }
 
@@ -18,12 +18,12 @@ namespace SharpMod {
                     if(nRow == 0) {
                         nCurrentPattern = nNextPattern;
                         nNextPattern++;
-                        nPattern = order[nCurrentPattern];
+                        nPattern = Order[nCurrentPattern];
                     }
-                    if(nPattern >= patterns.Length) goto EndMod;
+                    if(nPattern >= Patterns.Length) goto EndMod;
 
                     int pIndex = (int)(nRow * ActiveChannels * 4);
-                    byte[] p = patterns[nPattern];
+                    byte[] p = Patterns[nPattern];
                     for(uint nChn = 0; nChn < ActiveChannels; nChn++, pIndex += 4) {
                         uint command = (uint)(p[2] & 0x0F);
                         uint param = p[3];
@@ -50,7 +50,7 @@ namespace SharpMod {
                     }
                     nSpeedCount = nMusicSpeed;
                 }
-                if(nPattern >= patterns.Length) goto EndMod;
+                if(nPattern >= Patterns.Length) goto EndMod;
                 dwElapsedTime += 5000 / (nMusicTempo * 2);
                 nSpeedCount--;
             }
@@ -65,12 +65,12 @@ namespace SharpMod {
             if(nRow != 0) {
                 CurrentPattern = nPattern;
                 NextPattern = nPattern + 1;
-                Pattern = order[CurrentPattern];
+                Pattern = Order[CurrentPattern];
                 Row = nRow - 1;
             } else {
                 CurrentPattern = nPattern;
                 NextPattern = nPattern;
-                Pattern = order[CurrentPattern];
+                Pattern = Order[CurrentPattern];
                 Row = 0x3F;
             }
             BufferCount = 0;
@@ -105,7 +105,7 @@ namespace SharpMod {
                 else
                     bTrkDest[j] = ((j & 1) != 0) ? false : true;
             }
-            if(Pattern >= patterns.Length) return 0;
+            if(Pattern >= Patterns.Length) return 0;
 
             // Fill audio buffer
             int pIndex = 0;
@@ -187,9 +187,9 @@ namespace SharpMod {
                 if(Row == 0) {
                     CurrentPattern = NextPattern;
                     NextPattern++;
-                    Pattern = order[CurrentPattern];
+                    Pattern = Order[CurrentPattern];
                 }
-                if(Pattern >= patterns.Length) {
+                if(Pattern >= Patterns.Length) {
                     if(Type == 2) {
                         MusicSpeed = 6;
                         MusicTempo = 125;
@@ -200,11 +200,11 @@ namespace SharpMod {
                     }
                     CurrentPattern = 0;
                     NextPattern = 1;
-                    Pattern = order[CurrentPattern];
+                    Pattern = Order[CurrentPattern];
                 }
                 int inc = Type == 2 ? 4 : 6;
                 int pIndex = (int)(Row * ActiveChannels * inc);
-                byte[] p = patterns[Pattern];
+                byte[] p = Patterns[Pattern];
                 for(int i = 0; (i < ActiveChannels) && (pIndex < p.Length); i++, pIndex += inc) {
                     uint period;
                     uint instIdx;
@@ -439,7 +439,7 @@ namespace SharpMod {
                 SpeedCount = MusicSpeed;
             }
 
-            if(Pattern >= patterns.Length) return false;
+            if(Pattern >= Patterns.Length) return false;
 
             // Update channels data
             for(uint nChn = 0; nChn < ActiveChannels; nChn++) {

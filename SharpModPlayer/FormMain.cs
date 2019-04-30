@@ -20,6 +20,10 @@ namespace SharpModPlayer {
         private readonly Pen oWfPenR = new Pen(Color.FromArgb(0, 115, 170)); // new Pen(Color.FromArgb(0, 255, 255));
         private readonly Pen cWfPen = new Pen(Color.FromArgb(128, Color.Orange));
         private bool userHasDroppedFile = false;
+        private Font monoFont = new Font("Consolas", 13, GraphicsUnit.Pixel);
+        private Size monoFontSize;
+        private int maxChannels;
+        private int channelWidth;
         private StringFormat sf = new StringFormat() { Alignment = StringAlignment.Center };
 
         private byte[] currentBuffer = new byte[0];
@@ -31,9 +35,12 @@ namespace SharpModPlayer {
             InitializeComponent();
 
             base.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            monoFontSize = new Size((int)(monoFont.Size - 4), monoFont.Height);
+            maxChannels = 4;
+            channelWidth = monoFontSize.Width * 13;
 
-            sndFile = new SoundFile(@"D:\Users\Xavier Flix\Dropbox\Projects\SharpModPlayer\Release\mods\'95 House Megamix.MOD", sampleRate, bitDepth == 16, channels == 2, false);
-            //sndFile = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
+            //sndFile = new SoundFile(@"D:\Users\Xavier Flix\Dropbox\Projects\SharpModPlayer\Release\mods\'95 House Megamix.MOD", sampleRate, bitDepth == 16, channels == 2, false);
+            sndFile = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
             UpdateTitleBarText();
 
             string tmp = sndFile.CommandToString(1, 0, 0);
@@ -104,8 +111,17 @@ namespace SharpModPlayer {
                 uint m = s / 60;
                 s %= 60;
                 this.Text = $"SharpMod: '{sndFile.Title}' | {(sndFile.Type == 3 ? "S3M" : "MOD")} | {m:00}m {s:00}s";
+
+                hScrollBarChannels.Value = 0;
+                hScrollBarChannels.Minimum = 0;
+                hScrollBarChannels.Maximum = Math.Max(maxChannels, (int)sndFile.ActiveChannels - maxChannels);
+                hScrollBarChannels.Width = channelWidth * maxChannels;
+                hScrollBarChannels.Left = this.DisplayRectangle.Width - hScrollBarChannels.Width;
+                hScrollBarChannels.Top = this.DisplayRectangle.Height - hScrollBarChannels.Height;
+                hScrollBarChannels.Visible = (sndFile.ActiveChannels > maxChannels);
             } else {
                 this.Text = $"SharpMod";
+                hScrollBarChannels.Visible = false;
             }
         }
 
@@ -123,15 +139,16 @@ namespace SharpModPlayer {
             return files[(new Random()).Next(files.Length)].FullName;
         }
 
-
         private void RenderWaveForms(object sender, PaintEventArgs e) {
+            // The following code is just a proof of concept and a huge mess as the same time...
+
             if(sndFile == null) return;
             lock(currentBuffer) {
                 Graphics g = e.Graphics;
                 Rectangle r = this.DisplayRectangle;
 
                 r.X = 400;
-                r.Width -= r.X;
+                r.Width -= (int)(r.X + channelWidth * maxChannels + 6);
                 if(!userHasDroppedFile) g.DrawString("Drop a new MOD file\nto start playing it", this.Font, Brushes.Gray, r, sf);
                 Renderer.RenderOutput(sndFile, currentBuffer, g, oWfPenL, oWfPenR, r);
 
@@ -149,6 +166,33 @@ namespace SharpModPlayer {
                 }
 
                 g.DrawLine(Pens.LightGray, 400, 0, 400, this.DisplayRectangle.Bottom);
+
+                // Render Patterns
+                string cCmd;
+                r = new Rectangle(0, 0, channelWidth * maxChannels, this.DisplayRectangle.Height - monoFontSize.Height - (hScrollBarChannels.Visible ? hScrollBarChannels.Height : 0));
+                int n = r.Height / (monoFontSize.Height * 64);
+                r.Y = (int)((r.Height - monoFontSize.Height) / 2.0);
+                int firstChannel = hScrollBarChannels.Value;
+
+                for(int row = 0; row < 64; row++) {
+                    for(int chn = 0; chn < maxChannels; chn++) {
+                        cCmd = sndFile.CommandToString((int)sndFile.Pattern, row, chn + firstChannel);
+
+                        r.X = this.DisplayRectangle.Width - r.Width + chn * channelWidth;
+                        if(row == sndFile.Row) g.FillRectangle(Brushes.LightGray, r.X, r.Y - (sndFile.Row - row) * monoFontSize.Height, r.Width, monoFontSize.Height);
+                        g.DrawString(cCmd, monoFont, row == sndFile.Row ? Brushes.DarkSlateBlue : Brushes.Gainsboro, r.X, r.Y - (sndFile.Row - row) * monoFontSize.Height);
+
+                        g.DrawLine(Pens.DimGray, r.X - 6, 0, r.X - 6, r.Bottom);
+                    }
+                }
+
+                r.X = this.DisplayRectangle.Width - r.Width;
+                g.FillRectangle(Brushes.LightGray, r.X, 0, r.Width, monoFontSize.Height);
+                for(int chn = 0; chn < maxChannels; chn++) {
+                    r.X = this.DisplayRectangle.Width - r.Width + chn * channelWidth;
+                    g.DrawString($"Channel {chn + firstChannel + 1}", monoFont, Brushes.DarkSlateBlue, r.X + (channelWidth - monoFontSize.Width * 8) / 2, 0);
+                    g.DrawLine(Pens.DimGray, r.X - 6, 0, r.X - 6, r.Bottom);
+                }
             }
         }
     }

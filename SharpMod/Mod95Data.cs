@@ -124,7 +124,7 @@ namespace SharpMod {
         private readonly FileStream mFile;
         public readonly ModInstrument[] Instruments;
         public readonly ModChannel[] Channels = new ModChannel[32];
-        private byte[] order = new byte[256];
-        private byte[][] patterns;
+        private byte[] Order = new byte[256];
+        public byte[][] Patterns;
     }
 }

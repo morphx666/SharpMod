@@ -131,19 +131,19 @@ namespace SharpMod {
 
             mFile.Read(bTab, 0, 2);
             k = bTab[0];
-            if(mFile.Read(order, 0, 128) != 128) {
+            if(mFile.Read(Order, 0, 128) != 128) {
                 CloseFile(false);
                 return;
             }
 
             nbp = 0;
             for(j = 0; j < 128; j++) {
-                i = order[j];
+                i = Order[j];
                 if((i < 64) && (nbp <= i)) nbp = i + 1;
             }
             j = 0xFF;
             if((k == 0) || (k > 0x7F)) k = 0x7F;
-            while((j >= k) && (order[j] == 0)) order[j--] = 0xFF;
+            while((j >= k) && (Order[j] == 0)) Order[j--] = 0xFF;
             if(ActiveSamples == 31) mFile.Seek(4, SeekOrigin.Current);
             if(nbp == 0) {
                 CloseFile(false);
@@ -151,10 +151,10 @@ namespace SharpMod {
             }
 
             // Reading channels
-            patterns = new byte[64][];
+            Patterns = new byte[64][];
             for(i = 0; i < nbp; i++) {
-                patterns[i] = new byte[ActiveChannels * 256];
-                mFile.Read(patterns[i], 0, (int)ActiveChannels * 256);
+                Patterns[i] = new byte[ActiveChannels * 256];
+                mFile.Read(Patterns[i], 0, (int)ActiveChannels * 256);
             }
 
             // Reading instruments
@@ -176,8 +176,8 @@ namespace SharpMod {
 
             mFile.Seek(offset, SeekOrigin.Begin);
 
-            order = new byte[s3m.ordNum];
-            mFile.Read(order, 0, s3m.ordNum);
+            Order = new byte[s3m.ordNum];
+            mFile.Read(Order, 0, s3m.ordNum);
 
             // Skip Sample Header Offsets (for now?)
             UInt16[] sampleHeaderOffsets = new UInt16[s3m.smpNum];
@@ -224,7 +224,7 @@ namespace SharpMod {
                 }
             }
 
-            patterns = new byte[s3m.patNum][];
+            Patterns = new byte[s3m.patNum][];
             byte[] pattern = new byte[6];
             for(i = 0; i < s3m.patNum; i++) {
                 // Unpack patterns
@@ -247,7 +247,7 @@ namespace SharpMod {
                     bl.AddRange(pattern);
                     chn++;
                 }
-                patterns[i] = bl.ToArray();
+                Patterns[i] = bl.ToArray();
             }
         }
 
