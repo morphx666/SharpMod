@@ -32,7 +32,7 @@ namespace SharpModPlayer {
 
             base.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
 
-            sndFile = new SoundFile(@"\\media-center\C\Users\xavie\Music\MODS\new mods\temp\MOVE_IT.S3M", sampleRate, bitDepth == 16, channels == 2, false);
+            sndFile = new SoundFile(@"mods\MOVEIT.S3M", sampleRate, bitDepth == 16, channels == 2, false);
             //sndFile = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
             UpdateTitleBarText();
 

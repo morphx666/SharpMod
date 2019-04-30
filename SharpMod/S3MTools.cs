@@ -131,13 +131,38 @@ namespace SharpMod {
             return s;
         }
 
-        public static int ConvertEffect(int c) {
-            switch(c) {
-                case 1: c = 0xF; break;
-                case 20: c = 0xF; break;
-                default: c = 0xFF; break; ;
+        public static SoundFile.Effects ConvertEffect(SoundFile.Effects c) {
+            SoundFile.Effects e;
+            switch((int)c | 0x40) {
+                case 'A': e = SoundFile.Effects.CMD_SPEED; break;
+                case 'B': e = SoundFile.Effects.CMD_POSITIONJUMP; break;
+                case 'C': e = SoundFile.Effects.CMD_PATTERNBREAK; break;//if(!fromIT) m.param = (m.param >> 4) * 10 + (m.param & 0x0F); break;
+                case 'D': e = SoundFile.Effects.CMD_VOLUMESLIDE; break;
+                case 'E': e = SoundFile.Effects.CMD_PORTAMENTODOWN; break;
+                case 'F': e = SoundFile.Effects.CMD_PORTAMENTOUP; break;
+                case 'G': e = SoundFile.Effects.CMD_TONEPORTAMENTO; break;
+                case 'H': e = SoundFile.Effects.CMD_VIBRATO; break;
+                case 'I': e = SoundFile.Effects.CMD_TREMOR; break;
+                case 'J': e = SoundFile.Effects.CMD_ARPEGGIO; break;
+                case 'K': e = SoundFile.Effects.CMD_VIBRATOVOL; break;
+                case 'L': e = SoundFile.Effects.CMD_TONEPORTAVOL; break;
+                case 'M': e = SoundFile.Effects.CMD_CHANNELVOLUME; break;
+                case 'N': e = SoundFile.Effects.CMD_CHANNELVOLSLIDE; break;
+                case 'O': e = SoundFile.Effects.CMD_OFFSET; break;
+                case 'P': e = SoundFile.Effects.CMD_PANNINGSLIDE; break;
+                case 'Q': e = SoundFile.Effects.CMD_RETRIG; break;
+                case 'R': e = SoundFile.Effects.CMD_TREMOLO; break;
+                case 'S': e = SoundFile.Effects.CMD_S3MCMDEX; break;
+                case 'T': e = SoundFile.Effects.CMD_TEMPO; break;
+                case 'U': e = SoundFile.Effects.CMD_FINEVIBRATO; break;
+                case 'V': e = SoundFile.Effects.CMD_GLOBALVOLUME; break;
+                case 'W': e = SoundFile.Effects.CMD_GLOBALVOLSLIDE; break;
+                case 'X': e = SoundFile.Effects.CMD_PANNING8; break;
+                case 'Y': e = SoundFile.Effects.CMD_PANBRELLO; break;
+                case 'Z': e = SoundFile.Effects.CMD_MIDI; break;
+                default: e = SoundFile.Effects.INVALID; break;
             }
-            return c;
+            return e;
         }
     }
 }

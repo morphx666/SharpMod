@@ -229,9 +229,9 @@ namespace SharpMod {
                             if(note < 0xF0) {
                                 int octave = note >> 4;
                                 int semitone = note & 0x0F;
-                                note = (semitone) + 12 * (octave) + 12 + 1;
+                                note = semitone + 12 * octave + 12 + 1;
 
-                                double f = Math.Pow(2.0, (note - 69.0) / 12.0) * 164.814;
+                                double f = Math.Pow(2.0, (note - 69.0) / 12.0) * 440.0;
                                 period = (uint)(Rate / f);
                             }
                         };
@@ -244,7 +244,7 @@ namespace SharpMod {
 
                         if((mode & 0x80) != 0) {
                             command = p[pIndex + 4];
-                            command = (uint)S3MTools.ConvertEffect((int)command);
+                            command = (uint)S3MTools.ConvertEffect((Effects)command);
                             param = p[pIndex + 5];
                         }
                     } else { // MOD
@@ -286,9 +286,9 @@ namespace SharpMod {
                         }
                         Channels[chnIdx].PortamentoDest = (int)period;
                     }
-                    switch(command) {
+                    switch((Effects)(command + 1)) {
                         // 00: Arpeggio
-                        case 0x00:
+                        case Effects.CMD_ARPEGGIO:
                             if((param == 0) || (Channels[chnIdx].Period == 0)) break;
                             Channels[chnIdx].Count2 = 3;
                             Channels[chnIdx].Period2 = Channels[chnIdx].Period;
@@ -297,31 +297,31 @@ namespace SharpMod {
                             Channels[chnIdx].Period += (int)((param >> 4) & 0x0F);
                             break;
                         // 01: Portamento Up
-                        case 0x01:
+                        case Effects.CMD_PORTAMENTOUP:
                             if(param == 0) param = (uint)Channels[chnIdx].OldFreqSlide;
                             Channels[chnIdx].OldFreqSlide = (int)param;
                             Channels[chnIdx].FreqSlide = -(int)param;
                             break;
                         // 02: Portamento Down
-                        case 0x02:
+                        case Effects.CMD_PORTAMENTODOWN:
                             if(param == 0) param = (uint)Channels[chnIdx].OldFreqSlide;
                             Channels[chnIdx].OldFreqSlide = (int)param;
                             Channels[chnIdx].FreqSlide = (int)param;
                             break;
                         // 03: Tone-Portamento
-                        case 0x03:
+                        case Effects.CMD_TONEPORTAMENTO:
                             if(param == 0) param = (uint)Channels[chnIdx].PortamentoSlide;
                             Channels[chnIdx].PortamentoSlide = (int)param;
                             Channels[chnIdx].Portamento = false;
                             break;
                         // 04: Vibrato
-                        case 0x04:
+                        case Effects.CMD_VIBRATO:
                             if(!bVib) Channels[chnIdx].VibratoPos = 0;
                             if(param == 0) Channels[chnIdx].VibratoSlide = (int)param;
                             Channels[chnIdx].Vibrato = false;
                             break;
                         // 05: Tone-Portamento + Volume Slide
-                        case 0x05:
+                        case Effects.CMD_TONEPORTAVOL:
                             if(period != 0) {
                                 Channels[chnIdx].PortamentoDest = (int)period;
                                 if(Channels[chnIdx].OldPeriod != 0) Channels[chnIdx].Period = Channels[chnIdx].OldPeriod;
@@ -334,7 +334,7 @@ namespace SharpMod {
                             }
                             break;
                         // 06: Vibrato + Volume Slide
-                        case 0x06:
+                        case Effects.CMD_VIBRATOVOL:
                             if(!bVib) Channels[chnIdx].VibratoPos = 0;
                             Channels[chnIdx].Vibrato = false;
                             if(param != 0) {
@@ -344,20 +344,20 @@ namespace SharpMod {
                             }
                             break;
                         // 07: Tremolo
-                        case 0x07:
+                        case Effects.CMD_TREMOLO:
                             if(!bTrem) Channels[chnIdx].TremoloPos = 0;
                             if(param == 0) Channels[chnIdx].TremoloSlide = (int)param;
                             Channels[chnIdx].Tremolo = false;
                             break;
                         // 09: Set Offset
-                        case 0x09:
+                        case Effects.CMD_OFFSET:
                             if(param > 0) {
                                 param <<= 8 + MOD_PRECISION;
                                 if(param < Channels[chnIdx].Length) Channels[chnIdx].Pos = param;
                             }
                             break;
                         // 0A: Volume Slide
-                        case 0x0A:
+                        case Effects.CMD_VOLUMESLIDE:
                             if(param != 0) {
                                 if((param & 0xF0) != 0) Channels[chnIdx].VolumeSlide = (int)((param >> 4) << 2);
                                 else Channels[chnIdx].VolumeSlide = -(int)((param & 0x0F) << 2);
@@ -365,23 +365,23 @@ namespace SharpMod {
                             }
                             break;
                         // 0B: Position Jump
-                        case 0x0B:
+                        case Effects.CMD_POSITIONJUMP:
                             param &= 0x7F;
                             NextPattern = param;
                             Row = 0x3F;
                             break;
                         // 0C: Set Volume
-                        case 0x0C:
+                        case Effects.CMD_VOLUME:
                             if(param > 0x40) param = 0x40;
                             param <<= 2;
                             Channels[chnIdx].Volume = (int)param;
                             break;
                         // 0B: Pattern Break
-                        case 0x0D:
+                        case Effects.CMD_PATTERNBREAK:
                             Row = 0x3F;
                             break;
                         // 0E: Extended Effects
-                        case 0x0E:
+                        case Effects.CMD_RETRIG:
                             command = param >> 4;
                             param &= 0x0F;
                             switch(command) {
@@ -429,7 +429,7 @@ namespace SharpMod {
                             }
                             break;
                         // 0F: Set Speed
-                        case 0x0F:
+                        case Effects.CMD_SPEED:
                             if((param != 0) && (param < 0x20)) MusicSpeed = param;
                             else
                                 if(param >= 0x20) MusicTempo = param;

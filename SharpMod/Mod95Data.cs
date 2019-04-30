@@ -44,6 +44,54 @@ namespace SharpMod {
             42, -34, 89, -4, -51, -72, 21, -29, 112, 123, 84, -101, -92, 98, -54, -95
         };
 
+        public enum Effects {
+            CMD_NONE = 0,
+            CMD_ARPEGGIO = 1,
+            CMD_PORTAMENTOUP = 2,
+            CMD_PORTAMENTODOWN = 3,
+            CMD_TONEPORTAMENTO = 4,
+            CMD_VIBRATO = 5,
+            CMD_TONEPORTAVOL = 6,
+            CMD_VIBRATOVOL = 7,
+            CMD_TREMOLO = 8,
+            CMD_PANNING8 = 9,
+            CMD_OFFSET = 10,
+            CMD_VOLUMESLIDE = 11,
+            CMD_POSITIONJUMP = 12,
+            CMD_VOLUME = 13,
+            CMD_PATTERNBREAK = 14,
+            CMD_RETRIG = 15,
+            CMD_SPEED = 16,
+            CMD_TEMPO = 17,
+            CMD_TREMOR = 18,
+            CMD_MODCMDEX = 19,
+            CMD_S3MCMDEX = 20,
+            CMD_CHANNELVOLUME = 21,
+            CMD_CHANNELVOLSLIDE = 22,
+            CMD_GLOBALVOLUME = 23,
+            CMD_GLOBALVOLSLIDE = 24,
+            CMD_KEYOFF = 25,
+            CMD_FINEVIBRATO = 26,
+            CMD_PANBRELLO = 27,
+            CMD_XFINEPORTAUPDOWN = 28,
+            CMD_PANNINGSLIDE = 29,
+            CMD_SETENVPOSITION = 30,
+            CMD_MIDI = 31,
+            CMD_SMOOTHMIDI = 32,
+            CMD_DELAYCUT = 33,
+            CMD_XPARAM = 34,
+            CMD_NOTESLIDEUP = 35, // IMF Gxy / PTM Jxy (Slide y notes up every x ticks)
+            CMD_NOTESLIDEDOWN = 36, // IMF Hxy / PTM Kxy (Slide y notes down every x ticks)
+            CMD_NOTESLIDEUPRETRIG = 37, // PTM Lxy (Slide y notes up every x ticks + retrigger note)
+            CMD_NOTESLIDEDOWNRETRIG = 38, // PTM Mxy (Slide y notes down every x ticks + retrigger note)
+            CMD_REVERSEOFFSET = 39, // PTM Nxx Revert sample + offset
+            CMD_DBMECHO = 40, // DBM enable/disable echo
+            CMD_OFFSETPERCENTAGE = 41, // PLM Percentage Offset
+            MAX_EFFECTS = 42,
+
+            INVALID = 0xFF
+        }
+
         public struct ModInstrument {
             public uint Length;
             public uint LoopStart, LoopEnd;
