@@ -223,13 +223,29 @@ namespace SharpMod {
             }
 
             patterns = new byte[s3m.patNum][];
+            byte[] pattern = new byte[6];
             for(i = 0; i < s3m.patNum; i++) {
+                // Unpack patterns
+                System.Collections.Generic.List<byte> bl = new System.Collections.Generic.List<byte>();
                 mFile.Position = patternsOffsets[i] * 16 + 2;
-                //mFile.Read(tmp, 0, 2);
-                //UInt16 len = BitConverter.ToUInt16(tmp, 0);
-                //Console.WriteLine($"{i}: {len}");
-                patterns[i] = new byte[ActiveChannels * 64 * 6]; // 64 = # of rows, 6 = bytes per row
-                mFile.Read(patterns[i], 0, patterns[i].Length);
+                int row = 0;
+                int chn = 0;
+                while(row < 64) {
+                    mFile.Read(pattern, 0, 1);
+                    if(pattern[0] == 0) {
+                        for(j = chn; j < ActiveChannels; j++) bl.AddRange(new byte[6]);
+                        chn = 0;
+                        row++;
+                        continue;
+                    }
+
+                    if((pattern[0] & 0x20) != 0) mFile.Read(pattern, 1, 2);
+                    if((pattern[0] & 0x40) != 0) mFile.Read(pattern, 3, 1);
+                    if((pattern[0] & 0x80) != 0) mFile.Read(pattern, 4, 2);
+                    bl.AddRange(pattern);
+                    chn++;
+                }
+                patterns[i] = bl.ToArray();
             }
         }
 

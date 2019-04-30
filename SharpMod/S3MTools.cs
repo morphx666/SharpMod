@@ -10,7 +10,7 @@ using System.Text;
 
 
 namespace SharpMod {
-    class S3MTools {
+    public class S3MTools {
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct S3MFileHeader {
             public enum S3MMagic {
