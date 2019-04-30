@@ -32,9 +32,11 @@ namespace SharpModPlayer {
 
             base.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
 
-            sndFile = new SoundFile(@"mods\MOVEIT.S3M", sampleRate, bitDepth == 16, channels == 2, false);
+            sndFile = new SoundFile(@"D:\Users\Xavier Flix\Dropbox\Projects\SharpModPlayer\Release\mods\'95 House Megamix.MOD", sampleRate, bitDepth == 16, channels == 2, false);
             //sndFile = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
             UpdateTitleBarText();
+
+            string tmp = sndFile.CommandToString(1, 0, 0);
 
             this.Paint += new PaintEventHandler(RenderWaveForms);
             Task.Run(() => {
@@ -101,7 +103,7 @@ namespace SharpModPlayer {
                 uint s = sndFile.Length;
                 uint m = s / 60;
                 s %= 60;
-                this.Text = $"SharpMod: '{sndFile.Title}' [{m:00}m {s:00}s]";
+                this.Text = $"SharpMod: '{sndFile.Title}' | {(sndFile.Type == 3 ? "S3M" : "MOD")} | {m:00}m {s:00}s";
             } else {
                 this.Text = $"SharpMod";
             }

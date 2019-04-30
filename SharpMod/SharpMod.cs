@@ -199,7 +199,7 @@ namespace SharpMod {
                 Array.Copy(smpH.name, Instruments[i].name, smpH.name.Length);
                 Instruments[i].Length = smpH.length;
 
-                int note = (int)((12.0 * (Math.Log(smpH.c5speed / (440.0 / 2.0)) / Math.Log(2.0))) + 57.0);
+                int note = FrequencyToNote(smpH.c5speed);
                 double f = Math.Pow(2.0, (note - 136) / 12.0) * 8000.0;
                 Instruments[i].FineTune = (uint)f;
 
