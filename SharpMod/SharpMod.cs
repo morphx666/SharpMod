@@ -7,7 +7,8 @@ using System.Text;
 
     For more information, visit https://openmpt.org/legacy_software
 
-    Code ported to c# by Xavier Flix (https://github.com/morphx666) on 2014/ 04/25
+    Code ported to c# by Xavier Flix (https://github.com/morphx666) on 2019/ 4/25
+    S3M (partial) support added by Xavier Flix on 2019/ 4/29
 */
 
 namespace SharpMod {

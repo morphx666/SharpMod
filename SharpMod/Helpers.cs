@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SharpMod {
     public partial class SoundFile {
@@ -47,10 +45,10 @@ namespace SharpMod {
 
                 r += " ";
                 if((mode & 0x40) != 0) {
-                    r += $"v{vol:00}";
+                    r += $"v{Math.Min(0x40, vol):X2}";
                 } else {
                     if(inst < Instruments.Length)
-                        r += $"v{Instruments[inst].Volume:00}";
+                        r += $"v{Math.Min(0x40, Instruments[inst].Volume):X2}";
                     else
                         r += $" ..";
                 };
