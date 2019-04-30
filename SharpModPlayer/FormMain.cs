@@ -58,7 +58,9 @@ namespace SharpModPlayer {
                         string[] files = (string[])(e.Data.GetData("FileDrop"));
 
                         waveOut.Stop();
-                        sndFile = new SoundFile(files[0], sampleRate, bitDepth == 16, channels == 2, false);
+                        try {
+                            sndFile = new SoundFile(files[0], sampleRate, bitDepth == 16, channels == 2, false);
+                        } catch { };
                         waveOut.Play();
 
                         this.Invoke((MethodInvoker)delegate { UpdateTitleBarText(); });
@@ -72,10 +74,11 @@ namespace SharpModPlayer {
             if(e.Data.GetFormats().Contains("FileDrop")) {
                 string[] files = (string[])(e.Data.GetData("FileDrop"));
                 if(files.Length == 1) {
-                    //if(files[0].ToLower().EndsWith(".mod")) {
-                        SoundFile tmpSf = new SoundFile(files[0], sampleRate, bitDepth == 16, channels == 2, false);
-                        isValid = tmpSf.IsValid;
-                    //}
+                    SoundFile tmpSf = null;
+                    try {
+                        tmpSf = new SoundFile(files[0], sampleRate, bitDepth == 16, channels == 2, false);
+                    } catch { };
+                    if(tmpSf != null) isValid = (bool)tmpSf?.IsValid;
                 }
             }
             return isValid;
