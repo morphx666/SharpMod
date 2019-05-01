@@ -116,7 +116,7 @@ namespace SharpModPlayer {
                 hScrollBarChannels.Minimum = 0;
                 hScrollBarChannels.Maximum = Math.Max(maxChannels, (int)sndFile.ActiveChannels - maxChannels);
                 hScrollBarChannels.Width = channelWidth * maxChannels;
-                hScrollBarChannels.Left = this.DisplayRectangle.Width - hScrollBarChannels.Width;
+                hScrollBarChannels.Left = this.DisplayRectangle.Width - hScrollBarChannels.Width - 6;
                 hScrollBarChannels.Top = this.DisplayRectangle.Height - hScrollBarChannels.Height;
                 hScrollBarChannels.Visible = (sndFile.ActiveChannels > maxChannels);
             } else {
@@ -165,32 +165,40 @@ namespace SharpModPlayer {
                     r.Y += (r.Height + 4);
                 }
 
-                g.DrawLine(Pens.LightGray, 400, 0, 400, this.DisplayRectangle.Bottom);
+                g.DrawLine(Pens.DimGray, 400, 0, 400, this.DisplayRectangle.Bottom);
 
                 // Render Patterns
                 string cCmd;
                 r = new Rectangle(0, 0, channelWidth * maxChannels, this.DisplayRectangle.Height - monoFontSize.Height - (hScrollBarChannels.Visible ? hScrollBarChannels.Height : 0));
                 int n = r.Height / (monoFontSize.Height * 64);
                 r.Y = (int)((r.Height - monoFontSize.Height) / 2.0);
-                int firstChannel = hScrollBarChannels.Value;
+                int fromChannel = hScrollBarChannels.Value;
+                int sfPptrIdx = (int)sndFile.Pattern;
+                int sfRow = (int)sndFile.Row;
+                if(sfPptrIdx == 0xFF) {
+                    sfPptrIdx = sndFile.Order.Where((o) => o != 0xFF).Last();
+                    sfRow = 63;
+                }
 
                 for(int row = 0; row < 64; row++) {
                     for(int chn = 0; chn < maxChannels; chn++) {
-                        cCmd = sndFile.CommandToString((int)sndFile.Pattern, row, chn + firstChannel);
+                        cCmd = sndFile.CommandToString(sfPptrIdx, row, chn + fromChannel);
 
                         r.X = this.DisplayRectangle.Width - r.Width + chn * channelWidth;
-                        if(row == sndFile.Row) g.FillRectangle(Brushes.LightGray, r.X, r.Y - (sndFile.Row - row) * monoFontSize.Height, r.Width, monoFontSize.Height);
-                        g.DrawString(cCmd, monoFont, row == sndFile.Row ? Brushes.DarkSlateBlue : Brushes.Gainsboro, r.X, r.Y - (sndFile.Row - row) * monoFontSize.Height);
+                        if((row == sfRow) || (row % 4) == 0) {
+                            g.FillRectangle(row == sfRow ? Brushes.LightGray : Brushes.Black, r.X, r.Y - (sfRow - row) * monoFontSize.Height, r.Width, monoFontSize.Height);
+                        }
+                        g.DrawString(cCmd, monoFont, row == sfRow ? Brushes.DarkSlateBlue : Brushes.Gainsboro, r.X, r.Y - (sfRow - row) * monoFontSize.Height);
 
                         g.DrawLine(Pens.DimGray, r.X - 6, 0, r.X - 6, r.Bottom);
                     }
                 }
 
                 r.X = this.DisplayRectangle.Width - r.Width;
-                g.FillRectangle(Brushes.LightGray, r.X, 0, r.Width, monoFontSize.Height);
+                g.FillRectangle(Brushes.LightGray, r.X - 6, 0, r.Width + 6, monoFontSize.Height);
                 for(int chn = 0; chn < maxChannels; chn++) {
                     r.X = this.DisplayRectangle.Width - r.Width + chn * channelWidth;
-                    g.DrawString($"Channel {chn + firstChannel + 1}", monoFont, Brushes.DarkSlateBlue, r.X + (channelWidth - monoFontSize.Width * 8) / 2, 0);
+                    g.DrawString($"Channel {chn + fromChannel + 1}", monoFont, Brushes.DarkSlateBlue, r.X + (channelWidth - monoFontSize.Width * 8) / 2, 0);
                     g.DrawLine(Pens.DimGray, r.X - 6, 0, r.X - 6, r.Bottom);
                 }
             }
