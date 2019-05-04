@@ -33,7 +33,7 @@
             this.hScrollBarChannels.LargeChange = 1;
             this.hScrollBarChannels.Location = new System.Drawing.Point(915, 470);
             this.hScrollBarChannels.Name = "hScrollBarChannels";
-            this.hScrollBarChannels.Size = new System.Drawing.Size(80, 17);
+            this.hScrollBarChannels.Size = new System.Drawing.Size(80, 20);
             this.hScrollBarChannels.TabIndex = 0;
             // 
             // FormMain

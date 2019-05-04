@@ -7,6 +7,14 @@ namespace SharpMod {
         private const int MOD_FRACMASK = 1023;
         private const int MOD_AMIGAC2 = 0x1AB;
 
+        public enum Types {
+            INVALID = 0,
+            WAV = 1, // ???
+            MOD = 2,
+            S3M = 3,
+            XM = 4
+        }
+
         private static readonly uint[] FineTuneTable = {
             7895, 7941, 7985, 8046, 8107, 8169, 8232, 8280,
             8363, 8413, 8463, 8529, 8581, 8651, 8723, 8757,
@@ -122,9 +130,10 @@ namespace SharpMod {
         }
 
         private readonly FileStream mFile;
-        public readonly ModInstrument[] Instruments;
-        public readonly ModChannel[] Channels = new ModChannel[32];
-        public byte[] Order = new byte[256];
-        public byte[][] Patterns;
+        private string mTitle;
+        private ModInstrument[] mInstruments;
+        private readonly ModChannel[] mChannels = new ModChannel[32];
+        private byte[] mOrder = new byte[256];
+        private byte[][] mPatterns;
     }
 }

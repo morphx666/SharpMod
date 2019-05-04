@@ -20,11 +20,11 @@ namespace SharpModPlayer {
         private readonly Pen oWfPenR = new Pen(Color.FromArgb(0, 115, 170)); // new Pen(Color.FromArgb(0, 255, 255));
         private readonly Pen cWfPen = new Pen(Color.FromArgb(128, Color.Orange));
         private bool userHasDroppedFile = false;
-        private Font monoFont = new Font("Consolas", 13, GraphicsUnit.Pixel);
+        private readonly Font monoFont = new Font("Consolas", 13, GraphicsUnit.Pixel);
         private Size monoFontSize;
-        private int maxChannels;
-        private int channelWidth;
-        private StringFormat sf = new StringFormat() { Alignment = StringAlignment.Center };
+        private readonly int maxChannels;
+        private readonly int channelWidth;
+        private readonly StringFormat sf = new StringFormat() { Alignment = StringAlignment.Center };
 
         private byte[] currentBuffer = new byte[0];
         private const int sampleRate = 44100;
@@ -39,7 +39,7 @@ namespace SharpModPlayer {
             maxChannels = 4;
             channelWidth = monoFontSize.Width * 13;
 
-            //sndFile = new SoundFile(@"D:\Users\Xavier Flix\Dropbox\Projects\SharpModPlayer\Release\mods\'95 House Megamix.MOD", sampleRate, bitDepth == 16, channels == 2, false);
+            //sndFile = new SoundFile(@"\\Media-center\c\Users\xavie\Music\MODS\SoftMix\Party Mix '90.XM", sampleRate, bitDepth == 16, channels == 2, false);
             sndFile = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
             UpdateTitleBarText();
 
@@ -110,7 +110,7 @@ namespace SharpModPlayer {
                 uint s = sndFile.Length;
                 uint m = s / 60;
                 s %= 60;
-                this.Text = $"SharpMod: '{sndFile.Title}' | {(sndFile.Type == 3 ? "S3M" : "MOD")} | {m:00}m {s:00}s";
+                this.Text = $"SharpMod: '{sndFile.Title}' | {sndFile.Type} | {m:00}m {s:00}s";
 
                 hScrollBarChannels.Value = 0;
                 hScrollBarChannels.Minimum = 0;
@@ -135,7 +135,7 @@ namespace SharpModPlayer {
         }
 
         private string GetRandomFile() {
-            FileInfo[] files = (new DirectoryInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mods"))).GetFiles("*.mod");
+            FileInfo[] files = (new DirectoryInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mods"))).GetFiles("*.*");
             return files[(new Random()).Next(files.Length)].FullName;
         }
 
@@ -147,10 +147,19 @@ namespace SharpModPlayer {
                 Graphics g = e.Graphics;
                 Rectangle r = this.DisplayRectangle;
 
+                // Render Output Waveform
                 r.X = 400;
                 r.Width -= (int)(r.X + channelWidth * maxChannels + 6);
+                r.Height -= 20;
                 if(!userHasDroppedFile) g.DrawString("Drop a new MOD file\nto start playing it", this.Font, Brushes.Gray, r, sf);
                 Renderer.RenderOutput(sndFile, currentBuffer, g, oWfPenL, oWfPenR, r);
+
+                // Render Progress
+                r.Y = this.DisplayRectangle.Height - 20;
+                r.Height = 20;
+                g.FillRectangle(Brushes.DimGray, r);
+                r.Width = (int)(r.Width * (double)sndFile.Position / sndFile.PositionCount);
+                g.FillRectangle(oWfPenL.Brush, r);
 
                 // FIXME: This is VERY inefficient!
                 // Since the sample doesn't change, we should "cache it" and then simply paste the bitmap, instead of re-drawing it every time.
@@ -188,7 +197,7 @@ namespace SharpModPlayer {
                         if((row == sfRow) || (row % 4) == 0) {
                             g.FillRectangle(row == sfRow ? Brushes.LightGray : Brushes.Black, r.X, r.Y - (sfRow - row) * monoFontSize.Height, r.Width, monoFontSize.Height);
                         }
-                        g.DrawString(cCmd, monoFont, row == sfRow ? Brushes.DarkSlateBlue : Brushes.Gainsboro, r.X, r.Y - (sfRow - row) * monoFontSize.Height);
+                        g.DrawString(cCmd, monoFont, row == sfRow ? Brushes.Blue : Brushes.Silver, r.X, r.Y - (sfRow - row) * monoFontSize.Height);
 
                         g.DrawLine(Pens.DimGray, r.X - 6, 0, r.X - 6, r.Bottom);
                     }

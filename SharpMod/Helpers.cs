@@ -4,11 +4,11 @@ namespace SharpMod {
     public partial class SoundFile {
         public string CommandToString(int pattern, int row, int channel) {
             string r = "";
-            int inc = Type == 2 ? 4 : 6;
+            int inc = Type == Types.MOD ? 4 : 6;
             int pIndex = (int)(row * ActiveChannels * inc) + channel * inc;
             byte[] cmd = new byte[inc];
-            Array.Copy(Patterns[pattern], pIndex, cmd, 0, inc);
-            if(Type == 2) {
+            Array.Copy(mPatterns[pattern], pIndex, cmd, 0, inc);
+            if(Type == Types.MOD) {
                 byte A0 = cmd[0], A1 = cmd[1], A2 = cmd[2], A3 = cmd[3];
                 int period = ((A0 & 0x0F) << 8) | (A1);
                 int inst = (A2 >> 4) | (A0 & 0x10);
@@ -21,7 +21,7 @@ namespace SharpMod {
                         note = FrequencyToNote(((FineTuneTable[8] << MOD_PRECISION) * MOD_AMIGAC2) / (period * Rate)) + 6;
                         r = $"{NoteToString(note)} ..";
                     } else {
-                        note = FrequencyToNote(((Instruments[inst].FineTune << MOD_PRECISION) * MOD_AMIGAC2) / (period * Rate)) + 6;
+                        note = FrequencyToNote(((mInstruments[inst].FineTune << MOD_PRECISION) * MOD_AMIGAC2) / (period * Rate)) + 6;
                         r = $"{NoteToString(note)} {inst:00}";
                     }
                 } else r += "... ..";
@@ -47,8 +47,8 @@ namespace SharpMod {
                 if((mode & 0x40) != 0) {
                     r += $"v{Math.Min(0x40, vol):X2}";
                 } else {
-                    if(inst < Instruments.Length)
-                        r += $"v{Math.Min(0x40, Instruments[inst].Volume):X2}";
+                    if(inst < mInstruments.Length)
+                        r += $"v{Math.Min(0x40, mInstruments[inst].Volume):X2}";
                     else
                         r += $" ..";
                 };

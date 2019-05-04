@@ -103,7 +103,7 @@ namespace SharpMod {
             public byte reserved1;         // Reserved
             public byte pack;               // Packing algorithm, SamplePacking
             public byte flags;              // Sample flags
-            public UInt32 c5speed;           // Middle-C frequency
+            public UInt32 c5speed;           // Middle-C (C-5) frequency
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 12)] public byte[] reserved2;     // Reserved + Internal ST3 stuff
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 28)] public byte[] name;          // Sample name
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)] public byte[] magic;          // "SCRS" magic bytes ("SCRI" for Adlib instruments)
@@ -111,22 +111,6 @@ namespace SharpMod {
             public string FileName { get { return Encoding.UTF8.GetString(filename).Trim('\0'); } }
             public string Name { get { return Encoding.UTF8.GetString(name).Trim('\0'); } }
             public string Magic { get { return Encoding.UTF8.GetString(magic).Trim('\0'); } }
-
-            // Convert an S3M sample header to OpenMPT's internal sample header.
-            //void ConvertToMPT(ModSample &mptSmp) const;
-            // Convert OpenMPT's internal sample header to an S3M sample header.
-            //SmpLength ConvertToS3M(const ModSample &mptSmp);
-            // Retrieve the internal sample format flags for this sample.
-            //SampleIO GetSampleFormat(bool signedSamples) const;
-        }
-
-        public static T LoadStruct<T>(FileStream fs) {
-            byte[] sb = new byte[Marshal.SizeOf(typeof(T))];
-            fs.Read(sb, 0, sb.Length);
-            GCHandle pb = GCHandle.Alloc(sb, GCHandleType.Pinned);
-            var s = (T)Marshal.PtrToStructure(pb.AddrOfPinnedObject(), typeof(T));
-            pb.Free();
-            return s;
         }
 
         public static SoundFile.Effects ConvertEffect(SoundFile.Effects c, int p) {

@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
+using SharpMod.Helpers;
 
 /*
     This is a verbatim implementation of the magnificent code developed by Olivier Lapicque for his Mod95 player.
@@ -15,11 +18,10 @@ namespace SharpMod {
     public partial class SoundFile {
         public SoundFile(string fileName, uint sampleRate, bool is16Bit, bool isStereo, bool loop) {
             byte[] s = new byte[1024];
-            int i;
             S3MTools.S3MFileHeader s3mFH = new S3MTools.S3MFileHeader();
-            bool isS3M = false;
+            XMTools.XMFileHeader xmFH = new XMTools.XMFileHeader();
 
-            Type = 0;
+            Type = Types.INVALID;
             Rate = sampleRate;
             Is16Bit = is16Bit;
             IsStereo = isStereo;
@@ -28,7 +30,7 @@ namespace SharpMod {
 
             mFile = new FileInfo(fileName).Open(FileMode.Open, FileAccess.Read, FileShare.Read);
 
-            Type = 1;
+            Type = Types.MOD;
             mFile.Seek(0x438, SeekOrigin.Begin);
             mFile.Read(s, 0, 4);
             s[4] = 0;
@@ -50,36 +52,33 @@ namespace SharpMod {
                             mFile.Seek(0x2c, SeekOrigin.Begin);
                             mFile.Read(s, 0, 4);
                             if(Encoding.Default.GetString(s).TrimEnd((char)0) == "SCRM") {
-                                isS3M = true;
+                                Type = Types.S3M;
                                 mFile.Seek(0, SeekOrigin.Begin);
-                                s3mFH = S3MTools.LoadStruct<S3MTools.S3MFileHeader>(mFile);
-
-                                ActiveSamples = (uint)s3mFH.smpNum;
-                                int j = 0;
-                                for(i = 0; i < s3mFH.channels.Length; i++) {
-                                    if(s3mFH.channels[i] != 0xFF) j++;
-                                }
-                                ActiveChannels = (uint)j;
+                                s3mFH = SoundFile.LoadStruct<S3MTools.S3MFileHeader>(mFile);
                             } else {
-                                ActiveSamples = 15;
+                                mFile.Seek(0x00, SeekOrigin.Begin);
+                                mFile.Read(s, 0, 17);
+                                if(Encoding.Default.GetString(s).TrimEnd((char)0) == "Extended Module: ") {
+                                    Type = Types.XM;
+                                    mFile.Seek(0, SeekOrigin.Begin);
+                                    xmFH = SoundFile.LoadStruct<XMTools.XMFileHeader>(mFile);
+                                } else {
+                                    ActiveSamples = 15;
+                                }
                             }
                         }
                     }
                 }
             }
 
-            Instruments = new ModInstrument[ActiveSamples + 1];
-            for(i = 0; i < Instruments.Length; i++) {
-                Instruments[i].name = new byte[32];
-            }
-
             mFile.Seek(0, SeekOrigin.Begin);
-            if(isS3M) {
-                ParseS3MFile(96, s3mFH);
-                Type = 3;
-            } else {
+            if(Type == Types.MOD) {
                 ParseModFile(20);
-                Type = 2;
+            } else {
+                switch(Type) {
+                    case Types.S3M: ParseS3MFile(96, s3mFH); break;
+                    case Types.XM: ParseXMFile(80, xmFH); break;
+                }
             }
             CloseFile(true);
         }
@@ -88,63 +87,69 @@ namespace SharpMod {
             int i, j, k, nbp;
             byte[] bTab = new byte[32];
 
+            mInstruments = new ModInstrument[ActiveSamples + 1];
+            for(i = 0; i < mInstruments.Length; i++) {
+                mInstruments[i].name = new byte[32];
+            }
+
             MusicSpeed = 6;
             MusicTempo = 125;
 
-            mFile.Read(Instruments[0].name, 0, offset);
+            mFile.Read(mInstruments[0].name, 0, offset);
+            mTitle = mInstruments[0].Name;
 
             for(i = 1; i <= (int)ActiveSamples; i++) {
                 mFile.Read(bTab, 0, 30);
-                Array.Copy(bTab, Instruments[i].name, 22);
+                Array.Copy(bTab, mInstruments[i].name, 22);
 
                 if((j = (bTab[22] << 9) | (bTab[23] << 1)) < 4) j = 0;
-                Instruments[i].Length = (uint)j;
+                mInstruments[i].Length = (uint)j;
 
                 if((j = bTab[24]) > 7) j &= 7; else j = (j & 7) + 8;
-                Instruments[i].FineTune = FineTuneTable[j];
-                Instruments[i].Volume = bTab[25];
-                if(Instruments[i].Volume > 0x40) Instruments[i].Volume = 0x40;
-                Instruments[i].Volume <<= 2;
+                mInstruments[i].FineTune = FineTuneTable[j];
+                mInstruments[i].Volume = bTab[25];
+                if(mInstruments[i].Volume > 0x40) mInstruments[i].Volume = 0x40;
+                mInstruments[i].Volume <<= 2;
 
                 if((j = (int)((uint)bTab[26] << 9) | (int)((uint)bTab[27] << 1)) < 4) j = 0;
                 if((k = (int)((uint)bTab[28] << 9) | (int)((uint)bTab[29] << 1)) < 4) k = 0;
-                if(j + k > (int)Instruments[i].Length) {
+                if(j + k > (int)mInstruments[i].Length) {
                     j >>= 1;
                     k = j + ((k + 1) >> 1);
                 } else k += j;
-                if(Instruments[i].Length != 0) {
-                    if(j >= (int)Instruments[i].Length) j = (int)(Instruments[i].Length - 1);
-                    if(k > (int)Instruments[i].Length) k = (int)Instruments[i].Length;
+                if(mInstruments[i].Length != 0) {
+                    if(j >= (int)mInstruments[i].Length) j = (int)(mInstruments[i].Length - 1);
+                    if(k > (int)mInstruments[i].Length) k = (int)mInstruments[i].Length;
                     if((j > k) || (k < 4) || (k - j <= 4)) j = k = 0;
                 }
-                Instruments[i].LoopStart = (uint)j;
-                Instruments[i].LoopEnd = (uint)k;
+                mInstruments[i].LoopStart = (uint)j;
+                mInstruments[i].LoopEnd = (uint)k;
             }
 
             for(i = 0; i < 32; i++) {
                 j = 31;
-                while((j >= 0) && (Instruments[i].name[j] <= ' ')) Instruments[i].name[j--] = 0;
+                while((j >= 0) && (mInstruments[i].name[j] <= ' ')) mInstruments[i].name[j--] = 0;
                 while(j >= 0) {
-                    if(Instruments[i].name[j] < ' ') Instruments[i].name[j] = (byte)' ';
+                    if(mInstruments[i].name[j] < ' ') mInstruments[i].name[j] = (byte)' ';
                     j--;
                 }
             }
 
             mFile.Read(bTab, 0, 2);
             k = bTab[0];
-            if(mFile.Read(Order, 0, 128) != 128) {
+            if(mFile.Read(mOrder, 0, 128) != 128) {
                 CloseFile(false);
                 return;
             }
 
             nbp = 0;
             for(j = 0; j < 128; j++) {
-                i = Order[j];
+                i = mOrder[j];
                 if((i < 64) && (nbp <= i)) nbp = i + 1;
             }
             j = 0xFF;
             if((k == 0) || (k > 0x7F)) k = 0x7F;
-            while((j >= k) && (Order[j] == 0)) Order[j--] = 0xFF;
+            while((j >= k) && (mOrder[j] == 0)) mOrder[j--] = 0xFF;
             if(ActiveSamples == 31) mFile.Seek(4, SeekOrigin.Current);
             if(nbp == 0) {
                 CloseFile(false);
@@ -152,80 +157,90 @@ namespace SharpMod {
             }
 
             // Reading channels
-            Patterns = new byte[64][];
+            mPatterns = new byte[64][];
             for(i = 0; i < nbp; i++) {
-                Patterns[i] = new byte[ActiveChannels * 256];
-                mFile.Read(Patterns[i], 0, (int)ActiveChannels * 256);
+                mPatterns[i] = new byte[ActiveChannels * 256];
+                mFile.Read(mPatterns[i], 0, (int)ActiveChannels * 256);
             }
 
             // Reading instruments
-            for(i = 1; i <= (int)ActiveSamples; i++) if(Instruments[i].Length != 0) {
-                    Instruments[i].Sample = new byte[Instruments[i].Length + 1];
-                    mFile.Read(Instruments[i].Sample, 0, (int)Instruments[i].Length);
-                    Instruments[i].Sample[Instruments[i].Length] = Instruments[i].Sample[Instruments[i].Length - 1];
+            for(i = 1; i <= (int)ActiveSamples; i++) if(mInstruments[i].Length != 0) {
+                    mInstruments[i].Sample = new byte[mInstruments[i].Length + 1];
+                    mFile.Read(mInstruments[i].Sample, 0, (int)mInstruments[i].Length);
+                    mInstruments[i].Sample[mInstruments[i].Length] = mInstruments[i].Sample[mInstruments[i].Length - 1];
                 }
         }
 
         private void ParseS3MFile(int offset, S3MTools.S3MFileHeader s3m) {
-            int i, j;
+            int i, j = 0;
             long p;
-            byte[] tmp = new byte[2];
             S3MTools.S3MSampleHeader smpH;
+
+            mTitle = s3m.Name;
+
+            ActiveSamples = (uint)s3m.smpNum;
+            for(i = 0; i < s3m.channels.Length; i++) {
+                if(s3m.channels[i] != 0xFF) j++;
+            }
+            ActiveChannels = (uint)j;
+
+            mInstruments = new ModInstrument[ActiveSamples + 1];
+            for(i = 0; i < mInstruments.Length; i++) {
+                mInstruments[i].name = new byte[32];
+            }
 
             MusicSpeed = s3m.speed;
             MusicTempo = s3m.tempo;
 
-            mFile.Seek(offset, SeekOrigin.Begin);
+            mFile.Position = offset;
 
-            Order = new byte[s3m.ordNum];
-            mFile.Read(Order, 0, s3m.ordNum);
+            mOrder = new byte[s3m.ordNum];
+            mFile.Read(mOrder, 0, s3m.ordNum);
 
             // Skip Sample Header Offsets (for now?)
             UInt16[] sampleHeaderOffsets = new UInt16[s3m.smpNum];
             for(i = 0; i < s3m.smpNum * 2; i += 2) {
-                mFile.Read(tmp, 0, 2);
-                sampleHeaderOffsets[i / 2] = (UInt16)(BitConverter.ToUInt16(tmp, 0));
+                sampleHeaderOffsets[i / 2] = mFile.ReadUint16();
             }
 
             UInt16[] patternsOffsets = new UInt16[s3m.patNum];
             for(i = 0; i < s3m.patNum * 2; i += 2) {
-                mFile.Read(tmp, 0, 2);
-                patternsOffsets[i / 2] = BitConverter.ToUInt16(tmp, 0);
+                patternsOffsets[i / 2] = mFile.ReadUint16();
             }
 
             for(i = 1; i <= (int)ActiveSamples; i++) {
                 mFile.Position = sampleHeaderOffsets[i - 1] * 16;
-                smpH = S3MTools.LoadStruct<S3MTools.S3MSampleHeader>(mFile);
+                smpH = SoundFile.LoadStruct<S3MTools.S3MSampleHeader>(mFile);
 
-                Array.Copy(smpH.name, Instruments[i].name, smpH.name.Length);
-                Instruments[i].Length = smpH.length;
+                Array.Copy(smpH.name, mInstruments[i].name, smpH.name.Length);
+                mInstruments[i].Length = smpH.length;
 
                 int note = FrequencyToNote(smpH.c5speed);
                 double f = Math.Pow(2.0, (note - 136) / 12.0) * 8000.0;
-                Instruments[i].FineTune = (uint)f;
+                mInstruments[i].FineTune = (uint)f;
 
-                Instruments[i].LoopStart = smpH.loopStart;
-                Instruments[i].LoopEnd = smpH.loopEnd;
+                mInstruments[i].LoopStart = smpH.loopStart;
+                mInstruments[i].LoopEnd = smpH.loopEnd;
 
-                Instruments[i].Volume = smpH.defaultVolume;
-                if(Instruments[i].Volume > 0x40) Instruments[i].Volume = 0x40;
-                Instruments[i].Volume <<= 2;
+                mInstruments[i].Volume = smpH.defaultVolume;
+                if(mInstruments[i].Volume > 0x40) mInstruments[i].Volume = 0x40;
+                mInstruments[i].Volume <<= 2;
 
                 if(smpH.Magic == "SCRS") {
-                    Instruments[i].Sample = new byte[Instruments[i].Length];
+                    mInstruments[i].Sample = new byte[mInstruments[i].Length];
                     UInt32 sampleOffset = (uint)((smpH.dataPointer[1] << 4) | (smpH.dataPointer[2] << 12) | (smpH.dataPointer[0] << 20));
                     p = mFile.Position;
                     mFile.Seek(sampleOffset, SeekOrigin.Begin);
-                    mFile.Read(Instruments[i].Sample, 0, (int)Instruments[i].Length);
+                    mFile.Read(mInstruments[i].Sample, 0, (int)mInstruments[i].Length);
                     mFile.Position = p;
 
-                    for(j = 0; j < Instruments[i].Sample.Length; j++) {
-                        Instruments[i].Sample[j] -= 0x80;
+                    for(j = 0; j < mInstruments[i].Sample.Length; j++) {
+                        mInstruments[i].Sample[j] -= 0x80;
                     }
                 }
             }
 
-            Patterns = new byte[s3m.patNum][];
+            mPatterns = new byte[s3m.patNum][];
             byte[] pattern = new byte[6];
             for(i = 0; i < s3m.patNum; i++) {
                 // Unpack patterns
@@ -248,8 +263,94 @@ namespace SharpMod {
                     bl.AddRange(pattern);
                     chn++;
                 }
-                Patterns[i] = bl.ToArray();
+                mPatterns[i] = bl.ToArray();
             }
+        }
+
+        private void ParseXMFile(int offset, XMTools.XMFileHeader xm) {
+            int i, j, k;
+
+            mTitle = xm.Name;
+
+            ActiveChannels = xm.channels;
+
+            MusicSpeed = xm.speed;
+            MusicTempo = xm.tempo;
+
+            mFile.Position = offset;
+            mOrder = new byte[xm.orders];
+            mFile.Read(mOrder, 0, xm.orders);
+
+            mFile.Position = xm.size + 60;
+
+            if(xm.version >= 0x0104) {
+                mPatterns = new byte[xm.patterns][];
+                for(i = 0; i < xm.patterns; i++) {
+                    UInt32 headerSize = mFile.ReadUint32();
+                    mFile.Position += 1;
+
+                    int numRows;
+                    if(xm.version == 0x0102) {
+                        numRows = mFile.ReadByte() + 1;
+                    } else {
+                        numRows = mFile.ReadUint16();
+                    }
+                    if(numRows == 0 || numRows > 64) numRows = 64; //FIXME: Apparently, XM files can support patterns with up to 1024 rows
+
+                    UInt16 packedSize = mFile.ReadUint16();
+
+                    System.Collections.Generic.List<byte> bl = new System.Collections.Generic.List<byte>();
+                    byte[] pattern = new byte[6];
+
+                    long curPos = mFile.Position;
+                    while(mFile.Position - curPos < packedSize) {
+                        Array.Clear(pattern, 0, pattern.Length);
+
+                        int info = (byte)mFile.ReadByte();
+                        if((info & (byte)XMTools.PatternFlags.IsPackByte) != 0) {
+                            if((info & (byte)XMTools.PatternFlags.NotePresent) != 0) {
+                                pattern[0] = 0x20;
+                                pattern[1] = (byte)mFile.ReadByte();
+                            }
+                        } else {
+                            pattern[0] = 0x20;
+                            pattern[1] = (byte)info;
+                            info = (byte)XMTools.PatternFlags.AllFlags;
+                        }
+
+                        if((info & (byte)XMTools.PatternFlags.InstrPresent) != 0) { pattern[2] = (byte)mFile.ReadByte(); }
+                        if((info & (byte)XMTools.PatternFlags.VolPresent) != 0) { pattern[0] |= 0x40; pattern[3] = (byte)mFile.ReadByte(); }
+                        if((info & (byte)XMTools.PatternFlags.CommandPresent) != 0) { pattern[0] |= 0x80; pattern[4] = (byte)mFile.ReadByte(); }
+                        if((info & (byte)XMTools.PatternFlags.ParamPresent) != 0) { pattern[0] |= 0x80; pattern[5] = (byte)mFile.ReadByte(); }
+
+                        //if(mPatterns[i][2] == 0xFF) mPatterns[i][2] = 0;
+
+                        //FIXME Extended Volume Commands are not Implemented
+                        if(pattern[3] >= 0x10 && pattern[3] <= 0x50) {
+                            pattern[3] -= 0x10;
+                        } else if(pattern[3] >= 0x60) {
+                            pattern[3] &= 0x0F;
+                        }
+                        bl.AddRange(pattern);
+                    }
+                    while(bl.Count < numRows * 6 * xm.channels) bl.AddRange(new byte[6]);
+                    mPatterns[i] = bl.ToArray();
+                }
+            }
+
+            for(i = 1; i <= xm.instruments; i++) {
+                UInt32 headerSize = mFile.ReadUint32();
+                if(headerSize == 0) headerSize = (UInt32)Marshal.SizeOf(typeof(XMTools.XMInstrumentHeader));
+
+                mFile.Position -= 4;
+                XMTools.XMInstrumentHeader xIH = SoundFile.LoadStruct<XMTools.XMInstrumentHeader>(mFile);
+
+                mInstruments[i] = new ModInstrument();
+
+                Debugger.Break();
+            }
+
+            Debugger.Break();
         }
 
         private void CloseFile(bool isValid) {
@@ -263,6 +364,15 @@ namespace SharpMod {
             SpeedCount = 0;
             Row = 0x3F;
             IsValid = isValid;
+        }
+
+        private static T LoadStruct<T>(FileStream fs) {
+            byte[] sb = new byte[Marshal.SizeOf(typeof(T))];
+            fs.Read(sb, 0, sb.Length);
+            GCHandle pb = GCHandle.Alloc(sb, GCHandleType.Pinned);
+            var s = (T)Marshal.PtrToStructure(pb.AddrOfPinnedObject(), typeof(T));
+            pb.Free();
+            return s;
         }
     }
 }
