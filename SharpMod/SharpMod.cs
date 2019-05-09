@@ -51,7 +51,12 @@ namespace SharpMod {
                         } else {
                             mFile.Seek(0x2c, SeekOrigin.Begin);
                             mFile.Read(s, 0, 4);
-                            if(Encoding.Default.GetString(s).TrimEnd((char)0) == "SCRM") {
+                            string magic = Encoding.Default.GetString(s).TrimEnd((char)0);
+                            if(magic == "SCRM") {
+                                Type = Types.S3M;
+                                mFile.Seek(0, SeekOrigin.Begin);
+                                s3mFH = SoundFile.LoadStruct<S3MTools.S3MFileHeader>(mFile);
+                            } else if(magic == "XXXX") {
                                 Type = Types.S3M;
                                 mFile.Seek(0, SeekOrigin.Begin);
                                 s3mFH = SoundFile.LoadStruct<S3MTools.S3MFileHeader>(mFile);
@@ -268,7 +273,7 @@ namespace SharpMod {
         }
 
         private void ParseXMFile(int offset, XMTools.XMFileHeader xm) {
-            int i, j, k;
+            int i;
 
             mTitle = xm.Name;
 
