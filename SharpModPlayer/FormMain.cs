@@ -19,27 +19,29 @@ namespace SharpModPlayer {
         private readonly Pen oWfPenL = new Pen(Color.FromArgb(0, 115, 170));
         private readonly Pen oWfPenR = new Pen(Color.FromArgb(0, 115, 170)); // new Pen(Color.FromArgb(0, 255, 255));
         private readonly Pen cWfPen = new Pen(Color.FromArgb(128, Color.Orange));
-        private bool userHasDroppedFile = false;
-        private readonly Font monoFont = new Font("Consolas", 14, GraphicsUnit.Pixel);
-        private Size monoFontSize;
-        private readonly int maxChannels;
-        private readonly int channelWidth;
-        private readonly StringFormat sf = new StringFormat() { Alignment = StringAlignment.Center };
-
-        private byte[] currentBuffer = new byte[0];
-        private const int sampleRate = 44100;
-        private const int bitDepth = 16; // 8 | 15
-        private const int channels = 2; // 1 | 2
 
         SolidBrush[][] bkColor = {new SolidBrush[]{new SolidBrush(Color.FromArgb(48, 48, 48)), new SolidBrush(Color.FromArgb(98, 98, 98)) }, // active
                                   new SolidBrush[]{new SolidBrush(Color.FromArgb(42, 42, 42)), new SolidBrush(Color.FromArgb(42, 42, 42)) } }; // inactive
 
-        SolidBrush[] cColor = { new SolidBrush(Color.Gray), // inactive
+        SolidBrush[] cColor = { new SolidBrush(Color.DimGray), // inactive
                                 new SolidBrush(Color.DarkCyan), // note
                                 new SolidBrush(Color.DarkKhaki), // instrument
                                 new SolidBrush(Color.DarkGreen), // volume
                                 new SolidBrush(Color.DarkOrange), // effect
                                 };
+
+        private readonly Font monoFont = new Font("Consolas", 14, GraphicsUnit.Pixel);
+        private Size monoFontSize;
+        private readonly StringFormat sf = new StringFormat() { Alignment = StringAlignment.Center };
+
+        private bool userHasDroppedFile = false;
+        private readonly int maxChannels;
+        private readonly int channelWidth;
+
+        private byte[] currentBuffer = new byte[0];
+        private const int sampleRate = 44100;
+        private const int bitDepth = 16; // 8 | 15
+        private const int channels = 2; // 1 | 2
 
         public FormMain() {
             InitializeComponent();
@@ -59,7 +61,7 @@ namespace SharpModPlayer {
             Task.Run(() => {
                 int lastRow = -1;
                 while(true) {
-                    Thread.Sleep(60);
+                    Thread.Sleep(33);
                     if(sndFile?.Row != lastRow) {
                         this.Invalidate();
                     } else {
@@ -178,9 +180,9 @@ namespace SharpModPlayer {
                 sfRow = 63;
             }
 
-            if(sndFile.CurrentPattern > 0) RenderPattern(g, ref r, fromChannel, sndFile.Order[sndFile.CurrentPattern - 1], 63, r.Y - sfRow * monoFontSize.Height, false);
-            if(sndFile.NextPattern != 0xFF) RenderPattern(g, ref r, fromChannel, sndFile.Order[sndFile.NextPattern], 0, r.Y - (sfRow - 63) * monoFontSize.Height, false);
+            if(sndFile.CurrentPattern > 0) RenderPattern(g, ref r, fromChannel, sndFile.Order[sndFile.CurrentPattern - 1], 64, r.Y - sfRow * monoFontSize.Height, false);
             RenderPattern(g, ref r, fromChannel, sfPptrIdx, sfRow, r.Y, true);
+            if(sndFile.NextPattern != 0xFF) RenderPattern(g, ref r, fromChannel, sndFile.Order[sndFile.NextPattern], 0, r.Y - (sfRow - 64) * monoFontSize.Height, false);
 
             r.X = this.DisplayRectangle.Width - r.Width;
             g.FillRectangle(Brushes.LightGray, r.X - 6, 0, r.Width + 6, monoFontSize.Height);

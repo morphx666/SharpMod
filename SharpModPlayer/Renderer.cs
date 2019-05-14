@@ -69,7 +69,7 @@ namespace SharpModPlayer {
                     SharpMod.SoundFile.ModChannel channel = sf.Channels[c];
                     if((channel.Length != 0) && (channel.InstrumentIndex == instrumentIndex)) {
                         x = r.Left + (float)channel.Pos / channel.Length * r.Width;
-                        g.DrawLine(Pens.White, x, r.Y, x, r.Bottom);
+                        g.DrawLine(Pens.LightGray, x, r.Y, x, r.Bottom);
                     }
                 }
             }
