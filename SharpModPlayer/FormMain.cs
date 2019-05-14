@@ -20,7 +20,7 @@ namespace SharpModPlayer {
         private readonly Pen oWfPenR = new Pen(Color.FromArgb(0, 115, 170)); // new Pen(Color.FromArgb(0, 255, 255));
         private readonly Pen cWfPen = new Pen(Color.FromArgb(128, Color.Orange));
         private bool userHasDroppedFile = false;
-        private readonly Font monoFont = new Font("Consolas", 13, GraphicsUnit.Pixel);
+        private readonly Font monoFont = new Font("Consolas", 14, GraphicsUnit.Pixel);
         private Size monoFontSize;
         private readonly int maxChannels;
         private readonly int channelWidth;
@@ -30,6 +30,16 @@ namespace SharpModPlayer {
         private const int sampleRate = 44100;
         private const int bitDepth = 16; // 8 | 15
         private const int channels = 2; // 1 | 2
+
+        SolidBrush[][] bkColor = {new SolidBrush[]{new SolidBrush(Color.FromArgb(48, 48, 48)), new SolidBrush(Color.FromArgb(98, 98, 98)) }, // active
+                                  new SolidBrush[]{new SolidBrush(Color.FromArgb(42, 42, 42)), new SolidBrush(Color.FromArgb(42, 42, 42)) } }; // inactive
+
+        SolidBrush[] cColor = { new SolidBrush(Color.Gray), // inactive
+                                new SolidBrush(Color.DarkCyan), // note
+                                new SolidBrush(Color.DarkKhaki), // instrument
+                                new SolidBrush(Color.DarkGreen), // volume
+                                new SolidBrush(Color.DarkOrange), // effect
+                                };
 
         public FormMain() {
             InitializeComponent();
@@ -45,11 +55,16 @@ namespace SharpModPlayer {
 
             string tmp = sndFile.CommandToString(1, 0, 0);
 
-            this.Paint += new PaintEventHandler(RenderWaveForms);
+            this.Paint += new PaintEventHandler(RenderUI);
             Task.Run(() => {
+                int lastRow = -1;
                 while(true) {
                     Thread.Sleep(60);
-                    this.Invalidate();
+                    if(sndFile?.Row != lastRow) {
+                        this.Invalidate();
+                    } else {
+                        this.Invalidate(new Rectangle(0, 0, this.DisplayRectangle.Width - (channelWidth * maxChannels), this.DisplayRectangle.Height));
+                    }
                 }
             });
 
@@ -139,75 +154,101 @@ namespace SharpModPlayer {
             return files[(new Random()).Next(files.Length)].FullName;
         }
 
-        private void RenderWaveForms(object sender, PaintEventArgs e) {
+        private void RenderUI(object sender, PaintEventArgs e) {
             // The following code is just a proof of concept and a huge mess as the same time...
 
             if(sndFile == null) return;
             lock(currentBuffer) {
                 Graphics g = e.Graphics;
-                Rectangle r = this.DisplayRectangle;
+                RenderProgress(g, RenderWaveForm(g, this.DisplayRectangle));
+                RenderSamples(g);
+                RenderPatterns(g);
+            }
+        }
 
-                // Render Output Waveform
-                r.X = 400;
-                r.Width -= (int)(r.X + channelWidth * maxChannels + 6);
-                r.Height -= 20;
-                if(!userHasDroppedFile) g.DrawString("Drop a new MOD file\nto start playing it", this.Font, Brushes.Gray, r, sf);
-                Renderer.RenderOutput(sndFile, currentBuffer, g, oWfPenL, oWfPenR, r);
+        private void RenderPatterns(Graphics g) {
+            Rectangle r = new Rectangle(0, 0, channelWidth * maxChannels, this.DisplayRectangle.Height - monoFontSize.Height - (hScrollBarChannels.Visible ? hScrollBarChannels.Height : 0));
+            int n = r.Height / (monoFontSize.Height * 64);
+            r.Y = (int)((r.Height - monoFontSize.Height) / 2.0);
+            int fromChannel = hScrollBarChannels.Value;
+            int sfPptrIdx = (int)sndFile.Pattern;
+            int sfRow = (int)sndFile.Row;
+            if(sfPptrIdx == 0xFF) {
+                sfPptrIdx = sndFile.Order.Where((o) => o != 0xFF).Last();
+                sfRow = 63;
+            }
 
-                // Render Progress
-                r.Y = this.DisplayRectangle.Height - 20;
-                r.Height = 20;
-                g.FillRectangle(Brushes.DimGray, r);
-                r.Width = (int)(r.Width * (double)sndFile.Position / sndFile.PositionCount);
-                g.FillRectangle(oWfPenL.Brush, r);
+            if(sndFile.CurrentPattern > 0) RenderPattern(g, ref r, fromChannel, sndFile.Order[sndFile.CurrentPattern - 1], 63, r.Y - sfRow * monoFontSize.Height, false);
+            if(sndFile.NextPattern != 0xFF) RenderPattern(g, ref r, fromChannel, sndFile.Order[sndFile.NextPattern], 0, r.Y - (sfRow - 63) * monoFontSize.Height, false);
+            RenderPattern(g, ref r, fromChannel, sfPptrIdx, sfRow, r.Y, true);
 
-                // FIXME: This is VERY inefficient!
-                // Since the sample doesn't change, we should "cache it" and then simply paste the bitmap, instead of re-drawing it every time.
-                // Even better, when the surface is invalidated, we could just simply invalidate the output waveform area.
-                r = new Rectangle(200, (int)(this.FontHeight * 1.5), 200, this.FontHeight + 2);
-                for(int i = 1; i < sndFile.Instruments.Length; i++) {
-                    g.DrawString(sndFile.Instruments[i].Name, this.Font, Brushes.White, 0, r.Y - r.Height);
-                    if(sndFile.Instruments[i].Sample != null) {
-                        Renderer.RenderInstrument(sndFile, i, g, cWfPen, r);
-                    }
-                    g.DrawLine(Pens.DimGray, 0, r.Y + 1, r.Right, r.Y + 1);
-                    r.Y += (r.Height + 4);
+            r.X = this.DisplayRectangle.Width - r.Width;
+            g.FillRectangle(Brushes.LightGray, r.X - 6, 0, r.Width + 6, monoFontSize.Height);
+            for(int chn = 0; chn < maxChannels; chn++) {
+                r.X = this.DisplayRectangle.Width - r.Width + chn * channelWidth;
+                g.DrawString($"Channel {chn + fromChannel + 1}", monoFont, Brushes.DarkSlateBlue, r.X + (channelWidth - monoFontSize.Width * 8) / 2, 0);
+                g.DrawLine(Pens.DimGray, r.X - 6, 0, r.X - 6, r.Bottom);
+            }
+        }
+
+        private void RenderSamples(Graphics g) {
+            // FIXME: This is VERY inefficient!
+            // Since the sample doesn't change, we should "cache it" and then simply paste the bitmap, instead of re-drawing it every time.
+            // Even better, when the surface is invalidated, we could just simply invalidate the output waveform area.
+            Rectangle r = new Rectangle(200, (int)(this.FontHeight * 1.5), 200, this.FontHeight + 2);
+            for(int i = 1; i < sndFile.Instruments.Length; i++) {
+                g.DrawString(sndFile.Instruments[i].Name, this.Font, Brushes.White, 0, r.Y - r.Height);
+                if(sndFile.Instruments[i].Sample != null) {
+                    Renderer.RenderInstrument(sndFile, i, g, cWfPen, r);
                 }
+                g.DrawLine(Pens.DimGray, 0, r.Y + 1, r.Right, r.Y + 1);
+                r.Y += (r.Height + 4);
+            }
+            g.DrawLine(Pens.DimGray, 400, 0, 400, this.DisplayRectangle.Bottom);
+        }
 
-                g.DrawLine(Pens.DimGray, 400, 0, 400, this.DisplayRectangle.Bottom);
+        private void RenderProgress(Graphics g, Rectangle r) {
+            r.Y = this.DisplayRectangle.Height - 20;
+            r.Height = 20;
+            g.FillRectangle(Brushes.DimGray, r);
+            r.Width = (int)(r.Width * (double)sndFile.Position / sndFile.PositionCount);
+            g.FillRectangle(oWfPenL.Brush, r);
+        }
 
-                // Render Patterns
-                string cCmd;
-                r = new Rectangle(0, 0, channelWidth * maxChannels, this.DisplayRectangle.Height - monoFontSize.Height - (hScrollBarChannels.Visible ? hScrollBarChannels.Height : 0));
-                int n = r.Height / (monoFontSize.Height * 64);
-                r.Y = (int)((r.Height - monoFontSize.Height) / 2.0);
-                int fromChannel = hScrollBarChannels.Value;
-                int sfPptrIdx = (int)sndFile.Pattern;
-                int sfRow = (int)sndFile.Row;
-                if(sfPptrIdx == 0xFF) {
-                    sfPptrIdx = sndFile.Order.Where((o) => o != 0xFF).Last();
-                    sfRow = 63;
-                }
+        private Rectangle RenderWaveForm(Graphics g, Rectangle r) {
+            r.X = 400;
+            r.Width -= (int)(r.X + channelWidth * maxChannels + 6);
+            r.Height -= 20;
+            if(!userHasDroppedFile) g.DrawString("Drop a new MOD file\nto start playing it", this.Font, Brushes.Gray, r, sf);
+            Renderer.RenderOutput(sndFile, currentBuffer, g, oWfPenL, oWfPenR, r);
+            return r;
+        }
 
-                for(int row = 0; row < 64; row++) {
-                    for(int chn = 0; chn < maxChannels; chn++) {
-                        cCmd = sndFile.CommandToString(sfPptrIdx, row, chn + fromChannel);
+        private void RenderPattern(Graphics g, ref Rectangle r, int fromChannel, int sfPptrIdx, int sfRow, int y, bool active) {
+            string cCmd;
+            int yo;
+            for(int row = 0; row < 64; row++) {
+                yo = y - (sfRow - row) * monoFontSize.Height;
+                if(yo < 0) continue;
+                if(yo >= r.Height) break;
 
-                        r.X = this.DisplayRectangle.Width - r.Width + chn * channelWidth;
-                        if((row == sfRow) || (row % 4) == 0) {
-                            g.FillRectangle(row == sfRow ? Brushes.LightGray : Brushes.Black, r.X, r.Y - (sfRow - row) * monoFontSize.Height, r.Width, monoFontSize.Height);
-                        }
-                        g.DrawString(cCmd, monoFont, row == sfRow ? Brushes.Blue : Brushes.Silver, r.X, r.Y - (sfRow - row) * monoFontSize.Height);
-
-                        g.DrawLine(Pens.DimGray, r.X - 6, 0, r.X - 6, r.Bottom);
-                    }
-                }
-
-                r.X = this.DisplayRectangle.Width - r.Width;
-                g.FillRectangle(Brushes.LightGray, r.X - 6, 0, r.Width + 6, monoFontSize.Height);
                 for(int chn = 0; chn < maxChannels; chn++) {
+                    cCmd = sndFile.CommandToString(sfPptrIdx, row, chn + fromChannel);
+
                     r.X = this.DisplayRectangle.Width - r.Width + chn * channelWidth;
-                    g.DrawString($"Channel {chn + fromChannel + 1}", monoFont, Brushes.DarkSlateBlue, r.X + (channelWidth - monoFontSize.Width * 8) / 2, 0);
+                    if((row == sfRow) || (row % 4) == 0) {
+                        g.FillRectangle(bkColor[active ? 0 : 1][((row == sfRow) || (row % 4) == 0) ? ((row == sfRow) ? 1 : 0) : 0], r.X, yo, r.Width, monoFontSize.Height);
+                    }
+                    string[] cmds = cCmd.Split(' ');
+                    int xo = 0;
+                    for(int i = 0; i < cmds.Length; i++) {
+                        g.DrawString(cmds[i],
+                                        monoFont,
+                                        cColor[active ? i + 1 : 0],
+                                        r.X + xo, yo);
+                        xo += (cmds[i].Length + 1) * (monoFontSize.Width - 1);
+                    }
+
                     g.DrawLine(Pens.DimGray, r.X - 6, 0, r.X - 6, r.Bottom);
                 }
             }

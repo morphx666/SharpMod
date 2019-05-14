@@ -222,6 +222,7 @@ namespace SharpMod {
                     NextPattern = 1;
                     Pattern = mOrder[CurrentPattern];
                 }
+
                 int inc = Type == Types.MOD ? 4 : 6;
                 int pIndex = (int)(Row * ActiveChannels * inc);
                 byte[] p = mPatterns[Pattern];

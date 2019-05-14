@@ -3,6 +3,9 @@
 namespace SharpMod {
     public partial class SoundFile {
         public string CommandToString(int pattern, int row, int channel) {
+            string empty = "... .. .. ...";
+            if(pattern == 0xFF) return empty;
+
             string r = "";
             int inc = Type == Types.MOD ? 4 : 6;
             int pIndex = (int)(row * ActiveChannels * inc) + channel * inc;
@@ -26,7 +29,7 @@ namespace SharpMod {
                     }
                 } else r += "... ..";
 
-                r += $" v64 ";
+                r += $" ... ";
                 if(efx != 0 && prm != 0) {
                     r += $"{(char)(efx | 0x40)}{prm:X2}";
                 } else r += "...";
@@ -58,7 +61,7 @@ namespace SharpMod {
                     r += $"{(char)(efx | 0x40)}{prm:X2}";
                 } else r += "...";
             }
-            return r == "" ? "... .. .. ..." : r;
+            return r == "" ? empty : r;
         }
 
         private string NoteToString(int note) {
