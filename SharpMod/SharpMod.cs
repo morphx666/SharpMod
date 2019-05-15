@@ -222,7 +222,8 @@ namespace SharpMod {
                 mInstruments[i].Length = smpH.length;
 
                 int note = FrequencyToNote(smpH.c5speed);
-                double f = Math.Pow(2.0, (note - 136) / 12.0) * 8000.0;
+                //double f = Math.Pow(2.0, (note - 136) / 12.0) * 8000.0;
+                double f = Math.Pow(2.0, (note - 136) / 12.0) * 8372.018;
                 mInstruments[i].FineTune = (uint)f;
 
                 mInstruments[i].LoopStart = smpH.loopStart;

@@ -257,12 +257,14 @@ namespace SharpMod {
                                 if((note >= 0xFB) && (note <= 0xFF)) note = 0;
                                 int octave = note >> 4;
                                 int semitone = note & 0x0F;
-                                note = semitone + 12 * octave + 12 + 1;
+                                note = semitone + 12 * octave + 12;// + 1;
 
                                 double f = Math.Pow(2.0, (note - 69.0) / 12.0) * 440.0;
                                 period = (uint)(Rate / f);
                             }
                         };
+
+                        //if((mode & 0x40) != 0) mChannels[chnIdx].Volume = p[pIndex + 3] << 2;
 
                         if((mode & 0x40) != 0) {
                             mChannels[chnIdx].Volume = p[pIndex + 3] << 2;
@@ -336,19 +338,19 @@ namespace SharpMod {
                         case Effects.CMD_TONEPORTAMENTO:
                             if(param == 0) param = (uint)mChannels[chnIdx].PortamentoSlide;
                             mChannels[chnIdx].PortamentoSlide = (int)param;
-                            mChannels[chnIdx].Portamento = false;
+                            mChannels[chnIdx].Portamento = true;
                             break;
                         case Effects.CMD_VIBRATO:
                             if(!bVib) mChannels[chnIdx].VibratoPos = 0;
                             if(param == 0) mChannels[chnIdx].VibratoSlide = (int)param;
-                            mChannels[chnIdx].Vibrato = false;
+                            mChannels[chnIdx].Vibrato = true;
                             break;
                         case Effects.CMD_TONEPORTAVOL:
                             if(period != 0) {
                                 mChannels[chnIdx].PortamentoDest = (int)period;
                                 if(mChannels[chnIdx].OldPeriod != 0) mChannels[chnIdx].Period = mChannels[chnIdx].OldPeriod;
                             }
-                            mChannels[chnIdx].Portamento = false;
+                            mChannels[chnIdx].Portamento = true;
                             if(param != 0) {
                                 if((param & 0xF0) != 0) mChannels[chnIdx].VolumeSlide = (int)((param >> 4) << 2);
                                 else mChannels[chnIdx].VolumeSlide = -(int)((param & 0x0F) << 2);
@@ -357,7 +359,7 @@ namespace SharpMod {
                             break;
                         case Effects.CMD_VIBRATOVOL:
                             if(!bVib) mChannels[chnIdx].VibratoPos = 0;
-                            mChannels[chnIdx].Vibrato = false;
+                            mChannels[chnIdx].Vibrato = true;
                             if(param != 0) {
                                 if((param & 0xF0) != 0) mChannels[chnIdx].VolumeSlide = (int)((param >> 4) << 2);
                                 else mChannels[chnIdx].VolumeSlide = -(int)((param & 0x0F) << 2);
@@ -367,10 +369,11 @@ namespace SharpMod {
                         case Effects.CMD_TREMOLO:
                             if(!bTrem) mChannels[chnIdx].TremoloPos = 0;
                             if(param == 0) mChannels[chnIdx].TremoloSlide = (int)param;
-                            mChannels[chnIdx].Tremolo = false;
+                            mChannels[chnIdx].Tremolo = true;
                             break;
                         case Effects.CMD_PANNING8:
                             // Not Implemented
+                            mChannels[chnIdx].Volume = (int)(param << 2);
                             break;
                         case Effects.CMD_OFFSET:
                             if(param > 0) {
