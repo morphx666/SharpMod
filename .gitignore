@@ -346,3 +346,5 @@ healthchecksdb
 **/Release/*.exe
 **/Release/*.config
 **/Release/*.manifest
+
+**/openmpt-master

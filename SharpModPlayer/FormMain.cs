@@ -30,7 +30,7 @@ namespace SharpModPlayer {
                                 new SolidBrush(Color.DarkOrange), // effect
                                 };
 
-        private readonly Font monoFont = new Font("Consolas", 14, GraphicsUnit.Pixel);
+        private readonly Font monoFont = new Font("Consolas", 15, GraphicsUnit.Pixel);
         private Size monoFontSize;
         private readonly StringFormat sf = new StringFormat() { Alignment = StringAlignment.Center };
 
@@ -49,10 +49,11 @@ namespace SharpModPlayer {
             base.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
             monoFontSize = new Size((int)(monoFont.Size - 4), monoFont.Height);
             maxChannels = 4;
-            channelWidth = monoFontSize.Width * 13;
+            channelWidth = monoFontSize.Width * 13 + 8;
 
             //sndFile = new SoundFile(@"\\Media-center\c\Users\xavie\Music\MODS\SoftMix\Party Mix '90.XM", sampleRate, bitDepth == 16, channels == 2, false);
-            sndFile = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
+            sndFile = new SoundFile(@"\\media-center\c\Users\xavie\Music\MODS\Future Crew\Second Reality Part I and IIII.mod", sampleRate, bitDepth == 16, channels == 2, false);
+            //sndFile = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
             UpdateTitleBarText();
 
             string tmp = sndFile.CommandToString(1, 0, 0);
@@ -132,8 +133,8 @@ namespace SharpModPlayer {
                 hScrollBarChannels.Value = 0;
                 hScrollBarChannels.Minimum = 0;
                 hScrollBarChannels.Maximum = Math.Max(maxChannels, (int)sndFile.ActiveChannels - maxChannels);
-                hScrollBarChannels.Width = channelWidth * maxChannels;
-                hScrollBarChannels.Left = this.DisplayRectangle.Width - hScrollBarChannels.Width - 6;
+                hScrollBarChannels.Width = channelWidth * maxChannels + 8;
+                hScrollBarChannels.Left = this.DisplayRectangle.Width - hScrollBarChannels.Width - 6+8;
                 hScrollBarChannels.Top = this.DisplayRectangle.Height - hScrollBarChannels.Height;
                 hScrollBarChannels.Visible = (sndFile.ActiveChannels > maxChannels);
             } else {

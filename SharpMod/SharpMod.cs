@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -249,17 +250,21 @@ namespace SharpMod {
             byte[] pattern = new byte[6];
             for(i = 0; i < s3m.patNum; i++) {
                 // Unpack patterns
-                System.Collections.Generic.List<byte> bl = new System.Collections.Generic.List<byte>();
+                List<byte> bl = new List<byte>();
                 mFile.Position = patternsOffsets[i] * 16 + 2;
                 int row = 0;
                 int chn = 0;
                 while(row < 64) {
                     mFile.Read(pattern, 0, 1);
-                    if(pattern[0] == 0) {
+                    if(pattern[0] == 0) { // Pad row, to the right, with empty channels
                         for(j = chn; j < ActiveChannels; j++) bl.AddRange(new byte[6]);
                         chn = 0;
                         row++;
                         continue;
+                    } else {  // Pad row, to the left, with empty channels
+                        int chnIdx = pattern[0] & 0x1F;
+                        for(j = chn; j < chnIdx; j++) bl.AddRange(new byte[6]);
+                        chn = chnIdx;
                     }
 
                     if((pattern[0] & 0x20) != 0) mFile.Read(pattern, 1, 2);
@@ -304,7 +309,7 @@ namespace SharpMod {
 
                     UInt16 packedSize = mFile.ReadUint16();
 
-                    System.Collections.Generic.List<byte> bl = new System.Collections.Generic.List<byte>();
+                    List<byte> bl = new List<byte>();
                     byte[] pattern = new byte[6];
 
                     long curPos = mFile.Position;

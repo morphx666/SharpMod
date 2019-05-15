@@ -5,7 +5,7 @@ using System.Text;
 
 // http://www.shikadi.net/moddingwiki/S3M_Format
 // https://www.fileformat.info/format/mod/corion.htm
-// https://en.wikipedia.org/wiki/C_(musical_note
+// https://en.wikipedia.org/wiki/C_(musical_note)
 
 namespace SharpMod {
     public class S3MTools {

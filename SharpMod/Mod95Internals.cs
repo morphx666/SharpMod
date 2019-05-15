@@ -171,9 +171,15 @@ namespace SharpMod {
                 // Sample ready
                 if(IsStereo) {
                     // Stereo - Surround
-                    int vol = vRight;
-                    vRight = (vRight * 13 + vLeft * 3) / (adjustvol * 8);
-                    vLeft = (vLeft * 13 + vol * 3) / (adjustvol * 8);
+                    if(Type == Types.MOD) {
+                        int vol = vRight;
+                        vRight = (vRight * 13 + vLeft * 3) / (adjustvol * 8);
+                        vLeft = (vLeft * 13 + vol * 3) / (adjustvol * 8);
+                    } else {
+                        int vol = vRight;
+                        vRight = (vRight * 17 + vLeft * 3) / (adjustvol * 8);
+                        vLeft = (vLeft * 17 + vol * 3) / (adjustvol * 8);
+                    }
                     if(Is16Bit) {
                         // 16-Bit
                         p[pIndex + 0] = (byte)(((uint)vRight) & 0xFF);
@@ -248,6 +254,7 @@ namespace SharpMod {
 
                             int note = p[pIndex + 1];
                             if(note < 0xF0) {
+                                if((note >= 0xFB) && (note <= 0xFF)) note = 0;
                                 int octave = note >> 4;
                                 int semitone = note & 0x0F;
                                 note = semitone + 12 * octave + 12 + 1;
@@ -273,7 +280,7 @@ namespace SharpMod {
                         byte A0 = p[pIndex + 0], A1 = p[pIndex + 1], A2 = p[pIndex + 2], A3 = p[pIndex + 3];
                         period = (((uint)A0 & 0x0F) << 8) | (A1);
                         instIdx = ((uint)A2 >> 4) | (uint)(A0 & 0x10);
-                        command = (uint)(A2 & 0x0F);
+                        command = (uint)(A2 & 0x0F) + 1; // The +1 adapts the MOD effects to the S3M effects
                         param = A3;
                     }
                     bool bVib = mChannels[chnIdx].Vibrato;
@@ -300,14 +307,14 @@ namespace SharpMod {
                             mChannels[chnIdx].Sample = mInstruments[instIdx].Sample;
                             mChannels[chnIdx].NextInstrumentIndex = 0;
                         }
-                        if((command != 0x03) || (mChannels[chnIdx].Period == 0)) {
+                        if(((Effects)command != Effects.CMD_TONEPORTAMENTO) || (mChannels[chnIdx].Period == 0)) {
                             mChannels[chnIdx].Period = (int)period;
                             mChannels[chnIdx].Length = mInstruments[mChannels[chnIdx].InstrumentIndex].Length << MOD_PRECISION;
                             mChannels[chnIdx].Pos = 0;
                         }
                         mChannels[chnIdx].PortamentoDest = (int)period;
                     }
-                    switch((Effects)(command + (Type == Types.MOD ? 1 : 0))) {
+                    switch((Effects)command) {
                         // 00: Arpeggio
                         case Effects.CMD_ARPEGGIO:
                             if((param == 0) || (mChannels[chnIdx].Period == 0)) break;

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 
 namespace SharpMod {
     public partial class SoundFile {
@@ -11,6 +12,7 @@ namespace SharpMod {
             int pIndex = (int)(row * ActiveChannels * inc) + channel * inc;
             byte[] cmd = new byte[inc];
             Array.Copy(mPatterns[pattern], pIndex, cmd, 0, inc);
+
             if(Type == Types.MOD) {
                 byte A0 = cmd[0], A1 = cmd[1], A2 = cmd[2], A3 = cmd[3];
                 int period = ((A0 & 0x0F) << 8) | (A1);
@@ -43,12 +45,16 @@ namespace SharpMod {
                 int prm = cmd[5];
 
                 if((mode & 0x20) != 0) {
-                    r = $"{NoteToString(note)} {inst:00}";
+                    if(note < 0xF0) {
+                        r = $"{NoteToString(note)} {inst:00}";
+                    } else {
+                        r = $"^^^ ..";
+                    }
                 } else r += "... ..";
 
                 r += " ";
                 if((mode & 0x40) != 0) {
-                    r += $"v{Math.Min(0x40, vol):X2}";
+                    r += $"v{Math.Min(0x40, vol):00}";
                 } else {
                     if(inst < mInstruments.Length)
                         r += $"v{Math.Min(0x40, mInstruments[inst].Volume):X2}";
