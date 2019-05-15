@@ -113,7 +113,7 @@ namespace SharpMod {
             public string Magic { get { return Encoding.UTF8.GetString(magic).Trim('\0'); } }
         }
 
-        public static SoundFile.Effects ConvertEffect(SoundFile.Effects c, int p) {
+        public static SoundFile.Effects ConvertEffect(SoundFile.Effects c, int fromIT) {
             SoundFile.Effects e = SoundFile.Effects.INVALID;
             switch((int)c | 0x40) {
                 case 'A': e = SoundFile.Effects.CMD_SPEED; break;

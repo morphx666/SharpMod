@@ -52,8 +52,8 @@ namespace SharpModPlayer {
             channelWidth = monoFontSize.Width * 13 + 8;
 
             //sndFile = new SoundFile(@"\\Media-center\c\Users\xavie\Music\MODS\SoftMix\Party Mix '90.XM", sampleRate, bitDepth == 16, channels == 2, false);
-            sndFile = new SoundFile(@"\\media-center\c\Users\xavie\Music\MODS\Future Crew\Second Reality Part I and IIII.mod", sampleRate, bitDepth == 16, channels == 2, false);
-            //sndFile = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
+            //sndFile = new SoundFile(@"\\media-center\c\Users\xavie\Music\MODS\new mods\7seconds.s3m", sampleRate, bitDepth == 16, channels == 2, false);
+            sndFile = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
             UpdateTitleBarText();
 
             string tmp = sndFile.CommandToString(1, 0, 0);

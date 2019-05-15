@@ -46,6 +46,10 @@ namespace SharpMod {
 
                 if((mode & 0x20) != 0) {
                     if(note < 0xF0) {
+                        int octave = note >> 4;
+                        int semitone = note & 0x0F;
+                        note = semitone + 12 * octave + 12;
+
                         r = $"{NoteToString(note)} {inst:00}";
                     } else {
                         r = $"^^^ ..";
