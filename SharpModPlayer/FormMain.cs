@@ -1,6 +1,7 @@
 ﻿using NAudio.Wave;
 using SharpMod;
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -58,6 +59,7 @@ namespace SharpModPlayer {
 
             string tmp = sndFile.CommandToString(1, 0, 0);
 
+            this.SizeChanged += (object s, EventArgs e) => UpdateTitleBarText();
             this.Paint += new PaintEventHandler(RenderUI);
             Task.Run(() => {
                 int lastRow = -1;
@@ -130,16 +132,19 @@ namespace SharpModPlayer {
                 s %= 60;
                 this.Text = $"SharpMod: '{sndFile.Title}' | {sndFile.Type} | {m:00}m {s:00}s";
 
-                hScrollBarChannels.Value = 0;
-                hScrollBarChannels.Minimum = 0;
-                hScrollBarChannels.Maximum = Math.Max(maxChannels, (int)sndFile.ActiveChannels - maxChannels);
-                hScrollBarChannels.Width = channelWidth * maxChannels + 8;
-                hScrollBarChannels.Left = this.DisplayRectangle.Width - hScrollBarChannels.Width - 6+8;
-                hScrollBarChannels.Top = this.DisplayRectangle.Height - hScrollBarChannels.Height;
-                hScrollBarChannels.Visible = (sndFile.ActiveChannels > maxChannels);
+                HScrollBarChannels.Anchor = AnchorStyles.None;
+                HScrollBarChannels.Value = 0;
+                HScrollBarChannels.Minimum = 0;
+                HScrollBarChannels.Maximum = Math.Max(maxChannels, (int)sndFile.ActiveChannels - maxChannels);
+                HScrollBarChannels.Width = channelWidth * maxChannels + 8;
+                HScrollBarChannels.Left = this.DisplayRectangle.Width - HScrollBarChannels.Width - 6 + 8;
+                HScrollBarChannels.Top = this.DisplayRectangle.Height - HScrollBarChannels.Height;
+                HScrollBarChannels.Visible = (sndFile.ActiveChannels > maxChannels);
+                HScrollBarChannels.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+                HScrollBarChannels.Refresh();
             } else {
                 this.Text = $"SharpMod";
-                hScrollBarChannels.Visible = false;
+                HScrollBarChannels.Visible = false;
             }
         }
 
@@ -170,10 +175,10 @@ namespace SharpModPlayer {
         }
 
         private void RenderPatterns(Graphics g) {
-            Rectangle r = new Rectangle(0, 0, channelWidth * maxChannels, this.DisplayRectangle.Height - monoFontSize.Height - (hScrollBarChannels.Visible ? hScrollBarChannels.Height : 0));
+            Rectangle r = new Rectangle(0, 0, channelWidth * maxChannels, this.DisplayRectangle.Height - monoFontSize.Height - (HScrollBarChannels.Visible ? HScrollBarChannels.Height : 0));
             int n = r.Height / (monoFontSize.Height * 64);
             r.Y = (int)((r.Height - monoFontSize.Height) / 2.0);
-            int fromChannel = hScrollBarChannels.Value;
+            int fromChannel = HScrollBarChannels.Value;
             int sfPptrIdx = (int)sndFile.Pattern;
             int sfRow = (int)sndFile.Row;
             if(sfPptrIdx == 0xFF) {

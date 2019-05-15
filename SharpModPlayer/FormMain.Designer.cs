@@ -24,17 +24,17 @@
         /// </summary>
         private void InitializeComponent() {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(FormMain));
-            this.hScrollBarChannels = new System.Windows.Forms.HScrollBar();
+            this.HScrollBarChannels = new System.Windows.Forms.HScrollBar();
             this.SuspendLayout();
             // 
-            // hScrollBarChannels
+            // HScrollBarChannels
             // 
-            this.hScrollBarChannels.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.hScrollBarChannels.LargeChange = 1;
-            this.hScrollBarChannels.Location = new System.Drawing.Point(915, 470);
-            this.hScrollBarChannels.Name = "hScrollBarChannels";
-            this.hScrollBarChannels.Size = new System.Drawing.Size(80, 20);
-            this.hScrollBarChannels.TabIndex = 0;
+            this.HScrollBarChannels.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.HScrollBarChannels.LargeChange = 1;
+            this.HScrollBarChannels.Location = new System.Drawing.Point(915, 470);
+            this.HScrollBarChannels.Name = "HScrollBarChannels";
+            this.HScrollBarChannels.Size = new System.Drawing.Size(80, 20);
+            this.HScrollBarChannels.TabIndex = 0;
             // 
             // FormMain
             // 
@@ -43,7 +43,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(33)))), ((int)(((byte)(33)))), ((int)(((byte)(33)))));
             this.ClientSize = new System.Drawing.Size(1256, 579);
-            this.Controls.Add(this.hScrollBarChannels);
+            this.Controls.Add(this.HScrollBarChannels);
             this.Font = new System.Drawing.Font("Consolas", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.ForeColor = System.Drawing.Color.Gainsboro;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -57,7 +57,7 @@
 
         #endregion
 
-        private System.Windows.Forms.HScrollBar hScrollBarChannels;
+        private System.Windows.Forms.HScrollBar HScrollBarChannels;
     }
 }
 
