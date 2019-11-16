@@ -44,6 +44,11 @@ namespace SharpModPlayer {
         private const int bitDepth = 16; // 8 | 15
         private const int channels = 2; // 1 | 2
 
+        private Rectangle progressRect;
+
+        private Point mouseLocation;
+        private bool isLeftMouseButtonDown;
+
         public FormMain() {
             InitializeComponent();
 
@@ -74,6 +79,39 @@ namespace SharpModPlayer {
 
             SetupDragDropSupport();
             InitAudio();
+
+            InitUIHandling();
+        }
+
+        private void InitUIHandling() {
+            this.MouseDown += (_, e) => {
+                isLeftMouseButtonDown = (e.Button == MouseButtons.Left);
+                mouseLocation = e.Location;
+            };
+
+            this.MouseUp += (_, e) => {
+                if(e.Button == MouseButtons.Left) {
+                    SetPositionFromMouse(e.X);
+                    isLeftMouseButtonDown = false;
+                }
+            };
+
+            this.MouseMove += (_, e) => {
+                Cursor c = Cursor;
+                if(e.X >= progressRect.Left && e.X <= progressRect.Right &&
+                   e.Y >= progressRect.Top && e.Y <= progressRect.Bottom) {
+                    if(isLeftMouseButtonDown) SetPositionFromMouse(e.X);
+                    c = Cursors.IBeam;
+                } else {
+                    c = Cursors.Default;
+                }
+                if(Cursor != c) Cursor = c;
+            };
+        }
+
+        private void SetPositionFromMouse(int x) {
+            double p = (double)(x - progressRect.Left) / progressRect.Width;
+            sndFile.Position = (uint)(p * sndFile.PositionCount);
         }
 
         private void SetupDragDropSupport() {
@@ -217,6 +255,7 @@ namespace SharpModPlayer {
         private void RenderProgress(Graphics g, Rectangle r) {
             r.Y = this.DisplayRectangle.Height - 20;
             r.Height = 20;
+            progressRect = r;
             g.FillRectangle(Brushes.DimGray, r);
             r.Width = (int)(r.Width * (double)sndFile.Position / sndFile.PositionCount);
             g.FillRectangle(oWfPenL.Brush, r);
