@@ -90,16 +90,15 @@ namespace SharpModPlayer {
             };
 
             this.MouseUp += (_, e) => {
-                if(e.Button == MouseButtons.Left) {
-                    SetPositionFromMouse(e.X);
+                if(isLeftMouseButtonDown ) {
+                    if(IsInsideProgressBar(e)) SetPositionFromMouse(e.X);
                     isLeftMouseButtonDown = false;
                 }
             };
 
             this.MouseMove += (_, e) => {
                 Cursor c = Cursor;
-                if(e.X >= progressRect.Left && e.X <= progressRect.Right &&
-                   e.Y >= progressRect.Top && e.Y <= progressRect.Bottom) {
+                if(IsInsideProgressBar(e)) {
                     if(isLeftMouseButtonDown) SetPositionFromMouse(e.X);
                     c = Cursors.IBeam;
                 } else {
@@ -107,6 +106,11 @@ namespace SharpModPlayer {
                 }
                 if(Cursor != c) Cursor = c;
             };
+        }
+
+        private bool IsInsideProgressBar(MouseEventArgs e) {
+            return e.X >= progressRect.Left && e.X <= progressRect.Right &&
+                   e.Y >= progressRect.Top && e.Y <= progressRect.Bottom;
         }
 
         private void SetPositionFromMouse(int x) {
