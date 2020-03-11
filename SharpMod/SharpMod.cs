@@ -206,12 +206,12 @@ namespace SharpMod {
             // Skip Sample Header Offsets (for now?)
             UInt16[] sampleHeaderOffsets = new UInt16[s3m.smpNum];
             for(i = 0; i < s3m.smpNum * 2; i += 2) {
-                sampleHeaderOffsets[i / 2] = mFile.ReadUint16();
+                sampleHeaderOffsets[i / 2] = mFile.ReadUInt16();
             }
 
             UInt16[] patternsOffsets = new UInt16[s3m.patNum];
             for(i = 0; i < s3m.patNum * 2; i += 2) {
-                patternsOffsets[i / 2] = mFile.ReadUint16();
+                patternsOffsets[i / 2] = mFile.ReadUInt16();
             }
 
             for(i = 1; i <= (int)ActiveSamples; i++) {
@@ -297,18 +297,18 @@ namespace SharpMod {
             if(xm.version >= 0x0104) {
                 mPatterns = new byte[xm.patterns][];
                 for(i = 0; i < xm.patterns; i++) {
-                    UInt32 headerSize = mFile.ReadUint32();
+                    UInt32 headerSize = mFile.ReadUInt32();
                     mFile.Position += 1;
 
                     int numRows;
                     if(xm.version == 0x0102) {
                         numRows = mFile.ReadByte() + 1;
                     } else {
-                        numRows = mFile.ReadUint16();
+                        numRows = mFile.ReadUInt16();
                     }
                     if(numRows == 0 || numRows > 64) numRows = 64; //FIXME: Apparently, XM files can support patterns with up to 1024 rows
 
-                    UInt16 packedSize = mFile.ReadUint16();
+                    UInt16 packedSize = mFile.ReadUInt16();
 
                     List<byte> bl = new List<byte>();
                     byte[] pattern = new byte[6];
@@ -350,7 +350,7 @@ namespace SharpMod {
             }
 
             for(i = 1; i <= xm.instruments; i++) {
-                UInt32 headerSize = mFile.ReadUint32();
+                UInt32 headerSize = mFile.ReadUInt32();
                 if(headerSize == 0) headerSize = (UInt32)Marshal.SizeOf(typeof(XMTools.XMInstrumentHeader));
 
                 mFile.Position -= 4;

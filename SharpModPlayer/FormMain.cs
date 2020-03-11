@@ -1,7 +1,6 @@
 ﻿using NAudio.Wave;
 using SharpMod;
 using System;
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -21,15 +20,16 @@ namespace SharpModPlayer {
         private readonly Pen oWfPenR = new Pen(Color.FromArgb(0, 115, 170)); // new Pen(Color.FromArgb(0, 255, 255));
         private readonly Pen cWfPen = new Pen(Color.FromArgb(128, Color.Orange));
 
-        SolidBrush[][] bkColor = {new SolidBrush[]{new SolidBrush(Color.FromArgb(48, 48, 48)), new SolidBrush(Color.FromArgb(98, 98, 98)) }, // active
-                                  new SolidBrush[]{new SolidBrush(Color.FromArgb(42, 42, 42)), new SolidBrush(Color.FromArgb(42, 42, 42)) } }; // inactive
+        private readonly SolidBrush[][] bkColor = {new SolidBrush[]{new SolidBrush(Color.FromArgb(48, 48, 48)), new SolidBrush(Color.FromArgb(98, 98, 98)) }, // active
+                                                   new SolidBrush[]{new SolidBrush(Color.FromArgb(42, 42, 42)), new SolidBrush(Color.FromArgb(42, 42, 42)) }  // inactive
+                                                  };
 
-        SolidBrush[] cColor = { new SolidBrush(Color.DimGray), // inactive
-                                new SolidBrush(Color.DarkCyan), // note
-                                new SolidBrush(Color.DarkKhaki), // instrument
-                                new SolidBrush(Color.DarkGreen), // volume
-                                new SolidBrush(Color.DarkOrange), // effect
-                                };
+        private readonly SolidBrush[] cColor = {new SolidBrush(Color.DimGray), // inactive
+                                                new SolidBrush(Color.DarkCyan), // note
+                                                new SolidBrush(Color.DarkKhaki), // instrument
+                                                new SolidBrush(Color.DarkGreen), // volume
+                                                new SolidBrush(Color.DarkOrange), // effect
+                                               };
 
         private readonly Font monoFont = new Font("Consolas", 15, GraphicsUnit.Pixel);
         private Size monoFontSize;
@@ -39,7 +39,7 @@ namespace SharpModPlayer {
         private readonly int maxChannels;
         private readonly int channelWidth;
 
-        private byte[] currentBuffer = new byte[0];
+        private byte[] currentBuffer = Array.Empty<byte>();
         private const int sampleRate = 44100;
         private const int bitDepth = 16; // 8 | 15
         private const int channels = 2; // 1 | 2
@@ -90,7 +90,7 @@ namespace SharpModPlayer {
             };
 
             this.MouseUp += (_, e) => {
-                if(isLeftMouseButtonDown ) {
+                if(isLeftMouseButtonDown) {
                     if(IsInsideProgressBar(e)) SetPositionFromMouse(e.X);
                     isLeftMouseButtonDown = false;
                 }
@@ -209,9 +209,11 @@ namespace SharpModPlayer {
             if(sndFile == null) return;
             lock(currentBuffer) {
                 Graphics g = e.Graphics;
-                RenderProgress(g, RenderWaveForm(g, this.DisplayRectangle));
-                RenderSamples(g);
-                RenderPatterns(g);
+                try {
+                    RenderProgress(g, RenderWaveForm(g, this.DisplayRectangle));
+                    RenderSamples(g);
+                    RenderPatterns(g);
+                } catch { }; // Yep, Bad things happen sometimes... and I don't care
             }
         }
 
@@ -221,7 +223,7 @@ namespace SharpModPlayer {
             r.Y = (int)((r.Height - monoFontSize.Height) / 2.0);
             int fromChannel = HScrollBarChannels.Value;
             int sfPptrIdx = (int)sndFile.Pattern;
-            int sfRow = (int)sndFile.Row;
+            int sfRow = (int)sndFile.Row - 1; // Properly sync audio with display
             if(sfPptrIdx == 0xFF) {
                 sfPptrIdx = sndFile.Order.Where((o) => o != 0xFF).Last();
                 sfRow = 63;

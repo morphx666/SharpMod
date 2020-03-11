@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -79,8 +78,8 @@ namespace SharpMod {
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)] internal byte[] reserved;       // Reserved
 
             public enum EnvType {
-                EnvTypeVol,
-                EnvTypePan,
+                Volume,
+                Panning,
             }
         }
 

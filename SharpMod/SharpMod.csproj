@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <AssemblyVersion>2020.1.26.1916</AssemblyVersion>
-    <FileVersion>2020.1.26.1916</FileVersion>
+    <AssemblyVersion>2020.2.14.1923</AssemblyVersion>
+    <FileVersion>2020.2.14.1923</FileVersion>
     <Authors>Xavier Flix</Authors>
     <Company>xFX JumpStart</Company>
     <Description>This is a verbatim implementation of the magnificent code developed by Olivier Lapicque for his Mod95 player.
