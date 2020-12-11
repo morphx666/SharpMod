@@ -1,4 +1,5 @@
-﻿using NAudio.Wave;
+﻿using OpenTK.Audio;
+using OpenTK.Audio.OpenAL;
 using SharpMod;
 using System;
 using System.Drawing;
@@ -12,8 +13,6 @@ using System.Windows.Forms;
 
 namespace SharpModPlayer {
     public partial class FormMain : Form {
-        private WaveOut waveOut;
-        private CustomBufferProvider audioProvider;
         private SoundFile sndFile;
 
         private readonly Pen oWfPenL = new Pen(Color.FromArgb(0, 115, 170));
@@ -127,11 +126,11 @@ namespace SharpModPlayer {
                         userHasDroppedFile = true;
                         string[] files = (string[])(e.Data.GetData("FileDrop"));
 
-                        waveOut.Stop();
+                        //AL.SourceStop(alSrc);
                         try {
                             sndFile = new SoundFile(files[0], sampleRate, bitDepth == 16, channels == 2, false);
                         } catch { };
-                        waveOut.Play();
+                        //AL.SourcePlay(alSrc);
 
                         this.Invoke((MethodInvoker)delegate { UpdateTitleBarText(); });
                     }
@@ -155,15 +154,34 @@ namespace SharpModPlayer {
         }
 
         private void InitAudio() {
-            waveOut = new WaveOut() {
-                NumberOfBuffers = 16,
-                DesiredLatency = 300
-            };
+            AudioContext audioContext = new AudioContext(AudioContext.DefaultDevice, sampleRate, 0);
 
-            audioProvider = new CustomBufferProvider(new CustomBufferProvider.FillBuffer(FillAudioBuffer), sampleRate, bitDepth, channels);
-            waveOut.Init(audioProvider);
-            waveOut.Volume = 1.0f;
-            waveOut.Play();
+            int bufLen = 8192;
+            currentBuffer = new byte[bufLen];
+
+            int alSrc = AL.GenSource();
+
+            Task.Run(() => {
+                int n = 0;
+                byte[] tmp = new byte[bufLen];
+
+                while(true) {
+                    if(sndFile != null) n = (int)sndFile.Read(currentBuffer, (uint)bufLen);
+
+                    if(n > 0) {
+                        int buf = AL.GenBuffer();
+                        
+                        AL.BufferData(buf, ALFormat.Stereo16, currentBuffer, bufLen, sampleRate);
+                        AL.SourceQueueBuffer(alSrc, buf);
+                        if(AL.GetSourceState(alSrc) != ALSourceState.Playing) AL.SourcePlay(alSrc);
+
+                        Thread.Sleep(n / 180); // Why 180? I don't know
+                                               // I'll probably switch to ManagedBass instead
+                                               // OpenTK sucks for audio
+                        AL.DeleteBuffer(buf);
+                    }
+                }
+            });
         }
 
         private void UpdateTitleBarText() {
@@ -187,15 +205,6 @@ namespace SharpModPlayer {
                 this.Text = $"SharpMod";
                 HScrollBarChannels.Visible = false;
             }
-        }
-
-        private int FillAudioBuffer(byte[] buffer) {
-            int n = 0;
-            if(sndFile != null) {
-                n = (int)sndFile.Read(buffer, (uint)buffer.Length);
-                currentBuffer = (byte[])buffer.Clone();
-            }
-            return n;
         }
 
         private string GetRandomFile() {
