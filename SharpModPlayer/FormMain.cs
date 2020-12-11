@@ -184,7 +184,7 @@ namespace SharpModPlayer {
                         do {
                             Thread.Sleep(10);
                             AL.GetSource(alSrc, ALGetSourcei.ByteOffset, out bpos);
-                        } while(bpos < n * k && k > 0);
+                        } while(bpos+3000 < n * k && k > 0);
                         k++;
 
                         AL.SourceUnqueueBuffer(buf);
