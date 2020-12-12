@@ -3,7 +3,7 @@ using System.Drawing;
 
 namespace SharpModPlayer {
     public class Renderer {
-        public static void RenderOutput(SharpMod.SoundFile sf, byte[] buffer, Graphics g, Pen colorL, Pen colorR, Rectangle r) {
+        public static void RenderWaveform(SharpMod.SoundFile sf, byte[] buffer, Graphics g, Pen colorL, Pen colorR, Rectangle r) {
             float hh = r.Height / 2.0f;
             float hh2 = hh / 2.0f;
 

@@ -2,7 +2,6 @@
 using OpenTK.Audio.OpenAL;
 using SharpMod;
 using System;
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -14,10 +13,11 @@ using System.Windows.Forms;
 
 namespace SharpModPlayer {
     public partial class FormMain : Form {
+        private int alSrc;
         private SoundFile sndFile;
 
         private readonly Pen oWfPenL = new Pen(Color.FromArgb(0, 115, 170));
-        private readonly Pen oWfPenR = new Pen(Color.FromArgb(0, 115, 170)); // new Pen(Color.FromArgb(0, 255, 255));
+        private readonly Pen oWfPenR = new Pen(Color.FromArgb(0, 115, 170));
         private readonly Pen cWfPen = new Pen(Color.FromArgb(128, Color.Orange));
 
         private readonly SolidBrush[][] bkColor = {new SolidBrush[]{new SolidBrush(Color.FromArgb(48, 48, 48)), new SolidBrush(Color.FromArgb(98, 98, 98)) }, // active
@@ -42,7 +42,7 @@ namespace SharpModPlayer {
         private byte[] buffer = Array.Empty<byte>();
         private const int sampleRate = 44100;
         private const int bitDepth = 16; // 8 | 15
-        private const int channels = 2; // 1 | 2
+        private const int channels = 2;  // 1 | 2
 
         private Rectangle progressRect;
 
@@ -61,12 +61,12 @@ namespace SharpModPlayer {
             sndFile = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
             UpdateTitleBarText();
 
-            string tmp = sndFile.CommandToString(1, 0, 0);
+            //string tmp = sndFile.CommandToString(1, 0, 0);
 
             this.SizeChanged += (object s, EventArgs e) => UpdateTitleBarText();
             this.Paint += new PaintEventHandler(RenderUI);
             Task.Run(() => {
-                int lastRow = -1;
+                const int lastRow = -1;
                 while(true) {
                     Thread.Sleep(33);
                     if(sndFile?.Row != lastRow) {
@@ -78,7 +78,7 @@ namespace SharpModPlayer {
             });
 
             SetupDragDropSupport();
-            InitAudio();
+            StartAudio();
 
             InitUIHandling();
         }
@@ -127,11 +127,9 @@ namespace SharpModPlayer {
                         userHasDroppedFile = true;
                         string[] files = (string[])(e.Data.GetData("FileDrop"));
 
-                        //AL.SourceStop(alSrc);
                         try {
                             sndFile = new SoundFile(files[0], sampleRate, bitDepth == 16, channels == 2, false);
                         } catch { };
-                        //AL.SourcePlay(alSrc);
 
                         this.Invoke((MethodInvoker)delegate { UpdateTitleBarText(); });
                     }
@@ -154,42 +152,61 @@ namespace SharpModPlayer {
             return isValid;
         }
 
-        private void InitAudio() {
+        private void StartAudio() {
             AudioContext audioContext = new AudioContext(AudioContext.DefaultDevice, sampleRate, 0);
 
             int bufLen = 6000;
+            int bufLen2 = bufLen / 2;
             buffer = new byte[bufLen];
 
-            int alSrc = AL.GenSource();
             ALFormat alf = bitDepth == 16 ?
                             (channels == 2 ? ALFormat.Stereo16 : ALFormat.Mono16) :
                             (channels == 2 ? ALFormat.Stereo8 : ALFormat.Mono8);
 
+            alSrc = AL.GenSource();
+
+            // All this crap is just to prevent having a conditional (if)
+            // inside the while loop, which is only executed once:
+            //  if(AL.GetSourceState(alSrc) != ALSourceState.Playing) AL.SourcePlay(alSrc);
+            //  https://github.com/morphx666/SharpMod/blob/4c46ce08023391139b074ce08e1b58c661a42199/SharpModPlayer/FormMain.cs#L182
+            int buf = AL.GenBuffer();
+            AL.BufferData(buf, alf, buffer, bufLen, sampleRate);
+            AL.SourceQueueBuffer(alSrc, buf);
+            AL.SourcePlay(alSrc);
+            AL.SourceUnqueueBuffer(buf);
+            AL.DeleteBuffer(buf);
+
             Task.Run(() => {
-                int n = 0;
-                int k = 0;
+                int n;
+                int frame = 0;
                 int bpos;
-                byte[] tmp = new byte[bufLen];
+                bool bufferIsClear = false;
 
                 while(true) {
-                    if(sndFile != null) n = (int)sndFile.Read(buffer, (uint)bufLen);
+                    if(sndFile != null) {
+                        n = (int)sndFile.Read(buffer, (uint)bufLen);
 
-                    if(n > 0) {
-                        int buf = AL.GenBuffer();
-
-                        AL.BufferData(buf, alf, buffer, bufLen, sampleRate);
-                        AL.SourceQueueBuffer(alSrc, buf);
-                        if(AL.GetSourceState(alSrc) != ALSourceState.Playing) AL.SourcePlay(alSrc);
-
-                        do {
-                            Thread.Sleep(10);
-                            AL.GetSource(alSrc, ALGetSourcei.ByteOffset, out bpos);
-                        } while(bpos+3000 < n * k && k > 0);
-                        k++;
-
-                        AL.SourceUnqueueBuffer(buf);
-                        AL.DeleteBuffer(buf);
+                        if(n == 0) {
+                            if(!bufferIsClear) {
+                                Array.Clear(buffer, 0, bufLen);
+                                bufferIsClear = true;
+                            }
+                        } else if(bufferIsClear) bufferIsClear = false;
                     }
+
+                    buf = AL.GenBuffer();
+
+                    AL.BufferData(buf, alf, buffer, bufLen, sampleRate);
+                    AL.SourceQueueBuffer(alSrc, buf);
+
+                    do {
+                        Thread.Sleep(5);
+                        AL.GetSource(alSrc, ALGetSourcei.ByteOffset, out bpos);
+                    } while(bpos + bufLen2 < bufLen * frame);
+                    frame++;
+
+                    AL.SourceUnqueueBuffer(buf);
+                    AL.DeleteBuffer(buf);
                 }
             });
         }
@@ -223,13 +240,13 @@ namespace SharpModPlayer {
         }
 
         private void RenderUI(object sender, PaintEventArgs e) {
-            // The following code is just a proof of concept and a huge mess as the same time...
+            // The following code is just a proof of concept and a huge mess at the same time...
 
             if(sndFile == null) return;
             lock(buffer) {
                 Graphics g = e.Graphics;
                 try {
-                    RenderProgress(g, RenderWaveForm(g, this.DisplayRectangle));
+                    RenderProgress(g, RenderWaveform(g, this.DisplayRectangle));
                     RenderSamples(g);
                     RenderPatterns(g);
                 } catch { }; // Yep, Bad things happen sometimes... and I don't care
@@ -242,7 +259,7 @@ namespace SharpModPlayer {
             r.Y = (int)((r.Height - monoFontSize.Height) / 2.0);
             int fromChannel = HScrollBarChannels.Value;
             int sfPptrIdx = (int)sndFile.Pattern;
-            int sfRow = (int)sndFile.Row - 1; // Properly sync audio with display
+            int sfRow = (int)sndFile.Row - 0; // Adjust to properly sync audio with display
             if(sfPptrIdx == 0xFF) {
                 sfPptrIdx = sndFile.Order.Where((o) => o != 0xFF).Last();
                 sfRow = 63;
@@ -286,12 +303,12 @@ namespace SharpModPlayer {
             g.FillRectangle(oWfPenL.Brush, r);
         }
 
-        private Rectangle RenderWaveForm(Graphics g, Rectangle r) {
+        private Rectangle RenderWaveform(Graphics g, Rectangle r) {
             r.X = 400;
             r.Width -= (int)(r.X + channelWidth * maxChannels + 6);
             r.Height -= 20;
             if(!userHasDroppedFile) g.DrawString("Drop a new MOD file\nto start playing it", this.Font, Brushes.Gray, r, sf);
-            Renderer.RenderOutput(sndFile, buffer, g, oWfPenL, oWfPenR, r);
+            Renderer.RenderWaveform(sndFile, buffer, g, oWfPenL, oWfPenR, r);
             return r;
         }
 

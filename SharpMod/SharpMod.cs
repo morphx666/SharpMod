@@ -17,6 +17,8 @@ using SharpMod.Helpers;
 
 namespace SharpMod {
     public partial class SoundFile {
+        public readonly string FileName;
+
         public SoundFile(string fileName, uint sampleRate, bool is16Bit, bool isStereo, bool loop) {
             byte[] s = new byte[1024];
             S3MTools.S3MFileHeader s3mFH = new S3MTools.S3MFileHeader();
@@ -29,6 +31,7 @@ namespace SharpMod {
             Loop = loop;
             ActiveChannels = 0;
 
+            FileName = fileName;
             mFile = new FileInfo(fileName).Open(FileMode.Open, FileAccess.Read, FileShare.Read);
 
             Type = Types.MOD;
