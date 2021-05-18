@@ -275,7 +275,7 @@ namespace SharpMod {
                         byte A0 = p[pIndex + 0], A1 = p[pIndex + 1], A2 = p[pIndex + 2], A3 = p[pIndex + 3];
                         period = (((uint)A0 & 0x0F) << 8) | (A1);
                         instIdx = ((uint)A2 >> 4) | (uint)(A0 & 0x10);
-                        command = (uint)(A2 & 0x0F) + 1; // The +1 adapts the MOD effects to the S3M effects
+                        command = (uint)(A2 & 0x0F) + 1; // The +1 maps the MOD effects to the S3M effects
                         param = A3;
                     }
                     bool bVib = mChannels[chnIdx].Vibrato;
@@ -472,16 +472,16 @@ namespace SharpMod {
                     if(mChannels[nChn].Tremolo) {
                         int vol = mChannels[nChn].CurrentVolume;
                         switch(mChannels[nChn].TremoloType) {
-                            case 1:
+                            case 1: // Ramp Down
                                 vol += ModRampDownTable[mChannels[nChn].TremoloPos] * (mChannels[nChn].TremoloSlide & 0x0F) / 127;
                                 break;
-                            case 2:
+                            case 2: // Square
                                 vol += ModSquareTable[mChannels[nChn].TremoloPos] * (mChannels[nChn].TremoloSlide & 0x0F) / 127;
                                 break;
-                            case 3:
+                            case 3: // Random
                                 vol += ModRandomTable[mChannels[nChn].TremoloPos] * (mChannels[nChn].TremoloSlide & 0x0F) / 127;
                                 break;
-                            default:
+                            default: // Sinus
                                 vol += ModSinusTable[mChannels[nChn].TremoloPos] * (mChannels[nChn].TremoloSlide & 0x0F) / 127;
                                 break;
                         }
@@ -490,7 +490,7 @@ namespace SharpMod {
                         mChannels[nChn].CurrentVolume = (short)vol;
                         mChannels[nChn].TremoloPos = (mChannels[nChn].TremoloPos + (mChannels[nChn].TremoloSlide >> 4)) & 0x3F;
                     }
-                    if((mChannels[nChn].Portamento) && (mChannels[nChn].PortamentoDest != 0)) {
+                    if(mChannels[nChn].Portamento && (mChannels[nChn].PortamentoDest != 0)) {
                         if(mChannels[nChn].Period < mChannels[nChn].PortamentoDest) {
                             mChannels[nChn].Period += mChannels[nChn].PortamentoSlide;
                             if(mChannels[nChn].Period > mChannels[nChn].PortamentoDest)

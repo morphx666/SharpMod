@@ -11,8 +11,9 @@ using SharpMod.Helpers;
 
     For more information, visit https://openmpt.org/legacy_software
 
-    Code ported to c# by Xavier Flix (https://github.com/morphx666) on 2019/ 4/25
+    Code ported to C# by Xavier Flix (https://github.com/morphx666) on 2019/ 4/25
     S3M (partial) support added by Xavier Flix on 2019/ 4/29
+    XM  (partial) support added by Xavier Flix on 2019/ 5/ 4
 */
 
 namespace SharpMod {
@@ -81,14 +82,12 @@ namespace SharpMod {
             }
 
             mFile.Seek(0, SeekOrigin.Begin);
-            if(Type == Types.MOD) {
-                ParseModFile(20);
-            } else {
-                switch(Type) {
-                    case Types.S3M: ParseS3MFile(96, s3mFH); break;
-                    case Types.XM: ParseXMFile(80, xmFH); break;
-                }
+            switch(Type) {
+                case Types.MOD: ParseModFile(20); break;
+                case Types.S3M: ParseS3MFile(96, s3mFH); break;
+                case Types.XM: ParseXMFile(80, xmFH); break;
             }
+
             CloseFile(true);
         }
 
@@ -339,7 +338,7 @@ namespace SharpMod {
 
                         //if(mPatterns[i][2] == 0xFF) mPatterns[i][2] = 0;
 
-                        //FIXME Extended Volume Commands are not Implemented
+                        //FIXME: Extended Volume Commands are not Implemented
                         if(pattern[3] >= 0x10 && pattern[3] <= 0x50) {
                             pattern[3] -= 0x10;
                         } else if(pattern[3] >= 0x60) {

@@ -2,7 +2,7 @@
 using System.Drawing;
 
 namespace SharpModPlayer {
-    public class Renderer {
+    public static class Renderer {
         public static void RenderWaveform(SharpMod.SoundFile sf, byte[] buffer, Graphics g, Pen colorL, Pen colorR, Rectangle r) {
             float hh = r.Height / 2.0f;
             float hh2 = hh / 2.0f;
@@ -63,7 +63,7 @@ namespace SharpModPlayer {
                 }
                 g.DrawCurve(color, pL);
 
-                // Render Position
+                // Render Playback Position(s)
                 r.Y -= r.Height;
                 for(int c = 0; c < sf.Channels.Length - 1; c++) {
                     SharpMod.SoundFile.ModChannel channel = sf.Channels[c];

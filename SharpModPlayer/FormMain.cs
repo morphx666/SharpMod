@@ -279,18 +279,22 @@ namespace SharpModPlayer {
         }
 
         private void RenderSamples(Graphics g) {
+            const int mn = 21;
             // FIXME: This is VERY inefficient!
             // Since the sample doesn't change, we should "cache it" and then simply paste the bitmap, instead of re-drawing it every time.
             // Even better, when the surface is invalidated, we could just simply invalidate the output waveform area.
             Rectangle r = new Rectangle(200, (int)(this.FontHeight * 1.5), 200, this.FontHeight + 2);
             for(int i = 1; i < sndFile.Instruments.Length; i++) {
-                g.DrawString(sndFile.Instruments[i].Name, this.Font, Brushes.White, 0, r.Y - r.Height);
+                string n = sndFile.Instruments[i].Name;
+                if(n.Length > mn) n = n.Substring(0, mn - 1) + "…";
+                g.DrawString(n, this.Font, Brushes.White, 0, r.Y - r.Height);
                 if(sndFile.Instruments[i].Sample != null) {
                     Renderer.RenderInstrument(sndFile, i, g, cWfPen, r);
                 }
                 g.DrawLine(Pens.DimGray, 0, r.Y + 1, r.Right, r.Y + 1);
                 r.Y += (r.Height + 4);
             }
+            g.DrawLine(Pens.DimGray, r.X - 4, 0, r.X - 4, this.DisplayRectangle.Bottom);
             g.DrawLine(Pens.DimGray, 400, 0, 400, this.DisplayRectangle.Bottom);
         }
 
