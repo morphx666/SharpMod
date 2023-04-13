@@ -347,5 +347,6 @@ healthchecksdb
 **/Release/*.config
 **/Release/*.manifest
 **/Release/netstandard2.0/
+**/Release/netstandard2.1/
 
 **/openmpt-master

@@ -46,8 +46,9 @@ namespace SharpModPlayer {
 
         private Rectangle progressRect;
 
-        private Point mouseLocation;
         private bool isLeftMouseButtonDown;
+
+        private bool isMono = IsRunningOnMono();
 
         public FormMain() {
             InitializeComponent();
@@ -65,28 +66,22 @@ namespace SharpModPlayer {
 
             this.SizeChanged += (object s, EventArgs e) => UpdateTitleBarText();
             this.Paint += new PaintEventHandler(RenderUI);
-            Task.Run(() => {
-                const int lastRow = -1;
-                while(true) {
-                    Thread.Sleep(33);
-                    if(sndFile?.Row != lastRow) {
-                        this.Invalidate();
-                    } else {
-                        this.Invalidate(new Rectangle(0, 0, this.DisplayRectangle.Width - (channelWidth * maxChannels), this.DisplayRectangle.Height));
-                    }
-                }
-            });
 
             SetupDragDropSupport();
+            InitUIHandling();
             StartAudio();
 
-            InitUIHandling();
+            Task.Run(async () => {
+                while(true) {
+                    await Task.Delay(60);
+                    this.Invoke((MethodInvoker)delegate { this.Invalidate(); });
+                }
+            });
         }
 
         private void InitUIHandling() {
             this.MouseDown += (_, e) => {
                 isLeftMouseButtonDown = (e.Button == MouseButtons.Left);
-                mouseLocation = e.Location;
             };
 
             this.MouseUp += (_, e) => {
@@ -344,6 +339,10 @@ namespace SharpModPlayer {
                     g.DrawLine(Pens.DimGray, r.X - 6, 0, r.X - 6, r.Bottom);
                 }
             }
+        }
+
+        private static bool IsRunningOnMono() {
+            return Type.GetType("Mono.Runtime") != null;
         }
     }
 }
