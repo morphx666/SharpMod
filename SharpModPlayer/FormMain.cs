@@ -50,6 +50,8 @@ namespace SharpModPlayer {
 
         private bool isMono = IsRunningOnMono();
 
+        private int fps = 30;
+
         public FormMain() {
             InitializeComponent();
 
@@ -59,7 +61,7 @@ namespace SharpModPlayer {
             channelWidth = monoFontSize.Width * 13 + 8;
 
             //sndFile = new SoundFile(@"\\media-center\c\Users\xavie\Music\MODS\new mods\temp\RIAD_INS.S3M", sampleRate, bitDepth == 16, channels == 2, false);
-            sndFile = new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false);
+            SetSoundFile(new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false));
             UpdateTitleBarText();
 
             //string tmp = sndFile.CommandToString(1, 0, 0);
@@ -73,10 +75,15 @@ namespace SharpModPlayer {
 
             Task.Run(async () => {
                 while(true) {
-                    await Task.Delay(60);
+                    await Task.Delay(fps);
                     this.Invoke((MethodInvoker)delegate { this.Invalidate(); });
                 }
             });
+        }
+
+        private void SetSoundFile(SoundFile soundFile) {
+            sndFile = soundFile;
+            fps = (int)Math.Max(30, Math.Floor(5000.0 / sndFile.MusicTempo));
         }
 
         private void InitUIHandling() {
@@ -123,7 +130,7 @@ namespace SharpModPlayer {
                         string[] files = (string[])(e.Data.GetData("FileDrop"));
 
                         try {
-                            sndFile = new SoundFile(files[0], sampleRate, bitDepth == 16, channels == 2, false);
+                            SetSoundFile(new SoundFile(files[0], sampleRate, bitDepth == 16, channels == 2, false));
                         } catch { };
 
                         this.Invoke((MethodInvoker)delegate { UpdateTitleBarText(); });
