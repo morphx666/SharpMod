@@ -36,7 +36,7 @@ namespace SharpModPlayer {
         private readonly StringFormat sf = new StringFormat() { Alignment = StringAlignment.Center };
 
         private bool userHasDroppedFile = false;
-        private readonly int maxChannels;
+        private uint maxChannels;
         private readonly int channelWidth;
 
         private byte[] buffer = Array.Empty<byte>();
@@ -47,6 +47,8 @@ namespace SharpModPlayer {
         private Rectangle progressRect;
 
         private bool isLeftMouseButtonDown;
+        private Point mouseDownPos;
+        private bool isResizing;
 
         private bool isMono = IsRunningOnMono();
 
@@ -89,6 +91,7 @@ namespace SharpModPlayer {
         private void InitUIHandling() {
             this.MouseDown += (_, e) => {
                 isLeftMouseButtonDown = (e.Button == MouseButtons.Left);
+                mouseDownPos = e.Location;
             };
 
             this.MouseUp += (_, e) => {
@@ -96,6 +99,7 @@ namespace SharpModPlayer {
                     if(IsInsideProgressBar(e)) SetPositionFromMouse(e.X);
                     isLeftMouseButtonDown = false;
                 }
+                isResizing = false;
             };
 
             this.MouseMove += (_, e) => {
@@ -103,6 +107,12 @@ namespace SharpModPlayer {
                 if(IsInsideProgressBar(e)) {
                     if(isLeftMouseButtonDown) SetPositionFromMouse(e.X);
                     c = Cursors.IBeam;
+                } else if(IsOverChannelsDiv(e) || isResizing) {
+                    if(isLeftMouseButtonDown) {
+                        ResizeChannels(e.X);
+                        isResizing = true;
+                    }
+                    c = Cursors.SizeWE;
                 } else {
                     c = Cursors.Default;
                 }
@@ -115,9 +125,33 @@ namespace SharpModPlayer {
                    e.Y >= progressRect.Top && e.Y <= progressRect.Bottom;
         }
 
+        private bool IsOverChannelsDiv(MouseEventArgs e) {
+            return e.X >= progressRect.Right - 2 && e.X <= progressRect.Right + 2;
+        }
+
         private void SetPositionFromMouse(int x) {
             double p = (double)(x - progressRect.Left) / progressRect.Width;
             sndFile.Position = (uint)(p * sndFile.PositionCount);
+        }
+
+        private void ResizeChannels(int x) {
+            int w = (mouseDownPos.X - x) / channelWidth;
+            if(w != 0) {
+                w = w > 0 ? 1 : -1; // Normalize
+                uint newMaxChannels = (uint)(maxChannels + w);
+
+                if(w > 0 && this.DisplayRectangle.Width - 400 - newMaxChannels * channelWidth < 200) {
+                    return;
+                } else if(newMaxChannels <= 0) {
+                    newMaxChannels = 1;
+                } else if(newMaxChannels > sndFile.ActiveChannels) {
+                    newMaxChannels = sndFile.ActiveChannels;
+                }
+                maxChannels = newMaxChannels;
+                UpdateTitleBarText();
+
+                mouseDownPos = new Point(x, mouseDownPos.Y);
+            }
         }
 
         private void SetupDragDropSupport() {
@@ -223,8 +257,8 @@ namespace SharpModPlayer {
                 HScrollBarChannels.Anchor = AnchorStyles.None;
                 HScrollBarChannels.Value = 0;
                 HScrollBarChannels.Minimum = 0;
-                HScrollBarChannels.Maximum = Math.Max(maxChannels, (int)sndFile.ActiveChannels - maxChannels);
-                HScrollBarChannels.Width = channelWidth * maxChannels + 8;
+                HScrollBarChannels.Maximum = (int)(sndFile.ActiveChannels - maxChannels);
+                HScrollBarChannels.Width = (int)(channelWidth * maxChannels + 8);
                 HScrollBarChannels.Left = this.DisplayRectangle.Width - HScrollBarChannels.Width - 6 + 8;
                 HScrollBarChannels.Top = this.DisplayRectangle.Height - HScrollBarChannels.Height;
                 HScrollBarChannels.Visible = (sndFile.ActiveChannels > maxChannels);
@@ -256,7 +290,7 @@ namespace SharpModPlayer {
         }
 
         private void RenderPatterns(Graphics g) {
-            Rectangle r = new Rectangle(0, 0, channelWidth * maxChannels, this.DisplayRectangle.Height - monoFontSize.Height - (HScrollBarChannels.Visible ? HScrollBarChannels.Height : 0));
+            Rectangle r = new Rectangle(0, 0, (int)(channelWidth * maxChannels), this.DisplayRectangle.Height - monoFontSize.Height - (HScrollBarChannels.Visible ? HScrollBarChannels.Height : 0));
             int n = r.Height / (monoFontSize.Height * 64);
             r.Y = (int)((r.Height - monoFontSize.Height) / 2.0);
             int fromChannel = HScrollBarChannels.Value;
