@@ -135,17 +135,16 @@ namespace SharpModPlayer {
         }
 
         private void ResizeChannels(int x) {
+            const int minWaveformWidth = 200;
             int w = (mouseDownPos.X - x) / channelWidth;
             if(w != 0) {
                 w = w > 0 ? 1 : -1; // Normalize
                 uint newMaxChannels = (uint)(maxChannels + w);
 
-                if(w > 0 && this.DisplayRectangle.Width - 400 - newMaxChannels * channelWidth < 200) {
+                if((newMaxChannels <= 0) ||
+                    (newMaxChannels > sndFile.ActiveChannels) ||
+                    (w > 0 && this.DisplayRectangle.Width - 400 - newMaxChannels * channelWidth < minWaveformWidth)) {
                     return;
-                } else if(newMaxChannels <= 0) {
-                    newMaxChannels = 1;
-                } else if(newMaxChannels > sndFile.ActiveChannels) {
-                    newMaxChannels = sndFile.ActiveChannels;
                 }
                 maxChannels = newMaxChannels;
                 UpdateTitleBarText();
@@ -165,6 +164,7 @@ namespace SharpModPlayer {
 
                         try {
                             SetSoundFile(new SoundFile(files[0], sampleRate, bitDepth == 16, channels == 2, false));
+                            if(maxChannels > sndFile.ActiveChannels) maxChannels = sndFile.ActiveChannels;
                         } catch { };
 
                         this.Invoke((MethodInvoker)delegate { UpdateTitleBarText(); });
