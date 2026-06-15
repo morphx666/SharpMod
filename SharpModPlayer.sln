@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpModPlayer", "SharpModP
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharpMod", "SharpMod\SharpMod.csproj", "{9CDC64C9-A77B-414B-881D-F868DB559C18}"
 EndProject
+Project("{9B19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharpModConsolePlayer", "SharpModConsolePlayer\SharpModConsolePlayer.csproj", "{9ADC64C9-A77B-414B-881D-F868DB559C18}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{9CDC64C9-A77B-414B-881D-F868DB559C18}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9CDC64C9-A77B-414B-881D-F868DB559C18}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9CDC64C9-A77B-414B-881D-F868DB559C18}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9ADC64C9-A77B-414B-881D-F868DB559C18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9ADC64C9-A77B-414B-881D-F868DB559C18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9ADC64C9-A77B-414B-881D-F868DB559C18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9ADC64C9-A77B-414B-881D-F868DB559C18}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
