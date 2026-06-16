@@ -62,7 +62,6 @@ namespace SharpModPlayer {
             maxChannels = 4;
             channelWidth = monoFontSize.Width * 13 + 8;
 
-            //sndFile = new SoundFile(@"\\media-center\c\Users\xavie\Music\MODS\new mods\temp\RIAD_INS.S3M", sampleRate, bitDepth == 16, channels == 2, false);
             SetSoundFile(new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false));
             UpdateTitleBarText();
 
@@ -271,6 +270,7 @@ namespace SharpModPlayer {
         }
 
         private string GetRandomFile() {
+            return @"Z:\Music\Music (C)\MODS\Future Crew\PANIC.MOD";
             FileInfo[] files = (new DirectoryInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mods"))).GetFiles("*.*");
             return files[(new Random()).Next(files.Length)].FullName;
         }
@@ -290,7 +290,7 @@ namespace SharpModPlayer {
         }
 
         private void RenderPatterns(Graphics g) {
-            Rectangle r = new(0, 0, (int)(channelWidth * maxChannels), this.DisplayRectangle.Height - monoFontSize.Height - (HScrollBarChannels.Visible ? HScrollBarChannels.Height : 0));
+            Rectangle r = new Rectangle(0, 0, (int)(channelWidth * maxChannels), this.DisplayRectangle.Height - monoFontSize.Height - (HScrollBarChannels.Visible ? HScrollBarChannels.Height : 0));
             int n = r.Height / (monoFontSize.Height * 64);
             r.Y = (int)((r.Height - monoFontSize.Height) / 2.0);
             int fromChannel = HScrollBarChannels.Value;
@@ -359,7 +359,7 @@ namespace SharpModPlayer {
                 if(yo >= r.Height) break;
 
                 for(int chn = 0; chn < maxChannels; chn++) {
-                    string command = sndFile.CommandToString(patternIndex, row, chn + fromChannel);
+                    string command = sndFile.CommandToString(patternIndex, (uint)row, chn + fromChannel);
 
                     r.X = this.DisplayRectangle.Width - r.Width + chn * channelWidth;
                     if((row == sfRow) || (row % 4) == 0) {

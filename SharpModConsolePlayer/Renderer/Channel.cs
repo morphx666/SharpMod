@@ -1,53 +1,77 @@
 using SharpMod;
 using PrettyConsole;
 using static PrettyConsole.Color;
-using System.Diagnostics;
 
 // https://github.com/dusrdev/PrettyConsole
 
 namespace SharpModConsolePlayer.Renderer {
     internal class Channel {
-        public static void Render(SoundFile sf, int channelIndex, uint patternIndex, int x) {
-            int height = Console.WindowHeight;
-            int center = height / 2;
-            int currentPatternRow = (int)sf.Row;
+        internal const int RowsPerPattern = 64;
+        internal const int HeaderRow = 0;
+        internal const int FirstPatternRow = HeaderRow + 1;
 
-            int previousPatternIndex = sf.CurrentPattern > 0 ? sf.Order[sf.CurrentPattern - 1] : -1;
-            int nextPatternIndex =  sf.NextPattern != 0xFF ? sf.Order[sf.NextPattern] : -1;
+        public static void Render(SoundFile sf, int channelIndex, uint patternIndex, int consoleCol) {
+            int height = Console.WindowHeight;
+            int center = FirstPatternRow + (height - FirstPatternRow) / 2;
+
+            RenderHeader(channelIndex + 1, consoleCol);
+
+            // Snapshot mutable state so the audio thread can't shift it mid-render
+            int currentPatternRow = (int)sf.Row;
+            uint currentPattern = sf.CurrentPattern;
+            uint nextPattern = sf.NextPattern;
+
+            int previousPatternIndex = currentPattern > 0 ? sf.Order[currentPattern - 1] : -1;
+            int nextPatternIndex = nextPattern != 0xFF ? sf.Order[nextPattern] : -1;
             int[] patternIndices = [previousPatternIndex, (int)patternIndex, nextPatternIndex];
 
-            int offset = -1;
             for(int i = 0; i < patternIndices.Length; i++) {
                 int pi = patternIndices[i];
-                if(pi == -1) continue;
+                int patternRelative = i - 1; // -1, 0, +1
+                bool isActivePattern = patternRelative == 0;
 
-                for(int row = 0; row < 64; row++) {
-                    int consoleRow = center + (row - currentPatternRow) + 64 * offset;
-                    if(consoleRow < 0 || consoleRow >= height) continue;
+                for(int row = 0; row < RowsPerPattern; row++) {
+                    int consoleRow = ComputeConsoleRow(center, currentPatternRow, row, patternRelative);
+                    if(consoleRow < FirstPatternRow || consoleRow >= height) continue;
 
-                    string command = sf.CommandToString((uint)pi, (uint)row, channelIndex);
-                    RenderPattern(command, x, consoleRow, center, pi == patternIndex);
+                    if(pi == -1) {
+                        ClearRow(consoleCol, consoleRow);
+                    } else {
+                        string command = sf.CommandToString((uint)pi, (uint)row, channelIndex);
+                        RenderRow(command, consoleCol, consoleRow, isActivePattern, isActivePattern && row == currentPatternRow);
+                    }
                 }
-
-                offset++;
             }
         }
 
-        private static void RenderPattern(string command, int x, int consoleRow, int center, bool isActive) {
+        internal static int ComputeConsoleRow(int center, int currentPatternRow, int row, int patternRelative)
+            => center - currentPatternRow + row + patternRelative * RowsPerPattern;
+
+        private static void RenderHeader(int channelNumber, int col) {
+            Console.SetCursorPosition(col, HeaderRow);
+            Console.WriteInterpolated($"{Default}{Magenta} Channel {channelNumber,-7}{Default}");
+        }
+
+        private static void ClearRow(int col, int row) {
+            Console.SetCursorPosition(col, row);
+            Console.WriteInterpolated($"{Default}                ");
+        }
+
+        private static void RenderRow(string command, int col, int row, bool isActivePattern, bool isActiveRow) {
             ReadOnlySpan<char> s = command.AsSpan();
-            bool isCurrent = consoleRow == center;
 
-            Console.SetCursorPosition(x, consoleRow);
+            Console.SetCursorPosition(col, row);
 
-            var foreColor = isActive ? White : DarkGray;
-            var backColor = isCurrent ? DarkGrayBackground : BlackBackground;
+            var foreColor = isActiveRow ? White : DarkGray;
+            var backColor = isActiveRow ? DarkGrayBackground : Default;
 
             if(s.Length < 14) {
-                if(isCurrent) {
+                if(isActiveRow) {
                     Console.WriteInterpolated($"{backColor}{foreColor} ... .. ... ... {Default}");
                 } else {
                     Console.WriteInterpolated($"{foreColor} ... .. ... ... {Default}");
                 }
+                return;
             }
 
             ReadOnlySpan<char> note = s[..3];
@@ -55,12 +79,12 @@ namespace SharpModConsolePlayer.Renderer {
             ReadOnlySpan<char> vol = s.Slice(7, 3);
             ReadOnlySpan<char> efx = s.Slice(11, 3);
 
-            AnsiToken nc = IsPlaceholder(note) ? DarkGray : White;
-            AnsiToken ic = IsPlaceholder(inst) ? DarkGray : Green;
-            AnsiToken vc = IsPlaceholder(vol) ? DarkGray : Cyan;
-            AnsiToken ec = IsPlaceholder(efx) ? DarkGray : Yellow;
+            AnsiToken nc = !isActivePattern || IsPlaceholder(note) ? DarkGray : White;
+            AnsiToken ic = !isActivePattern || IsPlaceholder(inst) ? DarkGray : Green;
+            AnsiToken vc = !isActivePattern || IsPlaceholder(vol) ? DarkGray : Cyan;
+            AnsiToken ec = !isActivePattern || IsPlaceholder(efx) ? DarkGray : Yellow;
 
-            if(isCurrent) {
+            if(isActiveRow) {
                 Console.WriteInterpolated($"{backColor} {nc}{note} {ic}{inst} {vc}{vol} {ec}{efx} {Default}");
             } else {
                 Console.WriteInterpolated($" {nc}{note} {ic}{inst} {vc}{vol} {ec}{efx} {Default}");

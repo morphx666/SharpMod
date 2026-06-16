@@ -3,7 +3,7 @@
 namespace SharpMod {
     public partial class SoundFile {
         public string CommandToString(uint pattern, uint row, int channel) {
-            string empty = "... .. .. ...";
+            string empty = "... .. ... ...";
             if(pattern == 0xFF) return empty;
 
             string r = "";
@@ -62,7 +62,7 @@ namespace SharpMod {
                     if(inst < mInstruments.Length)
                         r += $"v{Math.Min(0x40, mInstruments[inst].Volume):X2}";
                     else
-                        r += $" ..";
+                        r += "...";
                 };
 
                 r += " ";

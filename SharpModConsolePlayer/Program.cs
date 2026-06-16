@@ -6,28 +6,42 @@ namespace SharpModConsolePlayer {
         private static bool isPlaying = false;
 
         static async Task Main(string[] args) {
-            string modFileFullPath = @"/Users/xavier/Downloads/HOUSE/ACIDOFIL.MOD"; // @"Z:\Music\Music (C)\MODS\Future Crew\PANIC.MOD"
+            //string modFile = @"Z:\Music\Music (C)\MODS\HOUSE\Calling Loulou.mod";
+            string modFile = @"Z:\Music\Music (C)\MODS\Future Crew\PANIC.MOD";
+            //string modeFile = @"/Users/xavier/Downloads/HOUSE/ACIDOFIL.MOD";
             int sampleRate = 44100;
             int bitDepth = 16;
             int channels = 2;
-            SoundFile sf = new(modFileFullPath, (uint)sampleRate, bitDepth == 16, channels == 2, false);
+            SoundFile sf = new(modFile, (uint)sampleRate, bitDepth == 16, channels == 2, false);
 
             Console.CursorVisible = false;
             Console.Clear();
             _ = Task.Run(async () => {
-                uint patternIndex = sf.Pattern;
-                int sfRow = (int)sf.Row - 0; // Adjust to properly sync audio with display
-                if(patternIndex == 0xFF) {
-                    patternIndex = sf.Order.Last((o) => o != 0xFF);
-                    sfRow = 63;
-                }
+                const int channelWidth = 20;
+                int fromChannel = 0;
 
                 while(true) {
-                    await Task.Delay(60);
-                    //RenderUI(sf);
-                    for(int i = 0; i < sf.ActiveChannels; i++) {
-                        Renderer.Channel.Render(sf, i, patternIndex, i * 20);
-                        if(i * 20 >= Console.WindowWidth) break;
+                    await Task.Delay(30);
+
+                    while(Console.KeyAvailable) {
+                        ConsoleKey key = Console.ReadKey(intercept: true).Key;
+                        int previousFromChannel = fromChannel;
+                        if(key == ConsoleKey.LeftArrow) {
+                            fromChannel = Math.Max(0, fromChannel - 1);
+                        } else if(key == ConsoleKey.RightArrow) {
+                            fromChannel = Math.Min((int)sf.ActiveChannels - 1, fromChannel + 1);
+                        }
+                        if(fromChannel != previousFromChannel) Console.Clear();
+                    }
+
+                    uint patternIndex = sf.Pattern;
+                    if(patternIndex == 0xFF) {
+                        patternIndex = sf.Order.Last((o) => o != 0xFF);
+                    }
+                    for(int i = 0; fromChannel + i < sf.ActiveChannels; i++) {
+                        int x = i * channelWidth;
+                        if(x >= Console.WindowWidth) break;
+                        Renderer.Channel.Render(sf, fromChannel + i, patternIndex, x);
                     }
                 }
             });
@@ -36,23 +50,6 @@ namespace SharpModConsolePlayer {
             await Play(sf, sampleRate, bitDepth, channels);
 
             Console.CursorVisible = true;
-        }
-
-        private static void RenderUI(SoundFile sf) {
-            Console.SetCursorPosition(0, 0);
-            Console.WriteLine($"Title: {sf.Title}");
-            Console.WriteLine($"Type: {sf.Type}");
-            Console.WriteLine($"Rate: {sf.Rate}");
-            Console.WriteLine($"Active Channels: {sf.ActiveChannels}");
-            Console.WriteLine($"Active Samples: {sf.ActiveSamples}");
-            Console.WriteLine($"Music Speed: {sf.MusicSpeed}");
-            Console.WriteLine($"Music Tempo: {sf.MusicTempo}");
-            Console.WriteLine($"Speed Count: {sf.SpeedCount}");
-            Console.WriteLine($"Buffer Count: {sf.BufferCount}");
-            Console.WriteLine($"Pattern: {sf.Pattern}");
-            Console.WriteLine($"Current Pattern: {sf.CurrentPattern}");
-            Console.WriteLine($"Next Pattern: {sf.NextPattern}");
-            Console.WriteLine($"Row: {sf.Row}");
         }
 
         private static async Task Play(SharpMod.SoundFile sndFile, int sampleRate, int bitDepth, int channels) {
@@ -114,7 +111,6 @@ namespace SharpModConsolePlayer {
                         isPlaying = false;
                         break;
                     }
-
                 } while(bufferPosition + bufLen2 <= bufLen * frame);
                 frame++;
 
