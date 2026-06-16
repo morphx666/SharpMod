@@ -7,7 +7,7 @@ namespace SharpModConsolePlayer {
 
         static async Task Main(string[] args) {
             //string modFile = @"Z:\Music\Music (C)\MODS\HOUSE\Calling Loulou.mod";
-            string modFile = @"Z:\Music\Music (C)\MODS\Future Crew\PANIC.MOD";
+            string modFile = @"Z:\Music\Music (C)\MODS\Pet Shop Boys\Domino Dancing.mod";
             //string modeFile = @"/Users/xavier/Downloads/HOUSE/ACIDOFIL.MOD";
             int sampleRate = 44100;
             int bitDepth = 16;
@@ -19,6 +19,9 @@ namespace SharpModConsolePlayer {
             _ = Task.Run(async () => {
                 const int channelWidth = 20;
                 int fromChannel = 0;
+                uint lastRow = uint.MaxValue;
+                uint lastCurrentPattern = uint.MaxValue;
+                bool forceRedraw = true;
 
                 while(true) {
                     await Task.Delay(30);
@@ -31,8 +34,18 @@ namespace SharpModConsolePlayer {
                         } else if(key == ConsoleKey.RightArrow) {
                             fromChannel = Math.Min((int)sf.ActiveChannels - 1, fromChannel + 1);
                         }
-                        if(fromChannel != previousFromChannel) Console.Clear();
+                        if(fromChannel != previousFromChannel) {
+                            Console.Clear();
+                            forceRedraw = true;
+                        }
                     }
+
+                    uint currentRow = sf.Row;
+                    uint currentPattern = sf.CurrentPattern;
+                    if(!forceRedraw && currentRow == lastRow && currentPattern == lastCurrentPattern) continue;
+                    lastRow = currentRow;
+                    lastCurrentPattern = currentPattern;
+                    forceRedraw = false;
 
                     uint patternIndex = sf.Pattern;
                     if(patternIndex == 0xFF) {
