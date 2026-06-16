@@ -8,7 +8,12 @@ namespace SharpModConsolePlayer.Renderer {
     internal class Channel {
         internal const int RowsPerPattern = 64;
         internal const int HeaderRow = 0;
-        internal const int FirstPatternRow = HeaderRow + 1;
+        internal const int VuMeterRow = HeaderRow + 1;
+        internal const int FirstPatternRow = VuMeterRow + 1;
+        private const int ColumnWidth = 14;
+        private const int VuMeterMaxVolume = 256;
+        private const float VuDecayPerFrame = 16f;
+        private static readonly float[] vuLevels = new float[32];
 
         public static void Render(SoundFile sf, int channelIndex, uint patternIndex, int consoleCol) {
             int height = Console.WindowHeight;
@@ -50,6 +55,27 @@ namespace SharpModConsolePlayer.Renderer {
         private static void RenderHeader(int channelNumber, int col) {
             Console.SetCursorPosition(col, HeaderRow);
             Console.WriteInterpolated($"{Default}{Magenta} Channel {channelNumber,-7}{Default}");
+        }
+
+        public static void RenderVuMeter(SoundFile sf, int channelIndex, int col) {
+            var ch = sf.Channels[channelIndex];
+            bool isActive = ch.Length > 0 && ch.Pos < ch.Length;
+            float target = isActive ? ch.CurrentVolume : 0f;
+            if(target < 0f) target = 0f;
+            if(target > VuMeterMaxVolume) target = VuMeterMaxVolume;
+
+            float level = Math.Max(target, vuLevels[channelIndex] - VuDecayPerFrame);
+            vuLevels[channelIndex] = level;
+
+            int filled = (int)(level * ColumnWidth / VuMeterMaxVolume);
+
+            int greenCount = Math.Min(filled, 8);
+            int yellowCount = Math.Max(0, Math.Min(filled, 11) - 8);
+            int redCount = Math.Max(0, filled - 11);
+            int emptyCount = ColumnWidth - filled;
+
+            Console.SetCursorPosition(col, VuMeterRow);
+            Console.WriteInterpolated($"{Default} {Green}{new string('\u2588', greenCount)}{Yellow}{new string('\u2588', yellowCount)}{Red}{new string('\u2588', redCount)}{new string(' ', emptyCount)} {Default}");
         }
 
         private static void ClearRow(int col, int row) {

@@ -6,14 +6,15 @@ namespace SharpModConsolePlayer {
         private static bool isPlaying = false;
 
         static async Task Main(string[] args) {
-            //string modFile = @"Z:\Music\Music (C)\MODS\HOUSE\Calling Loulou.mod";
-            string modFile = @"Z:\Music\Music (C)\MODS\Pet Shop Boys\Domino Dancing.mod";
-            //string modeFile = @"/Users/xavier/Downloads/HOUSE/ACIDOFIL.MOD";
+            string modFile = args.Length == 0 ? @"Z:\Music\Music (C)\MODS\HOUSE\Calling Loulou.mod" : args[0];
+            //string modFile = args.Length == 0 ? @"Z:\Music\Music (C)\MODS\Pet Shop Boys\Domino Dancing.mod" : args[0];
+            //string modFile = args.Length == 0 ? @"/Users/xavier/Downloads/HOUSE/ACIDOFIL.MOD" : args[0];
             int sampleRate = 44100;
             int bitDepth = 16;
             int channels = 2;
             SoundFile sf = new(modFile, (uint)sampleRate, bitDepth == 16, channels == 2, false);
 
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
             Console.CursorVisible = false;
             Console.Clear();
             _ = Task.Run(async () => {
@@ -29,15 +30,28 @@ namespace SharpModConsolePlayer {
                     while(Console.KeyAvailable) {
                         ConsoleKey key = Console.ReadKey(intercept: true).Key;
                         int previousFromChannel = fromChannel;
-                        if(key == ConsoleKey.LeftArrow) {
-                            fromChannel = Math.Max(0, fromChannel - 1);
-                        } else if(key == ConsoleKey.RightArrow) {
-                            fromChannel = Math.Min((int)sf.ActiveChannels - 1, fromChannel + 1);
+                        switch(key) {
+                            case ConsoleKey.LeftArrow:
+                                fromChannel = Math.Max(0, fromChannel - 1);
+                                break;
+                            case ConsoleKey.RightArrow:
+                                fromChannel = Math.Min((int)sf.ActiveChannels - 1, fromChannel + 1);
+                                break;
+                            case ConsoleKey.Escape:
+                                isPlaying = false;
+                                return;
                         }
+
                         if(fromChannel != previousFromChannel) {
                             Console.Clear();
                             forceRedraw = true;
                         }
+                    }
+
+                    for(int i = 0; fromChannel + i < sf.ActiveChannels; i++) {
+                        int x = i * channelWidth;
+                        if(x >= Console.WindowWidth) break;
+                        Renderer.Channel.RenderVuMeter(sf, fromChannel + i, x);
                     }
 
                     uint currentRow = sf.Row;
@@ -59,9 +73,9 @@ namespace SharpModConsolePlayer {
                 }
             });
 
-            //sf.Position = (uint)(sf.PositionCount - 150);
             await Play(sf, sampleRate, bitDepth, channels);
 
+            Console.Clear();
             Console.CursorVisible = true;
         }
 
