@@ -1,5 +1,5 @@
-﻿using OpenTK.Audio;
-using OpenTK.Audio.OpenAL;
+﻿using OpenTK.Audio.OpenAL;
+using SharpMod;
 
 namespace SharpModConsolePlayer {
     internal class Program {
@@ -10,14 +10,35 @@ namespace SharpModConsolePlayer {
             int sampleRate = 44100;
             int bitDepth = 16;
             int channels = 2;
-            SharpMod.SoundFile sf = new(modFileFullPath, (uint)sampleRate, bitDepth == 16, channels == 2, false);
+            SoundFile sf = new(modFileFullPath, (uint)sampleRate, bitDepth == 16, channels == 2, false);
 
-            sf.Position = (uint)(sf.PositionCount - 150);
+            Console.Clear();
+            _ = Task.Run(async () => {
+                while(true) {
+                    await Task.Delay(60);
+                    RenderUI(sf);
+                }
+            });
+
+            //sf.Position = (uint)(sf.PositionCount - 150);
             await Play(sf, sampleRate, bitDepth, channels);
+        }
 
-            while(isPlaying) {
-                await Task.Delay(100);
-            }
+        private static void RenderUI(SoundFile sf) {
+            Console.SetCursorPosition(0, 0);
+            Console.WriteLine($"Title: {sf.Title}");
+            Console.WriteLine($"Type: {sf.Type}");
+            Console.WriteLine($"Rate: {sf.Rate}");
+            Console.WriteLine($"Active Channels: {sf.ActiveChannels}");
+            Console.WriteLine($"Active Samples: {sf.ActiveSamples}");
+            Console.WriteLine($"Music Speed: {sf.MusicSpeed}");
+            Console.WriteLine($"Music Tempo: {sf.MusicTempo}");
+            Console.WriteLine($"Speed Count: {sf.SpeedCount}");
+            Console.WriteLine($"Buffer Count: {sf.BufferCount}");
+            Console.WriteLine($"Pattern: {sf.Pattern}");
+            Console.WriteLine($"Current Pattern: {sf.CurrentPattern}");
+            Console.WriteLine($"Next Pattern: {sf.NextPattern}");
+            Console.WriteLine($"Row: {sf.Row}");
         }
 
         private static async Task Play(SharpMod.SoundFile sndFile, int sampleRate, int bitDepth, int channels) {
@@ -72,7 +93,7 @@ namespace SharpModConsolePlayer {
                 AL.SourceQueueBuffer(alSrc, buf);
 
                 do {
-                    Thread.Sleep(5);
+                    await Task.Delay(10);
                     AL.GetSource(alSrc, ALGetSourcei.ByteOffset, out bufferPosition);
 
                     if(sndFile.Position >= totalPositions) {
