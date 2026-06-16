@@ -6,9 +6,11 @@ namespace SharpModConsolePlayer {
         private static bool isPlaying = false;
 
         static async Task Main(string[] args) {
-            string modFile = args.Length == 0 ? @"Z:\Music\Music (C)\MODS\HOUSE\Calling Loulou.mod" : args[0];
-            //string modFile = args.Length == 0 ? @"Z:\Music\Music (C)\MODS\Pet Shop Boys\Domino Dancing.mod" : args[0];
-            //string modFile = args.Length == 0 ? @"/Users/xavier/Downloads/HOUSE/ACIDOFIL.MOD" : args[0];
+            if(args.Length == 0) {
+                Console.WriteLine("Usage: SharpModConsolePlayer <modfile>");
+                return;
+            }
+            string modFile = args[0];
             int sampleRate = 44100;
             int bitDepth = 16;
             int channels = 2;
