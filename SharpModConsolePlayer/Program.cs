@@ -6,23 +6,29 @@ namespace SharpModConsolePlayer {
         private static bool isPlaying = false;
 
         static async Task Main(string[] args) {
-            string modFileFullPath = @"Z:\Music\Music (C)\MODS\Future Crew\PANIC.MOD"; // @"/Users/xavier/Downloads/HOUSE/Flip House.mod";
+            string modFileFullPath = @"/Users/xavier/Downloads/HOUSE/Flip House.mod"; // @"Z:\Music\Music (C)\MODS\Future Crew\PANIC.MOD"
             int sampleRate = 44100;
             int bitDepth = 16;
             int channels = 2;
             SoundFile sf = new(modFileFullPath, (uint)sampleRate, bitDepth == 16, channels == 2, false);
 
+            Console.CursorVisible = false;
             Console.Clear();
             _ = Task.Run(async () => {
                 while(true) {
                     await Task.Delay(60);
                     //RenderUI(sf);
-                    Renderer.Channel.Render(sf, 0);
+                    for(int i = 0; i < sf.ActiveChannels; i++) {
+                        Renderer.Channel.Render(sf, i, i * 20);
+                        if(i * 20 >= Console.WindowWidth) break;
+                    }
                 }
             });
 
             //sf.Position = (uint)(sf.PositionCount - 150);
             await Play(sf, sampleRate, bitDepth, channels);
+
+            Console.CursorVisible = true;
         }
 
         private static void RenderUI(SoundFile sf) {

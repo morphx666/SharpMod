@@ -2,7 +2,7 @@
 
 namespace SharpMod {
     public partial class SoundFile {
-        public string CommandToString(uint pattern, int row, int channel) {
+        public string CommandToString(uint pattern, uint row, int channel) {
             string empty = "... .. .. ...";
             if(pattern == 0xFF) return empty;
 
