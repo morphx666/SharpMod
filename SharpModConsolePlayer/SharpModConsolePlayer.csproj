@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <PackageReference Include="OpenTK" Version="4.9.4" />
+    <PackageReference Include="PrettyConsole" Version="6.0.1" />
   </ItemGroup>
 
   <ItemGroup>

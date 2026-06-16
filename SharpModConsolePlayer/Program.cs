@@ -16,7 +16,8 @@ namespace SharpModConsolePlayer {
             _ = Task.Run(async () => {
                 while(true) {
                     await Task.Delay(60);
-                    RenderUI(sf);
+                    //RenderUI(sf);
+                    Renderer.Channel.Render(sf, 0);
                 }
             });
 
