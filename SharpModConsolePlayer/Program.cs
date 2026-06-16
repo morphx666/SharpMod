@@ -6,7 +6,7 @@ namespace SharpModConsolePlayer {
         private static bool isPlaying = false;
 
         static async Task Main(string[] args) {
-            string modFileFullPath = @"/Users/xavier/Downloads/HOUSE/Flip House.mod";
+            string modFileFullPath = @"Z:\Music\Music (C)\MODS\Future Crew\PANIC.MOD"; // @"/Users/xavier/Downloads/HOUSE/Flip House.mod";
             int sampleRate = 44100;
             int bitDepth = 16;
             int channels = 2;

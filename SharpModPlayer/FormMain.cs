@@ -294,7 +294,7 @@ namespace SharpModPlayer {
             int n = r.Height / (monoFontSize.Height * 64);
             r.Y = (int)((r.Height - monoFontSize.Height) / 2.0);
             int fromChannel = HScrollBarChannels.Value;
-            int sfPptrIdx = (int)sndFile.Pattern;
+            uint sfPptrIdx = sndFile.Pattern;
             int sfRow = (int)sndFile.Row - 0; // Adjust to properly sync audio with display
             if(sfPptrIdx == 0xFF) {
                 sfPptrIdx = sndFile.Order.Where((o) => o != 0xFF).Last();
@@ -352,7 +352,7 @@ namespace SharpModPlayer {
             return r;
         }
 
-        private void RenderPattern(Graphics g, ref Rectangle r, int fromChannel, int sfPptrIdx, int sfRow, int y, bool active) {
+        private void RenderPattern(Graphics g, ref Rectangle r, int fromChannel, uint sfPptrIdx, int sfRow, int y, bool active) {
             string cCmd;
             int yo;
             for(int row = 0; row < 64; row++) {
