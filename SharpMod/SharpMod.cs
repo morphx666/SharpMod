@@ -173,10 +173,10 @@ namespace SharpMod {
 
             // Reading instruments
             for(i = 1; i <= (int)ActiveSamples; i++) if(mInstruments[i].Length != 0) {
-                    mInstruments[i].Sample = new byte[mInstruments[i].Length + 1];
-                    mFile.Read(mInstruments[i].Sample, 0, (int)mInstruments[i].Length);
-                    mInstruments[i].Sample[mInstruments[i].Length] = mInstruments[i].Sample[mInstruments[i].Length - 1];
-                }
+                mInstruments[i].Sample = new byte[mInstruments[i].Length + 1];
+                mFile.Read(mInstruments[i].Sample, 0, (int)mInstruments[i].Length);
+                mInstruments[i].Sample[mInstruments[i].Length] = mInstruments[i].Sample[mInstruments[i].Length - 1];
+            }
         }
 
         private void ParseS3MFile(int offset, S3MTools.S3MFileHeader s3m) {

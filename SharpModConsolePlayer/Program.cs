@@ -3,21 +3,26 @@ using OpenTK.Audio.OpenAL;
 
 namespace SharpModConsolePlayer {
     internal class Program {
-        static void Main(string[] args) {
-            string modFileFullPath = @"/Users/xavier/Downloads/HOUSE/House Journey.mod";
+        private static bool isPlaying = false;
+
+        static async Task Main(string[] args) {
+            string modFileFullPath = @"/Users/xavier/Downloads/HOUSE/Flip House.mod";
             int sampleRate = 44100;
             int bitDepth = 16;
             int channels = 2;
             SharpMod.SoundFile sf = new(modFileFullPath, (uint)sampleRate, bitDepth == 16, channels == 2, false);
 
-            StartAudio(sf, sampleRate, bitDepth, channels);
+            sf.Position = (uint)(sf.PositionCount - 150);
+            await Play(sf, sampleRate, bitDepth, channels);
 
-            while(true) {
-                Thread.Sleep(100);
+            while(isPlaying) {
+                await Task.Delay(100);
             }
         }
 
-        private static void StartAudio(SharpMod.SoundFile? sndFile, int sampleRate, int bitDepth, int channels) {
+        private static async Task Play(SharpMod.SoundFile sndFile, int sampleRate, int bitDepth, int channels) {
+            isPlaying = true;
+
             ALDevice device = ALC.OpenDevice(null);
             ALContextAttributes attributes = new() {
                 Frequency = sampleRate
@@ -28,9 +33,7 @@ namespace SharpModConsolePlayer {
             int bufLen = 6000;
             int bufLen2 = bufLen / 2;
             byte[] buffer = new byte[bufLen];
-
-            // pinned buffer
-            var handle = System.Runtime.InteropServices.GCHandle.Alloc(buffer, System.Runtime.InteropServices.GCHandleType.Pinned);
+            var pinnedBufferHandle = System.Runtime.InteropServices.GCHandle.Alloc(buffer, System.Runtime.InteropServices.GCHandleType.Pinned);
 
             ALFormat alf = bitDepth == 16 ?
                             (channels == 2 ? ALFormat.Stereo16 : ALFormat.Mono16) :
@@ -43,45 +46,46 @@ namespace SharpModConsolePlayer {
             //  if(AL.GetSourceState(alSrc) != ALSourceState.Playing) AL.SourcePlay(alSrc);
             //  https://github.com/morphx666/SharpMod/blob/4c46ce08023391139b074ce08e1b58c661a42199/SharpModPlayer/FormMain.cs#L182
             int buf = AL.GenBuffer();
-            AL.BufferData(buf, alf, handle.AddrOfPinnedObject(), bufLen, sampleRate);
+            AL.BufferData(buf, alf, pinnedBufferHandle.AddrOfPinnedObject(), bufLen, sampleRate);
             AL.SourceQueueBuffer(alSrc, buf);
             AL.SourcePlay(alSrc);
             AL.SourceUnqueueBuffer(buf);
             AL.DeleteBuffer(buf);
 
-            Task.Run(() => {
-                int n;
-                int frame = 0;
-                int bpos;
-                bool bufferIsClear = false;
+            int dataReadLength;
+            int bufferPosition;
+            int frame = 0;
+            bool bufferIsClear = false;
+            uint totalPositions = sndFile.PositionCount;
 
-                while(true) {
-                    if(sndFile != null) {
-                        n = (int)sndFile.Read(buffer, (uint)bufLen);
+            while(isPlaying) {
+                dataReadLength = (int)sndFile.Read(buffer, (uint)bufLen);
+                if(dataReadLength == 0) {
+                    if(!bufferIsClear) {
+                        Array.Clear(buffer, 0, bufLen);
+                        bufferIsClear = true;
+                    }
+                } else if(bufferIsClear) bufferIsClear = false;
 
-                        if(n == 0) {
-                            if(!bufferIsClear) {
-                                Array.Clear(buffer, 0, bufLen);
-                                bufferIsClear = true;
-                            }
-                        } else if(bufferIsClear) bufferIsClear = false;
+                buf = AL.GenBuffer();
+                AL.BufferData(buf, alf, pinnedBufferHandle.AddrOfPinnedObject(), bufLen, sampleRate);
+                AL.SourceQueueBuffer(alSrc, buf);
+
+                do {
+                    Thread.Sleep(5);
+                    AL.GetSource(alSrc, ALGetSourcei.ByteOffset, out bufferPosition);
+
+                    if(sndFile.Position >= totalPositions) {
+                        isPlaying = false;
+                        break;
                     }
 
-                    buf = AL.GenBuffer();
+                } while(bufferPosition + bufLen2 <= bufLen * frame);
+                frame++;
 
-                    AL.BufferData(buf, alf, handle.AddrOfPinnedObject(), bufLen, sampleRate);
-                    AL.SourceQueueBuffer(alSrc, buf);
-
-                    do {
-                        Thread.Sleep(5);
-                        AL.GetSource(alSrc, ALGetSourcei.ByteOffset, out bpos);
-                    } while(bpos + bufLen2 < bufLen * frame);
-                    frame++;
-
-                    AL.SourceUnqueueBuffer(buf);
-                    AL.DeleteBuffer(buf);
-                }
-            });
+                AL.SourceUnqueueBuffer(buf);
+                AL.DeleteBuffer(buf);
+            }
         }
     }
 }
