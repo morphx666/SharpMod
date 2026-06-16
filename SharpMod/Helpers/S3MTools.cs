@@ -47,26 +47,26 @@ namespace SharpMod {
                 newVersion = 0x02  // New Version, unsigned samples
             }
 
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 28)] internal byte[] name;         // Song Title
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 28)] internal byte[] name; // Song Title
             public byte dosEof;                        // Supposed to be 0x1A, but even ST3 seems to ignore this sometimes (see STRSHINE.S3M by Purple Motion)
             public byte fileType;                      // File Type, 0x10 = ST3 module
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 2)] internal byte[] reserved1;     // Reserved
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 2)] internal byte[] reserved1; // Reserved
             public UInt16 ordNum;                      // Number of order items
             public UInt16 smpNum;                      // Number of sample parapointers
             public UInt16 patNum;                      // Number of pattern parapointers
             public UInt16 flags;                       // Flags, see S3MHeaderFlags
             public UInt16 cwtv;                        // "Made With" Tracker ID, see S3MTrackerVersions
             public UInt16 formatVersion;               // Format Version, see S3MFormatVersion
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)] internal byte[] magic;         // "SCRM" magic bytes
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)] internal byte[] magic; // "SCRM" magic bytes
             public byte globalVol;                     // Default Global Volume (0...64)
             public byte speed;                         // Default Speed (1...254)
             public byte tempo;                         // Default Tempo (33...255)
             public byte masterVolume;                  // Sample Volume (0...127, stereo if high bit is set)
             public byte ultraClicks;                   // Number of channels used for ultra click removal
             public byte usePanningTable;               // 0xFC => read extended panning table
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)] internal byte[] reserved2;     // More reserved bytes
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)] internal byte[] reserved2; // More reserved bytes
             public UInt16 special;                     // Pointer to special custom data (unused)
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)] public byte[] channels;     // Channel setup
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)] public byte[] channels;   // Channel setup
 
             public string Name { get { return Encoding.UTF8.GetString(name).Trim('\0'); } }
             public string Magic { get { return Encoding.UTF8.GetString(magic).Trim('\0'); } }
@@ -89,20 +89,20 @@ namespace SharpMod {
             public enum SamplePacking {
                 pUnpacked = 0x00,   // PCM
                 pDP30ADPCM = 0x01,  // Unused packing type
-                pADPCM = 0x04,  // MODPlugin ADPCM :(
+                pADPCM = 0x04,      // MODPlugin ADPCM :(
             };
 
             byte sampleType;     // Sample type, see SampleType
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 12)] public byte[] filename;      // Sample filename
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 12)] public byte[] filename;   // Sample filename
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)] public byte[] dataPointer; // Pointer to sample data (divided by 16)
-            public UInt32 length;            // Sample length, in samples
-            public UInt32 loopStart;         // Loop start, in samples
-            public UInt32 loopEnd;           // Loop end, in samples
+            public UInt32 length;           // Sample length, in samples
+            public UInt32 loopStart;        // Loop start, in samples
+            public UInt32 loopEnd;          // Loop end, in samples
             public byte defaultVolume;      // Default volume (0...64)
-            public byte reserved1;         // Reserved
+            public byte reserved1;          // Reserved
             public byte pack;               // Packing algorithm, SamplePacking
             public byte flags;              // Sample flags
-            public UInt32 c5speed;           // Middle-C (C-5) frequency
+            public UInt32 c5speed;          // Middle-C (C-5) frequency
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 12)] public byte[] reserved2;     // Reserved + Internal ST3 stuff
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 28)] public byte[] name;          // Sample name
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)] public byte[] magic;          // "SCRS" magic bytes ("SCRI" for Adlib instruments)
@@ -112,9 +112,9 @@ namespace SharpMod {
             public string Magic { get { return Encoding.UTF8.GetString(magic).Trim('\0'); } }
         }
 
-        public static SoundFile.Effects ConvertEffect(SoundFile.Effects c, int fromIT) {
+        public static SoundFile.Effects ConvertEffect(SoundFile.Effects cmd, int param) {
             SoundFile.Effects e = SoundFile.Effects.INVALID;
-            switch((int)c | 0x40) {
+            switch((int)cmd | 0x40) {
                 case 'A': e = SoundFile.Effects.CMD_SPEED; break;
                 case 'B': e = SoundFile.Effects.CMD_POSITIONJUMP; break;
                 case 'C': e = SoundFile.Effects.CMD_PATTERNBREAK; break;//if(!fromIT) m.param = (m.param >> 4) * 10 + (m.param & 0x0F); break;

@@ -7,6 +7,8 @@ For more information, visit https://openmpt.org/legacy_software
 
 ![SharpMod](https://user-images.githubusercontent.com/12353675/121073541-a0b76380-c7a0-11eb-9cfe-a3ea937fd879.png)
 
+Cross-platform terminal-based player added in 2026/ 6/16
+<img width="1259" height="780" alt="image" src="https://github.com/user-attachments/assets/0d1d8a4f-85c4-4ad7-9643-2000350fb603" />
 ## Using SharpMod
 
 Instantiating a new `SoundFile`:

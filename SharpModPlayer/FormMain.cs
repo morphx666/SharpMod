@@ -62,7 +62,6 @@ namespace SharpModPlayer {
             maxChannels = 4;
             channelWidth = monoFontSize.Width * 13 + 8;
 
-            //sndFile = new SoundFile(@"\\media-center\c\Users\xavie\Music\MODS\new mods\temp\RIAD_INS.S3M", sampleRate, bitDepth == 16, channels == 2, false);
             SetSoundFile(new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false));
             UpdateTitleBarText();
 
@@ -191,9 +190,9 @@ namespace SharpModPlayer {
         private void StartAudio() {
             AudioContext audioContext = new AudioContext(AudioContext.DefaultDevice, sampleRate, 0);
 
-            int bufLen = 6000;
-            int bufLen2 = bufLen / 2;
-            buffer = new byte[bufLen];
+            int bufferLen = 6000;
+            int bufferLen2 = bufferLen / 2;
+            buffer = new byte[bufferLen];
 
             ALFormat alf = bitDepth == 16 ?
                             (channels == 2 ? ALFormat.Stereo16 : ALFormat.Mono16) :
@@ -206,25 +205,25 @@ namespace SharpModPlayer {
             //  if(AL.GetSourceState(alSrc) != ALSourceState.Playing) AL.SourcePlay(alSrc);
             //  https://github.com/morphx666/SharpMod/blob/4c46ce08023391139b074ce08e1b58c661a42199/SharpModPlayer/FormMain.cs#L182
             int buf = AL.GenBuffer();
-            AL.BufferData(buf, alf, buffer, bufLen, sampleRate);
+            AL.BufferData(buf, alf, buffer, bufferLen, sampleRate);
             AL.SourceQueueBuffer(alSrc, buf);
             AL.SourcePlay(alSrc);
             AL.SourceUnqueueBuffer(buf);
             AL.DeleteBuffer(buf);
 
             Task.Run(() => {
-                int n;
+                int dataReadLength;
                 int frame = 0;
-                int bpos;
+                int bufferPosition;
                 bool bufferIsClear = false;
 
                 while(true) {
                     if(sndFile != null) {
-                        n = (int)sndFile.Read(buffer, (uint)bufLen);
+                        dataReadLength = (int)sndFile.Read(buffer, (uint)bufferLen);
 
-                        if(n == 0) {
+                        if(dataReadLength == 0) {
                             if(!bufferIsClear) {
-                                Array.Clear(buffer, 0, bufLen);
+                                Array.Clear(buffer, 0, bufferLen);
                                 bufferIsClear = true;
                             }
                         } else if(bufferIsClear) bufferIsClear = false;
@@ -232,13 +231,13 @@ namespace SharpModPlayer {
 
                     buf = AL.GenBuffer();
 
-                    AL.BufferData(buf, alf, buffer, bufLen, sampleRate);
+                    AL.BufferData(buf, alf, buffer, bufferLen, sampleRate);
                     AL.SourceQueueBuffer(alSrc, buf);
 
                     do {
                         Thread.Sleep(5);
-                        AL.GetSource(alSrc, ALGetSourcei.ByteOffset, out bpos);
-                    } while(bpos + bufLen2 < bufLen * frame);
+                        AL.GetSource(alSrc, ALGetSourcei.ByteOffset, out bufferPosition);
+                    } while(bufferPosition + bufferLen2 < bufferLen * frame);
                     frame++;
 
                     AL.SourceUnqueueBuffer(buf);
@@ -271,6 +270,7 @@ namespace SharpModPlayer {
         }
 
         private string GetRandomFile() {
+            return @"Z:\Music\Music (C)\MODS\Future Crew\PANIC.MOD";
             FileInfo[] files = (new DirectoryInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mods"))).GetFiles("*.*");
             return files[(new Random()).Next(files.Length)].FullName;
         }
@@ -294,15 +294,15 @@ namespace SharpModPlayer {
             int n = r.Height / (monoFontSize.Height * 64);
             r.Y = (int)((r.Height - monoFontSize.Height) / 2.0);
             int fromChannel = HScrollBarChannels.Value;
-            int sfPptrIdx = (int)sndFile.Pattern;
+            uint patternIndex = sndFile.Pattern;
             int sfRow = (int)sndFile.Row - 0; // Adjust to properly sync audio with display
-            if(sfPptrIdx == 0xFF) {
-                sfPptrIdx = sndFile.Order.Where((o) => o != 0xFF).Last();
+            if(patternIndex == 0xFF) {
+                patternIndex = sndFile.Order.Last((o) => o != 0xFF);
                 sfRow = 63;
             }
 
             if(sndFile.CurrentPattern > 0) RenderPattern(g, ref r, fromChannel, sndFile.Order[sndFile.CurrentPattern - 1], 64, r.Y - sfRow * monoFontSize.Height, false);
-            RenderPattern(g, ref r, fromChannel, sfPptrIdx, sfRow, r.Y, true);
+            RenderPattern(g, ref r, fromChannel, patternIndex, sfRow, r.Y, true);
             if(sndFile.NextPattern != 0xFF) RenderPattern(g, ref r, fromChannel, sndFile.Order[sndFile.NextPattern], 0, r.Y - (sfRow - 64) * monoFontSize.Height, false);
 
             r.X = this.DisplayRectangle.Width - r.Width;
@@ -352,22 +352,20 @@ namespace SharpModPlayer {
             return r;
         }
 
-        private void RenderPattern(Graphics g, ref Rectangle r, int fromChannel, int sfPptrIdx, int sfRow, int y, bool active) {
-            string cCmd;
-            int yo;
+        private void RenderPattern(Graphics g, ref Rectangle r, int fromChannel, uint patternIndex, int sfRow, int y, bool active) {
             for(int row = 0; row < 64; row++) {
-                yo = y - (sfRow - row) * monoFontSize.Height;
+                int yo = y - (sfRow - row) * monoFontSize.Height;
                 if(yo < 0) continue;
                 if(yo >= r.Height) break;
 
                 for(int chn = 0; chn < maxChannels; chn++) {
-                    cCmd = sndFile.CommandToString(sfPptrIdx, row, chn + fromChannel);
+                    string command = sndFile.CommandToString(patternIndex, (uint)row, chn + fromChannel);
 
                     r.X = this.DisplayRectangle.Width - r.Width + chn * channelWidth;
                     if((row == sfRow) || (row % 4) == 0) {
                         g.FillRectangle(bkColor[active ? 0 : 1][((row == sfRow) || (row % 4) == 0) ? ((row == sfRow) ? 1 : 0) : 0], r.X, yo, r.Width, monoFontSize.Height);
                     }
-                    string[] cmds = cCmd.Split(' ');
+                    string[] cmds = command.Split(' ');
                     int xo = 0;
                     for(int i = 0; i < cmds.Length; i++) {
                         g.DrawString(cmds[i],
