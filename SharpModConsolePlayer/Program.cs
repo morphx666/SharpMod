@@ -6,7 +6,7 @@ namespace SharpModConsolePlayer {
         private static bool isPlaying = false;
 
         static async Task Main(string[] args) {
-            string modFileFullPath = @"/Users/xavier/Downloads/HOUSE/Flip House.mod"; // @"Z:\Music\Music (C)\MODS\Future Crew\PANIC.MOD"
+            string modFileFullPath = @"/Users/xavier/Downloads/HOUSE/ACIDOFIL.MOD"; // @"Z:\Music\Music (C)\MODS\Future Crew\PANIC.MOD"
             int sampleRate = 44100;
             int bitDepth = 16;
             int channels = 2;
@@ -15,11 +15,18 @@ namespace SharpModConsolePlayer {
             Console.CursorVisible = false;
             Console.Clear();
             _ = Task.Run(async () => {
+                uint patternIndex = sf.Pattern;
+                int sfRow = (int)sf.Row - 0; // Adjust to properly sync audio with display
+                if(patternIndex == 0xFF) {
+                    patternIndex = sf.Order.Last((o) => o != 0xFF);
+                    sfRow = 63;
+                }
+
                 while(true) {
                     await Task.Delay(60);
                     //RenderUI(sf);
                     for(int i = 0; i < sf.ActiveChannels; i++) {
-                        Renderer.Channel.Render(sf, i, i * 20);
+                        Renderer.Channel.Render(sf, i, patternIndex, i * 20);
                         if(i * 20 >= Console.WindowWidth) break;
                     }
                 }
