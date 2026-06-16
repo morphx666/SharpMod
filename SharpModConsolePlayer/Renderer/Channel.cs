@@ -7,7 +7,7 @@ using static PrettyConsole.Color;
 namespace SharpModConsolePlayer.Renderer {
     internal class Channel {
         internal const int RowsPerPattern = 64;
-        internal const int HeaderRow = 0;
+        internal const int HeaderRow = Info.InfoRow + 1;
         internal const int VuMeterRow = HeaderRow + 1;
         internal const int FirstPatternRow = VuMeterRow + 1;
         private const int ColumnWidth = 14;
@@ -54,7 +54,7 @@ namespace SharpModConsolePlayer.Renderer {
 
         private static void RenderHeader(int channelNumber, int col) {
             Console.SetCursorPosition(col, HeaderRow);
-            Console.WriteInterpolated($"{Default}{Magenta} Channel {channelNumber,-7}{Default}");
+            Console.WriteInterpolated($"{Default}{Blue} Channel {channelNumber,-7}{Default}");
         }
 
         public static void RenderVuMeter(SoundFile sf, int channelIndex, int col) {

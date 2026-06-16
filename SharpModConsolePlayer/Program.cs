@@ -48,6 +48,8 @@ namespace SharpModConsolePlayer {
                         }
                     }
 
+                    Renderer.Info.Render(sf);
+
                     for(int i = 0; fromChannel + i < sf.ActiveChannels; i++) {
                         int x = i * channelWidth;
                         if(x >= Console.WindowWidth) break;
