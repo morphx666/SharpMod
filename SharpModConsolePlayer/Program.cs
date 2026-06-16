@@ -6,15 +6,13 @@ namespace SharpModConsolePlayer {
         private static bool isPlaying = false;
 
         static async Task Main(string[] args) {
-            if(args.Length == 0) {
-                Console.WriteLine("Usage: SharpModConsolePlayer <modfile>");
-                return;
-            }
-            string modFile = args[0];
-            int sampleRate = 44100;
-            int bitDepth = 16;
-            int channels = 2;
-            SoundFile sf = new(modFile, (uint)sampleRate, bitDepth == 16, channels == 2, false);
+            Cli? cli = Cli.Parse(args);
+            if(cli == null) return;
+
+            int sampleRate = cli.SampleRate;
+            int bitDepth = cli.BitDepth;
+            int channels = cli.Channels;
+            SoundFile sf = new(cli.ModFile, (uint)sampleRate, bitDepth == 16, channels == 2, cli.Loop);
 
             Console.OutputEncoding = System.Text.Encoding.UTF8;
             Console.CursorVisible = false;
