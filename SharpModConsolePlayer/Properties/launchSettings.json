@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "SharpModConsolePlayer": {
+      "commandName": "Project",
+      "commandLineArgs": "\"Z:\\Music\\Music (C)\\MODS\\TEKNO\\TM.MOD\""
+    }
+  }
+}

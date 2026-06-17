@@ -288,7 +288,7 @@ namespace SharpMod {
                     mChannels[chnIdx].Portamento = false;
                     mChannels[chnIdx].Vibrato = false;
                     mChannels[chnIdx].Tremolo = false;
-                    if(instIdx >= (mInstruments.Length - 1)) instIdx = 0;
+                    if(instIdx >= mInstruments.Length) instIdx = 0;
                     if(instIdx != 0) mChannels[chnIdx].NextInstrumentIndex = (short)instIdx;
                     if(period != 0) {
                         if(mChannels[chnIdx].NextInstrumentIndex != 0) {

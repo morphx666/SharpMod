@@ -270,7 +270,6 @@ namespace SharpModPlayer {
         }
 
         private string GetRandomFile() {
-            return @"Z:\Music\Music (C)\MODS\Future Crew\PANIC.MOD";
             FileInfo[] files = (new DirectoryInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mods"))).GetFiles("*.*");
             return files[(new Random()).Next(files.Length)].FullName;
         }
