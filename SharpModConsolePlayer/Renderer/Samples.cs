@@ -10,7 +10,7 @@ namespace SharpModConsolePlayer.Renderer {
 
         public static void Render(SoundFile sf, bool showProgress) {
             int width = Console.WindowWidth;
-            int height = Console.WindowHeight;
+            int height = Console.WindowHeight - 1; // reserve last row for the song progress bar
             if(width <= 0) return;
 
             RenderHeader(width);

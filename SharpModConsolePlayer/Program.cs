@@ -56,20 +56,27 @@ namespace SharpModConsolePlayer {
                         Renderer.Samples.Render(sf, showSampleProgress);
                         forceRedraw = false;
                     }
-                    continue;
+                } else {
+                    RenderHeaderAndVuMeters(sf, fromChannel);
+
+                    uint currentRow = sf.Row;
+                    uint currentPattern = sf.CurrentPattern;
+                    if(forceRedraw || currentRow != lastRow || currentPattern != lastCurrentPattern) {
+                        lastRow = currentRow;
+                        lastCurrentPattern = currentPattern;
+                        forceRedraw = false;
+                        RenderPatterns(sf, fromChannel);
+                    }
                 }
 
-                RenderHeaderAndVuMeters(sf, fromChannel);
-
-                uint currentRow = sf.Row;
-                uint currentPattern = sf.CurrentPattern;
-                if(!forceRedraw && currentRow == lastRow && currentPattern == lastCurrentPattern) continue;
-                lastRow = currentRow;
-                lastCurrentPattern = currentPattern;
-                forceRedraw = false;
-
-                RenderPatterns(sf, fromChannel);
+                Renderer.SongProgress.Render(sf);
             }
+        }
+
+        private static int MaxFromChannel(SoundFile sf) {
+            int width = Console.WindowWidth;
+            int fitFromRight = Math.Max(0, (width - Renderer.Channel.VisibleWidth) / ChannelWidth);
+            return Math.Max(0, (int)sf.ActiveChannels - 1 - fitFromRight);
         }
 
         private static bool HandleInput(SoundFile sf, ref int fromChannel, ref ViewMode mode, ref bool forceRedraw) {
@@ -81,7 +88,7 @@ namespace SharpModConsolePlayer {
                         fromChannel = Math.Max(0, fromChannel - 1);
                         break;
                     case ConsoleKey.RightArrow:
-                        fromChannel = Math.Min((int)sf.ActiveChannels - 1, fromChannel + 1);
+                        fromChannel = Math.Min(MaxFromChannel(sf), fromChannel + 1);
                         break;
                     case ConsoleKey.Tab:
                         mode = mode == ViewMode.Patterns ? ViewMode.Samples : ViewMode.Patterns;

@@ -18,7 +18,7 @@ namespace SharpModConsolePlayer.Renderer {
 
         public static void Render(SoundFile sf, int channelIndex, uint patternIndex, int consoleCol, int maxWidth) {
             if(maxWidth <= 0) return;
-            int height = Console.WindowHeight;
+            int height = Console.WindowHeight - 1; // reserve last row for the song progress bar
             int center = FirstPatternRow + (height - FirstPatternRow) / 2;
 
             RenderHeader(channelIndex + 1, consoleCol, maxWidth);
