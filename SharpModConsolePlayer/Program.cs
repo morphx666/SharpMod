@@ -40,6 +40,7 @@ namespace SharpModConsolePlayer {
 
         private static async Task RenderLoop(SoundFile sf, bool showSampleProgress) {
             int fromChannel = 0;
+            int fromSample = 0;
             uint lastRow = uint.MaxValue;
             uint lastCurrentPattern = uint.MaxValue;
             ViewMode mode = ViewMode.Patterns;
@@ -48,12 +49,12 @@ namespace SharpModConsolePlayer {
             while(true) {
                 await Task.Delay(30);
 
-                if(!HandleInput(sf, ref fromChannel, ref mode, ref forceRedraw)) return;
+                if(!HandleInput(sf, ref fromChannel, ref fromSample, ref mode, ref forceRedraw)) return;
 
                 if(mode == ViewMode.Samples) {
                     Renderer.Info.Render(sf);
                     if(forceRedraw || showSampleProgress) {
-                        Renderer.Samples.Render(sf, showSampleProgress);
+                        Renderer.Samples.Render(sf, showSampleProgress, fromSample);
                         forceRedraw = false;
                     }
                 } else {
@@ -79,7 +80,7 @@ namespace SharpModConsolePlayer {
             return Math.Max(0, (int)sf.ActiveChannels - 1 - fitFromRight);
         }
 
-        private static bool HandleInput(SoundFile sf, ref int fromChannel, ref ViewMode mode, ref bool forceRedraw) {
+        private static bool HandleInput(SoundFile sf, ref int fromChannel, ref int fromSample, ref ViewMode mode, ref bool forceRedraw) {
             while(Console.KeyAvailable) {
                 ConsoleKey key = Console.ReadKey(intercept: true).Key;
                 int previousFromChannel = fromChannel;
@@ -94,6 +95,21 @@ namespace SharpModConsolePlayer {
                         mode = mode == ViewMode.Patterns ? ViewMode.Samples : ViewMode.Patterns;
                         Console.Clear();
                         forceRedraw = true;
+                        break;
+                    case ConsoleKey.UpArrow:
+                        if(mode == ViewMode.Samples) {
+                            fromSample = Math.Max(0, fromSample - 1);
+                            forceRedraw = true;
+                        }
+                        break;
+                    case ConsoleKey.DownArrow:
+                        if(mode == ViewMode.Samples) {
+                            fromSample = Math.Min(sf.Instruments.Length - 1, fromSample + 1);
+                            if(fromSample + Console.WindowHeight - Renderer.Samples.FirstSampleRow >= sf.Instruments.Length - 1) {
+                                fromSample = Math.Max(0, sf.Instruments.Length - Console.WindowHeight + Renderer.Samples.FirstSampleRow);
+                            }
+                            forceRedraw = true;
+                        }
                         break;
                     case ConsoleKey.Escape:
                         isPlaying = false;

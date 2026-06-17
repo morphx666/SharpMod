@@ -8,7 +8,7 @@ namespace SharpModConsolePlayer.Renderer {
         internal const int FirstSampleRow = HeaderRow + 1;
         private const int NameWidth = 28;
 
-        public static void Render(SoundFile sf, bool showProgress) {
+        public static void Render(SoundFile sf, bool showProgress, int fromSample = 0) {
             int width = Console.WindowWidth;
             int height = Console.WindowHeight - 1; // reserve last row for the song progress bar
             if(width <= 0) return;
@@ -17,10 +17,10 @@ namespace SharpModConsolePlayer.Renderer {
 
             int total = sf.Instruments != null ? sf.Instruments.Length - 1 : 0;
             int maxRows = Math.Max(0, height - FirstSampleRow);
-            int rows = Math.Min(total, maxRows);
+            int rows = Math.Min(total - fromSample, maxRows);
 
             for(int i = 0; i < rows; i++) {
-                RenderSample(sf, i + 1, FirstSampleRow + i, width, showProgress);
+                RenderSample(sf, i + 1 + fromSample, FirstSampleRow + i, width, showProgress);
             }
             for(int i = rows; i < maxRows; i++) {
                 ClearRow(FirstSampleRow + i, width);
