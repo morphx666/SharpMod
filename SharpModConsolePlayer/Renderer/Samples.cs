@@ -63,7 +63,18 @@ namespace SharpModConsolePlayer.Renderer {
                 var ch = channels[c];
                 if(ch.Length == 0 || ch.InstrumentIndex != (uint)instrumentIndex) continue;
                 if(ch.Pos >= ch.Length) continue;
-                float p = (float)ch.Pos / ch.Length;
+
+                float p;
+                if(ch.LoopEnd > ch.LoopStart) {
+                    // Looped sample: once the loop is active, playback cycles in
+                    // [LoopStart, LoopEnd], so map the bar to that region. Pos may
+                    // briefly sit below LoopStart on the very first pass; clamp it.
+                    p = ch.Pos <= ch.LoopStart
+                        ? 0f
+                        : (float)(ch.Pos - ch.LoopStart) / (ch.LoopEnd - ch.LoopStart);
+                } else {
+                    p = (float)ch.Pos / ch.Length;
+                }
                 if(p > maxProgress) maxProgress = p;
             }
             int filled = (int)(maxProgress * NameWidth);
