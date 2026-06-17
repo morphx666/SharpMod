@@ -160,7 +160,7 @@ namespace SharpMod {
                     if(mChannels[i].Pos >= mChannels[i].Length) {
                         mChannels[i].Length = mChannels[i].LoopEnd;
                         mChannels[i].Pos = (mChannels[i].Pos & MOD_FRACMASK) + mChannels[i].LoopStart;
-                        if(mChannels[i].Length != 0) pSample[i] = null;
+                        if(mChannels[i].Length == 0) pSample[i] = null;
                     }
                 } else {
                     int vol = mChannels[i].OldVol;
