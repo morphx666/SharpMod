@@ -335,7 +335,7 @@ namespace SharpMod {
                             break;
                         case Effects.CMD_VIBRATO:
                             if(!bVib) mChannels[chnIdx].VibratoPos = 0;
-                            if(param == 0) mChannels[chnIdx].VibratoSlide = (int)param;
+                            if(param != 0) mChannels[chnIdx].VibratoSlide = (int)param;
                             mChannels[chnIdx].Vibrato = true;
                             break;
                         case Effects.CMD_TONEPORTAVOL:
@@ -361,12 +361,11 @@ namespace SharpMod {
                             break;
                         case Effects.CMD_TREMOLO:
                             if(!bTrem) mChannels[chnIdx].TremoloPos = 0;
-                            if(param == 0) mChannels[chnIdx].TremoloSlide = (int)param;
+                            if(param != 0) mChannels[chnIdx].TremoloSlide = (int)param;
                             mChannels[chnIdx].Tremolo = true;
                             break;
                         case Effects.CMD_PANNING8:
                             // Not Implemented
-                            mChannels[chnIdx].Volume = (int)(param << 2);
                             break;
                         case Effects.CMD_OFFSET:
                             if(param > 0) {
@@ -419,7 +418,7 @@ namespace SharpMod {
                                     break;
                                 // 0xE5: Set Finetune
                                 case 0x05:
-                                    mChannels[chnIdx].FineTune = FineTuneTable[param];
+                                    mChannels[chnIdx].FineTune = FineTuneTable[param] << MOD_PRECISION;
                                     break;
                                 // 0xE6: Pattern Loop
                                 // 0xE7: Set Tremolo WaveForm
