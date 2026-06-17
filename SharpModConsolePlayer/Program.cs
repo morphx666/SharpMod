@@ -90,8 +90,9 @@ namespace SharpModConsolePlayer {
             int width = Console.WindowWidth;
             for(int i = 0; fromChannel + i < sf.ActiveChannels; i++) {
                 int x = i * ChannelWidth;
-                if(x + Renderer.Channel.VisibleWidth > width) break;
-                Renderer.Channel.RenderVuMeter(sf, fromChannel + i, x);
+                if(x >= width) break;
+                int cellWidth = Math.Min(Renderer.Channel.VisibleWidth, width - x);
+                Renderer.Channel.RenderVuMeter(sf, fromChannel + i, x, cellWidth);
             }
         }
 
@@ -103,8 +104,9 @@ namespace SharpModConsolePlayer {
             int width = Console.WindowWidth;
             for(int i = 0; fromChannel + i < sf.ActiveChannels; i++) {
                 int x = i * ChannelWidth;
-                if(x + Renderer.Channel.VisibleWidth > width) break;
-                Renderer.Channel.Render(sf, fromChannel + i, patternIndex, x);
+                if(x >= width) break;
+                int cellWidth = Math.Min(Renderer.Channel.VisibleWidth, width - x);
+                Renderer.Channel.Render(sf, fromChannel + i, patternIndex, x, cellWidth);
             }
         }
 

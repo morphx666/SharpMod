@@ -16,11 +16,12 @@ namespace SharpModConsolePlayer.Renderer {
         private const float VuDecayPerFrame = 16f;
         private static readonly float[] vuLevels = new float[32];
 
-        public static void Render(SoundFile sf, int channelIndex, uint patternIndex, int consoleCol) {
+        public static void Render(SoundFile sf, int channelIndex, uint patternIndex, int consoleCol, int maxWidth) {
+            if(maxWidth <= 0) return;
             int height = Console.WindowHeight;
             int center = FirstPatternRow + (height - FirstPatternRow) / 2;
 
-            RenderHeader(channelIndex + 1, consoleCol);
+            RenderHeader(channelIndex + 1, consoleCol, maxWidth);
 
             // Snapshot mutable state so the audio thread can't shift it mid-render
             int currentPatternRow = (int)sf.Row;
@@ -41,10 +42,10 @@ namespace SharpModConsolePlayer.Renderer {
                     if(consoleRow < FirstPatternRow || consoleRow >= height) continue;
 
                     if(pi == -1) {
-                        ClearRow(consoleCol, consoleRow);
+                        ClearRow(consoleCol, consoleRow, maxWidth);
                     } else {
                         string command = sf.CommandToString((uint)pi, (uint)row, channelIndex);
-                        RenderRow(command, consoleCol, consoleRow, isActivePattern, isActivePattern && row == currentPatternRow);
+                        RenderRow(command, consoleCol, consoleRow, maxWidth, isActivePattern, isActivePattern && row == currentPatternRow);
                     }
                 }
             }
@@ -53,16 +54,20 @@ namespace SharpModConsolePlayer.Renderer {
         internal static int ComputeConsoleRow(int center, int currentPatternRow, int row, int patternRelative)
             => center - currentPatternRow + row + patternRelative * RowsPerPattern;
 
-        private static void RenderHeader(int channelNumber, int col) {
+        private static void RenderHeader(int channelNumber, int col, int maxWidth) {
+            if(maxWidth <= 0) return;
             Console.SetCursorPosition(col, HeaderRow);
             string text = $"Channel {channelNumber}";
-            int pad = Math.Max(0, ColumnWidth + 2 - text.Length);
+            int pad = Math.Max(0, VisibleWidth - text.Length);
             int left = pad / 2;
             int right = pad - left;
-            Console.WriteInterpolated($"{Default}{Blue}{new string(' ', left)}{text}{new string(' ', right)}{Default}");
+            string content = new string(' ', left) + text + new string(' ', right);
+            if(content.Length > maxWidth) content = content[..maxWidth];
+            Console.WriteInterpolated($"{Default}{Blue}{content}{Default}");
         }
 
-        public static void RenderVuMeter(SoundFile sf, int channelIndex, int col) {
+        public static void RenderVuMeter(SoundFile sf, int channelIndex, int col, int maxWidth) {
+            if(maxWidth <= 0) return;
             var ch = sf.Channels[channelIndex];
             bool isActive = ch.Length > 0 && ch.Pos < ch.Length;
             float target = isActive ? ch.CurrentVolume : 0f;
@@ -79,16 +84,26 @@ namespace SharpModConsolePlayer.Renderer {
             int redCount = Math.Max(0, filled - 11);
             int emptyCount = ColumnWidth - filled;
 
+            int remaining = maxWidth;
+            int leadSpace = Math.Min(1, remaining); remaining -= leadSpace;
+            int gEmit = Math.Min(greenCount, remaining); remaining -= gEmit;
+            int yEmit = Math.Min(yellowCount, remaining); remaining -= yEmit;
+            int rEmit = Math.Min(redCount, remaining); remaining -= rEmit;
+            int eEmit = Math.Min(emptyCount, remaining); remaining -= eEmit;
+            int trailSpace = Math.Min(1, remaining);
+
             Console.SetCursorPosition(col, VuMeterRow);
-            Console.WriteInterpolated($"{Default} {Green}{new string('\u2588', greenCount)}{Yellow}{new string('\u2588', yellowCount)}{Red}{new string('\u2588', redCount)}{new string(' ', emptyCount)} {Default}");
+            Console.WriteInterpolated($"{Default}{new string(' ', leadSpace)}{Green}{new string('\u2588', gEmit)}{Yellow}{new string('\u2588', yEmit)}{Red}{new string('\u2588', rEmit)}{new string(' ', eEmit + trailSpace)}{Default}");
         }
 
-        private static void ClearRow(int col, int row) {
+        private static void ClearRow(int col, int row, int maxWidth) {
+            if(maxWidth <= 0) return;
             Console.SetCursorPosition(col, row);
-            Console.WriteInterpolated($"{Default}                ");
+            Console.WriteInterpolated($"{Default}{new string(' ', Math.Min(VisibleWidth, maxWidth))}");
         }
 
-        private static void RenderRow(string command, int col, int row, bool isActivePattern, bool isActiveRow) {
+        private static void RenderRow(string command, int col, int row, int maxWidth, bool isActivePattern, bool isActiveRow) {
+            if(maxWidth <= 0) return;
             ReadOnlySpan<char> s = command.AsSpan();
 
             Console.SetCursorPosition(col, row);
@@ -97,10 +112,12 @@ namespace SharpModConsolePlayer.Renderer {
             var backColor = isActiveRow ? DarkGrayBackground : Default;
 
             if(s.Length < 14) {
+                string placeholder = " ... .. ... ... ";
+                if(placeholder.Length > maxWidth) placeholder = placeholder[..maxWidth];
                 if(isActiveRow) {
-                    Console.WriteInterpolated($"{backColor}{foreColor} ... .. ... ... {Default}");
+                    Console.WriteInterpolated($"{backColor}{foreColor}{placeholder}{Default}");
                 } else {
-                    Console.WriteInterpolated($"{foreColor} ... .. ... ... {Default}");
+                    Console.WriteInterpolated($"{foreColor}{placeholder}{Default}");
                 }
                 return;
             }
@@ -115,11 +132,26 @@ namespace SharpModConsolePlayer.Renderer {
             AnsiToken vc = !isActivePattern || IsPlaceholder(vol) ? DarkGray : Cyan;
             AnsiToken ec = !isActivePattern || IsPlaceholder(efx) ? DarkGray : Yellow;
 
+            int remaining = maxWidth;
+            string seg0 = ClipSegment(" ", ref remaining);
+            string seg1 = ClipSegment(string.Concat(note, " "), ref remaining);
+            string seg2 = ClipSegment(string.Concat(inst, " "), ref remaining);
+            string seg3 = ClipSegment(string.Concat(vol, " "), ref remaining);
+            string seg4 = ClipSegment(string.Concat(efx, " "), ref remaining);
+
             if(isActiveRow) {
-                Console.WriteInterpolated($"{backColor} {nc}{note} {ic}{inst} {vc}{vol} {ec}{efx} {Default}");
+                Console.WriteInterpolated($"{backColor}{foreColor}{seg0}{nc}{seg1}{ic}{seg2}{vc}{seg3}{ec}{seg4}{Default}");
             } else {
-                Console.WriteInterpolated($" {nc}{note} {ic}{inst} {vc}{vol} {ec}{efx} {Default}");
+                Console.WriteInterpolated($"{seg0}{nc}{seg1}{ic}{seg2}{vc}{seg3}{ec}{seg4}{Default}");
             }
+        }
+
+        private static string ClipSegment(string s, ref int remaining) {
+            if(remaining <= 0) return string.Empty;
+            if(remaining >= s.Length) { remaining -= s.Length; return s; }
+            string clipped = s[..remaining];
+            remaining = 0;
+            return clipped;
         }
 
         private static bool IsPlaceholder(ReadOnlySpan<char> s) {
