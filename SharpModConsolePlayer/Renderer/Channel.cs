@@ -54,7 +54,11 @@ namespace SharpModConsolePlayer.Renderer {
 
         private static void RenderHeader(int channelNumber, int col) {
             Console.SetCursorPosition(col, HeaderRow);
-            Console.WriteInterpolated($"{Default}{Blue} Channel {channelNumber,-7}{Default}");
+            string text = $"Channel {channelNumber}";
+            int pad = Math.Max(0, ColumnWidth + 2 - text.Length);
+            int left = pad / 2;
+            int right = pad - left;
+            Console.WriteInterpolated($"{Default}{Blue}{new string(' ', left)}{text}{new string(' ', right)}{Default}");
         }
 
         public static void RenderVuMeter(SoundFile sf, int channelIndex, int col) {

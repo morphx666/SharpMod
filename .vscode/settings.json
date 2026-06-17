@@ -1,6 +1,7 @@
 {
     "dotnet.preferCSharpExtension": true,
     "cSpell.words": [
+        "Ansi",
         "Sourcei",
         "Unqueue"
     ]

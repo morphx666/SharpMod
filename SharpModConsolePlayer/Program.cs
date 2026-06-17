@@ -92,7 +92,6 @@ namespace SharpModConsolePlayer {
             ALC.MakeContextCurrent(context);
 
             int bufLen = 6000;
-            int bufLen2 = bufLen / 2;
             byte[] buffer = new byte[bufLen];
             var pinnedBufferHandle = System.Runtime.InteropServices.GCHandle.Alloc(buffer, System.Runtime.InteropServices.GCHandleType.Pinned);
 
@@ -102,24 +101,42 @@ namespace SharpModConsolePlayer {
 
             int alSrc = AL.GenSource();
 
-            // All this crap is just to prevent having a conditional (if)
-            // inside the while loop, which is only executed once:
-            //  if(AL.GetSourceState(alSrc) != ALSourceState.Playing) AL.SourcePlay(alSrc);
+            // Prime the source with one silent buffer so playback can start
+            // without a conditional inside the main loop. The primer stays in
+            // the queue and is drained below once OpenAL marks it processed.
             //  https://github.com/morphx666/SharpMod/blob/4c46ce08023391139b074ce08e1b58c661a42199/SharpModPlayer/FormMain.cs#L182
-            int buf = AL.GenBuffer();
-            AL.BufferData(buf, alf, pinnedBufferHandle.AddrOfPinnedObject(), bufLen, sampleRate);
-            AL.SourceQueueBuffer(alSrc, buf);
+            int primer = AL.GenBuffer();
+            AL.BufferData(primer, alf, pinnedBufferHandle.AddrOfPinnedObject(), bufLen, sampleRate);
+            AL.SourceQueueBuffer(alSrc, primer);
             AL.SourcePlay(alSrc);
-            AL.SourceUnqueueBuffer(buf);
-            AL.DeleteBuffer(buf);
 
             int dataReadLength;
-            int bufferPosition;
-            int frame = 0;
             bool bufferIsClear = false;
             uint totalPositions = sndFile.PositionCount;
+            const int targetQueueDepth = 3;
 
             while(isPlaying) {
+                // Drain buffers OpenAL has finished playing. The source id
+                // (not the buffer id) must be passed to SourceUnqueueBuffer;
+                // strict implementations such as Apple's OpenAL framework on
+                // macOS reject DeleteBuffer on a still-queued buffer, so the
+                // queue would otherwise grow unboundedly until the source
+                // stalls (~1024 buffers ≈ 35 s of audio).
+                AL.GetSource(alSrc, ALGetSourcei.BuffersProcessed, out int processed);
+                for(int i = 0; i < processed; i++) {
+                    int done = AL.SourceUnqueueBuffer(alSrc);
+                    AL.DeleteBuffer(done);
+                }
+
+                // Throttle the producer against playback by keeping the queue
+                // at a small fixed depth. BuffersQueued is portable across
+                // OpenAL implementations whereas ByteOffset is not.
+                AL.GetSource(alSrc, ALGetSourcei.BuffersQueued, out int queued);
+                if(queued >= targetQueueDepth) {
+                    await Task.Delay(10);
+                    continue;
+                }
+
                 dataReadLength = (int)sndFile.Read(buffer, (uint)bufLen);
                 if(dataReadLength == 0) {
                     if(!bufferIsClear) {
@@ -128,23 +145,15 @@ namespace SharpModConsolePlayer {
                     }
                 } else if(bufferIsClear) bufferIsClear = false;
 
-                buf = AL.GenBuffer();
+                int buf = AL.GenBuffer();
                 AL.BufferData(buf, alf, pinnedBufferHandle.AddrOfPinnedObject(), bufLen, sampleRate);
                 AL.SourceQueueBuffer(alSrc, buf);
 
-                do {
-                    await Task.Delay(10);
-                    AL.GetSource(alSrc, ALGetSourcei.ByteOffset, out bufferPosition);
+                // Resume the source if it underran while the producer was busy.
+                AL.GetSource(alSrc, ALGetSourcei.SourceState, out int state);
+                if((ALSourceState)state != ALSourceState.Playing) AL.SourcePlay(alSrc);
 
-                    if(sndFile.Position >= totalPositions) {
-                        isPlaying = false;
-                        break;
-                    }
-                } while(bufferPosition + bufLen2 <= bufLen * frame);
-                frame++;
-
-                AL.SourceUnqueueBuffer(buf);
-                AL.DeleteBuffer(buf);
+                if(sndFile.Position >= totalPositions) isPlaying = false;
             }
         }
     }
