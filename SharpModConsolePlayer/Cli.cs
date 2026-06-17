@@ -9,6 +9,7 @@ namespace SharpModConsolePlayer {
         public int BitDepth = 16;
         public int Channels = 2;
         public bool Loop = false;
+        public bool ShowSampleProgress = true;
 
         private static readonly int[] ValidSampleRates = [8000, 11025, 16000, 22050, 32000, 44100, 48000, 88200, 96000];
         private static readonly int[] ValidBitDepths = [8, 16];
@@ -39,6 +40,10 @@ namespace SharpModConsolePlayer {
                     case "-l":
                     case "--loop":
                         cli.Loop = true;
+                        break;
+                    case "-P":
+                    case "--no-sample-progress":
+                        cli.ShowSampleProgress = false;
                         break;
                     default:
                         if(a.StartsWith('-')) {
@@ -103,17 +108,19 @@ namespace SharpModConsolePlayer {
             Console.NewLine();
 
             Console.WriteLineInterpolated($"{Yellow}OPTIONS{Default}");
-            Console.WriteLineInterpolated($"  {Green}-r{Default}, {Green}--sample-rate{Default} {DarkGray}<hz>{Default}  Output sample rate in Hz. Default: {White}44100{Default}");
-            Console.WriteLineInterpolated($"                            Valid: {DarkGray}{string.Join(", ", ValidSampleRates)}{Default}");
-            Console.WriteLineInterpolated($"  {Green}-b{Default}, {Green}--bit-depth{Default} {DarkGray}<n>{Default}     Output bit depth. Default: {White}16{Default}");
-            Console.WriteLineInterpolated($"                            Valid: {DarkGray}8, 16{Default}");
-            Console.WriteLineInterpolated($"  {Green}-l{Default}, {Green}--loop{Default}              Loop the track when it ends");
-            Console.WriteLineInterpolated($"  {Green}-h{Default}, {Green}--help{Default}              Show this help and exit");
+            Console.WriteLineInterpolated($"  {Green}-r{Default}, {Green}--sample-rate{Default} {DarkGray}<hz>{Default}   Output sample rate in Hz. Default: {White}44100{Default}");
+            Console.WriteLineInterpolated($"                              Valid: {DarkGray}{string.Join(", ", ValidSampleRates)}{Default}");
+            Console.WriteLineInterpolated($"  {Green}-b{Default}, {Green}--bit-depth{Default} {DarkGray}<n>{Default}      Output bit depth. Default: {White}16{Default}");
+            Console.WriteLineInterpolated($"                              Valid: {DarkGray}8, 16{Default}");
+            Console.WriteLineInterpolated($"  {Green}-l{Default}, {Green}--loop{Default}               Loop the track when it ends");
+            Console.WriteLineInterpolated($"  {Green}-P{Default}, {Green}--no-sample-progress{Default} Disable the in-name playback progress bar in the samples view");
+            Console.WriteLineInterpolated($"  {Green}-h{Default}, {Green}--help{Default}               Show this help and exit");
             Console.NewLine();
 
             Console.WriteLineInterpolated($"{Yellow}KEYS{Default}");
-            Console.WriteLineInterpolated($"  {Green}Left{Default} / {Green}Right{Default}            Scroll channels horizontally");
-            Console.WriteLineInterpolated($"  {Green}Esc{Default}                     Stop playback and exit");
+            Console.WriteLineInterpolated($"  {Green}Left{Default} / {Green}Right{Default}             Scroll channels horizontally");
+            Console.WriteLineInterpolated($"  {Green}Tab{Default}                      Toggle between patterns and samples view");
+            Console.WriteLineInterpolated($"  {Green}Esc{Default}                      Stop playback and exit");
         }
     }
 }

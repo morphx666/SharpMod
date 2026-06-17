@@ -8,6 +8,8 @@ namespace SharpModConsolePlayer {
         private const int BufferLength = 6000;
         private const int TargetQueueDepth = 3;
 
+        private enum ViewMode { Patterns, Samples }
+
         private static bool isPlaying = false;
 
         static async Task Main(string[] args) {
@@ -17,7 +19,7 @@ namespace SharpModConsolePlayer {
             SoundFile sf = LoadSoundFile(cli);
 
             InitializeConsole();
-            _ = Task.Run(() => RenderLoop(sf));
+            _ = Task.Run(() => RenderLoop(sf, cli.ShowSampleProgress));
             await Play(sf, cli.SampleRate, cli.BitDepth, cli.Channels);
             RestoreConsole();
         }
@@ -36,16 +38,26 @@ namespace SharpModConsolePlayer {
             Console.CursorVisible = true;
         }
 
-        private static async Task RenderLoop(SoundFile sf) {
+        private static async Task RenderLoop(SoundFile sf, bool showSampleProgress) {
             int fromChannel = 0;
             uint lastRow = uint.MaxValue;
             uint lastCurrentPattern = uint.MaxValue;
+            ViewMode mode = ViewMode.Patterns;
             bool forceRedraw = true;
 
             while(true) {
                 await Task.Delay(30);
 
-                if(!HandleInput(sf, ref fromChannel, ref forceRedraw)) return;
+                if(!HandleInput(sf, ref fromChannel, ref mode, ref forceRedraw)) return;
+
+                if(mode == ViewMode.Samples) {
+                    Renderer.Info.Render(sf);
+                    if(forceRedraw || showSampleProgress) {
+                        Renderer.Samples.Render(sf, showSampleProgress);
+                        forceRedraw = false;
+                    }
+                    continue;
+                }
 
                 RenderHeaderAndVuMeters(sf, fromChannel);
 
@@ -60,7 +72,7 @@ namespace SharpModConsolePlayer {
             }
         }
 
-        private static bool HandleInput(SoundFile sf, ref int fromChannel, ref bool forceRedraw) {
+        private static bool HandleInput(SoundFile sf, ref int fromChannel, ref ViewMode mode, ref bool forceRedraw) {
             while(Console.KeyAvailable) {
                 ConsoleKey key = Console.ReadKey(intercept: true).Key;
                 int previousFromChannel = fromChannel;
@@ -70,6 +82,11 @@ namespace SharpModConsolePlayer {
                         break;
                     case ConsoleKey.RightArrow:
                         fromChannel = Math.Min((int)sf.ActiveChannels - 1, fromChannel + 1);
+                        break;
+                    case ConsoleKey.Tab:
+                        mode = mode == ViewMode.Patterns ? ViewMode.Samples : ViewMode.Patterns;
+                        Console.Clear();
+                        forceRedraw = true;
                         break;
                     case ConsoleKey.Escape:
                         isPlaying = false;
