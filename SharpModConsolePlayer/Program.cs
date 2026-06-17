@@ -1,160 +1,199 @@
-﻿using OpenTK.Audio.OpenAL;
+﻿using System.Runtime.InteropServices;
+using OpenTK.Audio.OpenAL;
 using SharpMod;
 
 namespace SharpModConsolePlayer {
     internal class Program {
+        private const int ChannelWidth = 20;
+        private const int BufferLength = 6000;
+        private const int TargetQueueDepth = 3;
+
         private static bool isPlaying = false;
 
         static async Task Main(string[] args) {
             Cli? cli = Cli.Parse(args);
             if(cli == null) return;
 
-            int sampleRate = cli.SampleRate;
-            int bitDepth = cli.BitDepth;
-            int channels = cli.Channels;
-            SoundFile sf = new(cli.ModFile, (uint)sampleRate, bitDepth == 16, channels == 2, cli.Loop);
+            SoundFile sf = LoadSoundFile(cli);
 
+            InitializeConsole();
+            _ = Task.Run(() => RenderLoop(sf));
+            await Play(sf, cli.SampleRate, cli.BitDepth, cli.Channels);
+            RestoreConsole();
+        }
+
+        private static SoundFile LoadSoundFile(Cli cli)
+            => new(cli.ModFile, (uint)cli.SampleRate, cli.BitDepth == 16, cli.Channels == 2, cli.Loop);
+
+        private static void InitializeConsole() {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
             Console.CursorVisible = false;
             Console.Clear();
-            _ = Task.Run(async () => {
-                const int channelWidth = 20;
-                int fromChannel = 0;
-                uint lastRow = uint.MaxValue;
-                uint lastCurrentPattern = uint.MaxValue;
-                bool forceRedraw = true;
+        }
 
-                while(true) {
-                    await Task.Delay(30);
-
-                    while(Console.KeyAvailable) {
-                        ConsoleKey key = Console.ReadKey(intercept: true).Key;
-                        int previousFromChannel = fromChannel;
-                        switch(key) {
-                            case ConsoleKey.LeftArrow:
-                                fromChannel = Math.Max(0, fromChannel - 1);
-                                break;
-                            case ConsoleKey.RightArrow:
-                                fromChannel = Math.Min((int)sf.ActiveChannels - 1, fromChannel + 1);
-                                break;
-                            case ConsoleKey.Escape:
-                                isPlaying = false;
-                                return;
-                        }
-
-                        if(fromChannel != previousFromChannel) {
-                            Console.Clear();
-                            forceRedraw = true;
-                        }
-                    }
-
-                    Renderer.Info.Render(sf);
-
-                    for(int i = 0; fromChannel + i < sf.ActiveChannels; i++) {
-                        int x = i * channelWidth;
-                        if(x >= Console.WindowWidth) break;
-                        Renderer.Channel.RenderVuMeter(sf, fromChannel + i, x);
-                    }
-
-                    uint currentRow = sf.Row;
-                    uint currentPattern = sf.CurrentPattern;
-                    if(!forceRedraw && currentRow == lastRow && currentPattern == lastCurrentPattern) continue;
-                    lastRow = currentRow;
-                    lastCurrentPattern = currentPattern;
-                    forceRedraw = false;
-
-                    uint patternIndex = sf.Pattern;
-                    if(patternIndex == 0xFF) {
-                        patternIndex = sf.Order.Last((o) => o != 0xFF);
-                    }
-                    for(int i = 0; fromChannel + i < sf.ActiveChannels; i++) {
-                        int x = i * channelWidth;
-                        if(x >= Console.WindowWidth) break;
-                        Renderer.Channel.Render(sf, fromChannel + i, patternIndex, x);
-                    }
-                }
-            });
-
-            await Play(sf, sampleRate, bitDepth, channels);
-
+        private static void RestoreConsole() {
             Console.Clear();
             Console.CursorVisible = true;
         }
 
-        private static async Task Play(SharpMod.SoundFile sndFile, int sampleRate, int bitDepth, int channels) {
+        private static async Task RenderLoop(SoundFile sf) {
+            int fromChannel = 0;
+            uint lastRow = uint.MaxValue;
+            uint lastCurrentPattern = uint.MaxValue;
+            bool forceRedraw = true;
+
+            while(true) {
+                await Task.Delay(30);
+
+                if(!HandleInput(sf, ref fromChannel, ref forceRedraw)) return;
+
+                RenderHeaderAndVuMeters(sf, fromChannel);
+
+                uint currentRow = sf.Row;
+                uint currentPattern = sf.CurrentPattern;
+                if(!forceRedraw && currentRow == lastRow && currentPattern == lastCurrentPattern) continue;
+                lastRow = currentRow;
+                lastCurrentPattern = currentPattern;
+                forceRedraw = false;
+
+                RenderPatterns(sf, fromChannel);
+            }
+        }
+
+        private static bool HandleInput(SoundFile sf, ref int fromChannel, ref bool forceRedraw) {
+            while(Console.KeyAvailable) {
+                ConsoleKey key = Console.ReadKey(intercept: true).Key;
+                int previousFromChannel = fromChannel;
+                switch(key) {
+                    case ConsoleKey.LeftArrow:
+                        fromChannel = Math.Max(0, fromChannel - 1);
+                        break;
+                    case ConsoleKey.RightArrow:
+                        fromChannel = Math.Min((int)sf.ActiveChannels - 1, fromChannel + 1);
+                        break;
+                    case ConsoleKey.Escape:
+                        isPlaying = false;
+                        return false;
+                }
+
+                if(fromChannel != previousFromChannel) {
+                    Console.Clear();
+                    forceRedraw = true;
+                }
+            }
+            return true;
+        }
+
+        private static void RenderHeaderAndVuMeters(SoundFile sf, int fromChannel) {
+            Renderer.Info.Render(sf);
+
+            for(int i = 0; fromChannel + i < sf.ActiveChannels; i++) {
+                int x = i * ChannelWidth;
+                if(x >= Console.WindowWidth) break;
+                Renderer.Channel.RenderVuMeter(sf, fromChannel + i, x);
+            }
+        }
+
+        private static void RenderPatterns(SoundFile sf, int fromChannel) {
+            uint patternIndex = sf.Pattern;
+            if(patternIndex == 0xFF) {
+                patternIndex = sf.Order.Last((o) => o != 0xFF);
+            }
+            for(int i = 0; fromChannel + i < sf.ActiveChannels; i++) {
+                int x = i * ChannelWidth;
+                if(x >= Console.WindowWidth) break;
+                Renderer.Channel.Render(sf, fromChannel + i, patternIndex, x);
+            }
+        }
+
+        private static async Task Play(SoundFile sndFile, int sampleRate, int bitDepth, int channels) {
             isPlaying = true;
 
-            ALDevice device = ALC.OpenDevice(null);
-            ALContextAttributes attributes = new() {
-                Frequency = sampleRate
-            };
-            ALContext context = ALC.CreateContext(device, attributes);
-            ALC.MakeContextCurrent(context);
+            InitializeAudioContext(sampleRate);
+            ALFormat alf = GetAlFormat(bitDepth, channels);
 
-            int bufLen = 6000;
-            byte[] buffer = new byte[bufLen];
-            var pinnedBufferHandle = System.Runtime.InteropServices.GCHandle.Alloc(buffer, System.Runtime.InteropServices.GCHandleType.Pinned);
-
-            ALFormat alf = bitDepth == 16 ?
-                            (channels == 2 ? ALFormat.Stereo16 : ALFormat.Mono16) :
-                            (channels == 2 ? ALFormat.Stereo8 : ALFormat.Mono8);
+            byte[] buffer = new byte[BufferLength];
+            GCHandle pinnedBufferHandle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+            IntPtr bufferPtr = pinnedBufferHandle.AddrOfPinnedObject();
 
             int alSrc = AL.GenSource();
+            PrimeSource(alSrc, alf, bufferPtr, sampleRate);
 
+            bool bufferIsClear = false;
+            uint totalPositions = sndFile.PositionCount;
+
+            while(isPlaying) {
+                DrainProcessedBuffers(alSrc);
+
+                AL.GetSource(alSrc, ALGetSourcei.BuffersQueued, out int queued);
+                if(queued >= TargetQueueDepth) {
+                    await Task.Delay(10);
+                    continue;
+                }
+
+                FillNextBuffer(sndFile, buffer, ref bufferIsClear);
+
+                int buf = AL.GenBuffer();
+                AL.BufferData(buf, alf, bufferPtr, BufferLength, sampleRate);
+                AL.SourceQueueBuffer(alSrc, buf);
+
+                EnsurePlaying(alSrc);
+
+                if(sndFile.Position >= totalPositions) isPlaying = false;
+            }
+        }
+
+        private static void InitializeAudioContext(int sampleRate) {
+            ALDevice device = ALC.OpenDevice(null);
+            ALContextAttributes attributes = new() { Frequency = sampleRate };
+            ALContext context = ALC.CreateContext(device, attributes);
+            ALC.MakeContextCurrent(context);
+        }
+
+        private static ALFormat GetAlFormat(int bitDepth, int channels)
+            => bitDepth == 16
+                ? (channels == 2 ? ALFormat.Stereo16 : ALFormat.Mono16)
+                : (channels == 2 ? ALFormat.Stereo8 : ALFormat.Mono8);
+
+        private static void PrimeSource(int alSrc, ALFormat alf, IntPtr bufferPtr, int sampleRate) {
             // Prime the source with one silent buffer so playback can start
             // without a conditional inside the main loop. The primer stays in
             // the queue and is drained below once OpenAL marks it processed.
             //  https://github.com/morphx666/SharpMod/blob/4c46ce08023391139b074ce08e1b58c661a42199/SharpModPlayer/FormMain.cs#L182
             int primer = AL.GenBuffer();
-            AL.BufferData(primer, alf, pinnedBufferHandle.AddrOfPinnedObject(), bufLen, sampleRate);
+            AL.BufferData(primer, alf, bufferPtr, BufferLength, sampleRate);
             AL.SourceQueueBuffer(alSrc, primer);
             AL.SourcePlay(alSrc);
+        }
 
-            int dataReadLength;
-            bool bufferIsClear = false;
-            uint totalPositions = sndFile.PositionCount;
-            const int targetQueueDepth = 3;
-
-            while(isPlaying) {
-                // Drain buffers OpenAL has finished playing. The source id
-                // (not the buffer id) must be passed to SourceUnqueueBuffer;
-                // strict implementations such as Apple's OpenAL framework on
-                // macOS reject DeleteBuffer on a still-queued buffer, so the
-                // queue would otherwise grow unboundedly until the source
-                // stalls (~1024 buffers ≈ 35 s of audio).
-                AL.GetSource(alSrc, ALGetSourcei.BuffersProcessed, out int processed);
-                for(int i = 0; i < processed; i++) {
-                    int done = AL.SourceUnqueueBuffer(alSrc);
-                    AL.DeleteBuffer(done);
-                }
-
-                // Throttle the producer against playback by keeping the queue
-                // at a small fixed depth. BuffersQueued is portable across
-                // OpenAL implementations whereas ByteOffset is not.
-                AL.GetSource(alSrc, ALGetSourcei.BuffersQueued, out int queued);
-                if(queued >= targetQueueDepth) {
-                    await Task.Delay(10);
-                    continue;
-                }
-
-                dataReadLength = (int)sndFile.Read(buffer, (uint)bufLen);
-                if(dataReadLength == 0) {
-                    if(!bufferIsClear) {
-                        Array.Clear(buffer, 0, bufLen);
-                        bufferIsClear = true;
-                    }
-                } else if(bufferIsClear) bufferIsClear = false;
-
-                int buf = AL.GenBuffer();
-                AL.BufferData(buf, alf, pinnedBufferHandle.AddrOfPinnedObject(), bufLen, sampleRate);
-                AL.SourceQueueBuffer(alSrc, buf);
-
-                // Resume the source if it underran while the producer was busy.
-                AL.GetSource(alSrc, ALGetSourcei.SourceState, out int state);
-                if((ALSourceState)state != ALSourceState.Playing) AL.SourcePlay(alSrc);
-
-                if(sndFile.Position >= totalPositions) isPlaying = false;
+        private static void DrainProcessedBuffers(int alSrc) {
+            // Drain buffers OpenAL has finished playing. The source id (not
+            // the buffer id) must be passed to SourceUnqueueBuffer; strict
+            // implementations such as Apple's OpenAL framework on macOS
+            // reject DeleteBuffer on a still-queued buffer, so the queue
+            // would otherwise grow unboundedly until the source stalls
+            // (~1024 buffers ≈ 35 s of audio).
+            AL.GetSource(alSrc, ALGetSourcei.BuffersProcessed, out int processed);
+            for(int i = 0; i < processed; i++) {
+                int done = AL.SourceUnqueueBuffer(alSrc);
+                AL.DeleteBuffer(done);
             }
+        }
+
+        private static void FillNextBuffer(SoundFile sndFile, byte[] buffer, ref bool bufferIsClear) {
+            uint dataReadLength = sndFile.Read(buffer, BufferLength);
+            if(dataReadLength == 0) {
+                if(!bufferIsClear) {
+                    Array.Clear(buffer, 0, BufferLength);
+                    bufferIsClear = true;
+                }
+            } else if(bufferIsClear) bufferIsClear = false;
+        }
+
+        private static void EnsurePlaying(int alSrc) {
+            // Resume the source if it underran while the producer was busy.
+            AL.GetSource(alSrc, ALGetSourcei.SourceState, out int state);
+            if((ALSourceState)state != ALSourceState.Playing) AL.SourcePlay(alSrc);
         }
     }
 }
