@@ -111,6 +111,7 @@ namespace SharpModConsolePlayer {
                             forceRedraw = true;
                         }
                         break;
+                    case ConsoleKey.Q:
                     case ConsoleKey.Escape:
                         isPlaying = false;
                         return false;

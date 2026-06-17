@@ -12,7 +12,7 @@ namespace SharpModConsolePlayer.Renderer {
             if(title.Length > TitleWidth) title = title[..TitleWidth];
 
             Console.SetCursorPosition(0, InfoRow);
-            Console.WriteInterpolated($"{Default} {Magenta}{title,-TitleWidth}  {Cyan}Channels:{White} {sf.ActiveChannels,2}  {Cyan}Pattern:{White} {sf.CurrentPattern,3}  {Cyan}Row:{White} {sf.Row,2}  {Cyan}Tempo/Speed:{White} {sf.MusicTempo,3}/{sf.MusicSpeed,3}{Default}");
+            Console.WriteInterpolated($"{Default} {Magenta}{title,-TitleWidth} {DarkGray}| {Cyan}Type:{White} {sf.Type.ToString()[..3],-3}  {Cyan}Channels:{White} {sf.ActiveChannels,2}  {Cyan}Pattern:{White} {sf.CurrentPattern,3}  {Cyan}Row:{White} {sf.Row,2}  {Cyan}Tempo/Speed:{White} {sf.MusicTempo,3}/{sf.MusicSpeed,3}{Default}");
         }
     }
 }
