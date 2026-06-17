@@ -29,10 +29,10 @@ namespace SharpModConsolePlayer.Renderer {
 
         private static void RenderHeader(int width) {
             Console.SetCursorPosition(0, HeaderRow);
-            string text = $"  #  {"Name".PadRight(NameWidth)}    Length    Vol  LoopStart  LoopEnd";
+            string text = $"  #  {"Name",-NameWidth}    Length    Vol  LoopStart  LoopEnd";
             if(text.Length > width) text = text[..width];
             int pad = Math.Max(0, width - text.Length);
-            Console.WriteInterpolated($"{Default}{Yellow}{text}{new string(' ', pad)}{Default}");
+            Console.WriteInterpolated($"{Default}{Yellow}{text}{new WhiteSpace(pad)}{Default}");
         }
 
         private static void RenderSample(SoundFile sf, int index, int row, int width, bool showProgress) {
@@ -53,7 +53,7 @@ namespace SharpModConsolePlayer.Renderer {
             int pad = Math.Max(0, width - line.Length);
 
             Console.SetCursorPosition(0, row);
-            Console.WriteInterpolated($"{Default}{DarkGray} {index,2}  {nameColor}{DarkBlueBackground}{nameFilled}{DefaultBackground}{nameRest}    {numColor}{ins.Length,6}   {Green}{ins.Volume,3}  {Magenta}{ins.LoopStart,9}  {ins.LoopEnd,7}{Default}{new string(' ', pad)}");
+            Console.WriteInterpolated($"{Default}{DarkGray} {index,2}  {nameColor}{DarkBlueBackground}{nameFilled}{DefaultBackground}{nameRest}    {numColor}{ins.Length,6}   {Green}{ins.Volume,3}  {Magenta}{ins.LoopStart,9}  {ins.LoopEnd,7}{Default}{new WhiteSpace(pad)}");
         }
 
         private static int ComputeProgressChars(SoundFile sf, int instrumentIndex) {
@@ -85,7 +85,7 @@ namespace SharpModConsolePlayer.Renderer {
 
         private static void ClearRow(int row, int width) {
             Console.SetCursorPosition(0, row);
-            Console.WriteInterpolated($"{Default}{new string(' ', width)}");
+            Console.WriteInterpolated($"{Default}{new WhiteSpace(width)}");
         }
     }
 }

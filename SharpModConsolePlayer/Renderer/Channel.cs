@@ -58,12 +58,13 @@ namespace SharpModConsolePlayer.Renderer {
             if(maxWidth <= 0) return;
             Console.SetCursorPosition(col, HeaderRow);
             string text = $"Channel {channelNumber}";
-            int pad = Math.Max(0, VisibleWidth - text.Length);
+            int totalLen = Math.Min(VisibleWidth, maxWidth);
+            int textLen = Math.Min(text.Length, totalLen);
+            int pad = totalLen - textLen;
             int left = pad / 2;
             int right = pad - left;
-            string content = new string(' ', left) + text + new string(' ', right);
-            if(content.Length > maxWidth) content = content[..maxWidth];
-            Console.WriteInterpolated($"{Default}{Blue}{content}{Default}");
+            ReadOnlySpan<char> textSpan = text.AsSpan(0, textLen);
+            Console.WriteInterpolated($"{Default}{Blue}{new WhiteSpace(left)}{textSpan}{new WhiteSpace(right)}{Default}");
         }
 
         public static void RenderVuMeter(SoundFile sf, int channelIndex, int col, int maxWidth) {
@@ -93,13 +94,13 @@ namespace SharpModConsolePlayer.Renderer {
             int trailSpace = Math.Min(1, remaining);
 
             Console.SetCursorPosition(col, VuMeterRow);
-            Console.WriteInterpolated($"{Default}{new string(' ', leadSpace)}{Green}{new string('\u2588', gEmit)}{Yellow}{new string('\u2588', yEmit)}{Red}{new string('\u2588', rEmit)}{new string(' ', eEmit + trailSpace)}{Default}");
+            Console.WriteInterpolated($"{Default}{new WhiteSpace(leadSpace)}{Green}{new string('\u2588', gEmit)}{Yellow}{new string('\u2588', yEmit)}{Red}{new string('\u2588', rEmit)}{new WhiteSpace(eEmit + trailSpace)}{Default}");
         }
 
         private static void ClearRow(int col, int row, int maxWidth) {
             if(maxWidth <= 0) return;
             Console.SetCursorPosition(col, row);
-            Console.WriteInterpolated($"{Default}{new string(' ', Math.Min(VisibleWidth, maxWidth))}");
+            Console.WriteInterpolated($"{Default}{new WhiteSpace(Math.Min(VisibleWidth, maxWidth))}");
         }
 
         private static void RenderRow(string command, int col, int row, int maxWidth, bool isActivePattern, bool isActiveRow) {

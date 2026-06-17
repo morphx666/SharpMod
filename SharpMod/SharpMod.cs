@@ -351,6 +351,7 @@ namespace SharpMod {
                 }
             }
 
+            mInstruments = new ModInstrument[ActiveSamples + 1]; // TODO: Probably wrong
             for(i = 1; i <= xm.instruments; i++) {
                 UInt32 headerSize = mFile.ReadUInt32();
                 if(headerSize == 0) headerSize = (UInt32)Marshal.SizeOf(typeof(XMTools.XMInstrumentHeader));
@@ -359,11 +360,7 @@ namespace SharpMod {
                 XMTools.XMInstrumentHeader xIH = SoundFile.LoadStruct<XMTools.XMInstrumentHeader>(mFile);
 
                 mInstruments[i] = new ModInstrument();
-
-                Debugger.Break();
             }
-
-            Debugger.Break();
         }
 
         private void CloseFile(bool isValid) {
