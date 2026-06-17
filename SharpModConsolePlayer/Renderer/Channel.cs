@@ -11,6 +11,7 @@ namespace SharpModConsolePlayer.Renderer {
         internal const int VuMeterRow = HeaderRow + 1;
         internal const int FirstPatternRow = VuMeterRow + 1;
         private const int ColumnWidth = 14;
+        internal const int VisibleWidth = ColumnWidth + 2;
         private const int VuMeterMaxVolume = 256;
         private const float VuDecayPerFrame = 16f;
         private static readonly float[] vuLevels = new float[32];

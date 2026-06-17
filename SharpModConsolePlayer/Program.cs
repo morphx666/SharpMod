@@ -87,9 +87,10 @@ namespace SharpModConsolePlayer {
         private static void RenderHeaderAndVuMeters(SoundFile sf, int fromChannel) {
             Renderer.Info.Render(sf);
 
+            int width = Console.WindowWidth;
             for(int i = 0; fromChannel + i < sf.ActiveChannels; i++) {
                 int x = i * ChannelWidth;
-                if(x >= Console.WindowWidth) break;
+                if(x + Renderer.Channel.VisibleWidth > width) break;
                 Renderer.Channel.RenderVuMeter(sf, fromChannel + i, x);
             }
         }
@@ -99,9 +100,10 @@ namespace SharpModConsolePlayer {
             if(patternIndex == 0xFF) {
                 patternIndex = sf.Order.Last((o) => o != 0xFF);
             }
+            int width = Console.WindowWidth;
             for(int i = 0; fromChannel + i < sf.ActiveChannels; i++) {
                 int x = i * ChannelWidth;
-                if(x >= Console.WindowWidth) break;
+                if(x + Renderer.Channel.VisibleWidth > width) break;
                 Renderer.Channel.Render(sf, fromChannel + i, patternIndex, x);
             }
         }
