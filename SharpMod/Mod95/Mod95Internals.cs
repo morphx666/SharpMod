@@ -307,8 +307,12 @@ namespace SharpMod {
                                 int semitone = note & 0x0F;
                                 note = semitone + 12 * octave + 12;// + 1;
 
-                                double f = Math.Pow(2.0, (note - 69.0) / 12.0) * 440.0;
-                                period = (uint)(Rate / f);
+                                // Amiga-style period calibrated so that S3M/XM/STM C-5 (note 60)
+                                // yields MOD_AMIGAC2. Combined with FineTune = c5speed from the
+                                // loader, the mixer's Inc = FineTune * MOD_AMIGAC2 / (period * Rate)
+                                // then plays the sample at its natural rate on C-5 and tracks
+                                // pitch by octave on either side.
+                                period = (uint)(MOD_AMIGAC2 * Math.Pow(2.0, (60.0 - note) / 12.0));
                             }
                         };
 

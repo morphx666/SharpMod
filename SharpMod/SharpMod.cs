@@ -280,11 +280,7 @@ namespace SharpMod {
                 Array.Copy(smpH.name, mInstruments[i].name, smpH.name.Length);
                 mInstruments[i].Length = smpH.length;
 
-                int note = FrequencyToNote(smpH.c5speed);
-                //double f = Math.Pow(2.0, (note - 136) / 12.0) * 8000.0;
-                //double f = Math.Pow(2.0, (note - 136) / 12.0) * 8372.018;
-                double f = Math.Pow(2.0, (note - 136) / 12.0) * 8169;
-                mInstruments[i].FineTune = (uint)f;
+                mInstruments[i].FineTune = smpH.c5speed;
 
                 // Only honor loopStart/loopEnd when the smpLoop flag is set; ST3 leaves stale loop
                 // values in non-looping samples (matches OpenMPT's ConvertToMPT behavior).
@@ -533,9 +529,7 @@ namespace SharpMod {
                     sbyte relnote = (sbyte)smpHdrs[s].relnote;
                     sbyte finetune = (sbyte)smpHdrs[s].finetune;
                     double c5speed = 8363.0 * Math.Pow(2.0, (relnote * 128.0 + finetune) / (12.0 * 128.0));
-                    int note = FrequencyToNote(c5speed);
-                    double f = Math.Pow(2.0, (note - 136) / 12.0) * 8169;
-                    mInstruments[i].FineTune = (uint)f;
+                    mInstruments[i].FineTune = (uint)c5speed;
 
                     bool hasLoop = (smpHdrs[s].flags & ((byte)XMTools.XMSample.XMSampleFlags.sampleLoop
                                                      | (byte)XMTools.XMSample.XMSampleFlags.sampleBidiLoop)) != 0;
@@ -580,9 +574,7 @@ namespace SharpMod {
                 mInstruments[idx].Length = len;
 
                 if(sh.sampleRate > 0) {
-                    int note = FrequencyToNote(sh.sampleRate);
-                    double f = Math.Pow(2.0, (note - 136) / 12.0) * 8169;
-                    mInstruments[idx].FineTune = (uint)f;
+                    mInstruments[idx].FineTune = sh.sampleRate;
                 } else {
                     mInstruments[idx].FineTune = FineTuneTable[8];
                 }
