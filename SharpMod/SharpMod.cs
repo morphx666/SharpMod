@@ -177,6 +177,14 @@ namespace SharpMod {
                 mFile.Read(mInstruments[i].Sample, 0, (int)mInstruments[i].Length);
                 mInstruments[i].Sample[mInstruments[i].Length] = mInstruments[i].Sample[mInstruments[i].Length - 1];
             }
+
+            // Default Amiga panning (LRRL for 4-channel MODs; odd=left, even=right otherwise)
+            for(i = 0; i < ActiveChannels; i++) {
+                bool right;
+                if(ActiveChannels == 4) right = ((i & 3) == 1) || ((i & 3) == 2);
+                else right = (i & 1) == 0;
+                mChannels[i].Pan = (short)(right ? 256 : 0);
+            }
         }
 
         private void ParseS3MFile(int offset, S3MTools.S3MFileHeader s3m) {
@@ -224,6 +232,31 @@ namespace SharpMod {
                 patternsOffsets[i] = mFile.ReadUInt16();
             }
 
+            // Optional 32-byte extended panning table follows the pattern parapointers
+            byte[] panTable = null;
+            if(s3m.usePanningTable == (byte)S3MTools.S3MFileHeader.S3MMagic.idPanning) {
+                panTable = new byte[32];
+                mFile.Read(panTable, 0, 32);
+            }
+
+            // Default per-channel pan from S3M header (low nibble of channels[i]) and pan table override.
+            // If master volume's high bit is clear the file is mono and all channels center.
+            bool stereoOut = (s3m.masterVolume & 0x80) != 0;
+            for(i = 0; i < 32; i++) {
+                sbyte slot = chnMap[i];
+                if(slot < 0) continue;
+                short pan;
+                if(!stereoOut) {
+                    pan = 128;
+                } else if(panTable != null && (panTable[i] & 0x20) != 0) {
+                    pan = (short)((panTable[i] & 0x0F) * 17);
+                } else {
+                    byte chType = (byte)(s3m.channels[i] & 0x7F);
+                    pan = (short)(chType < 8 ? 64 : 192);
+                }
+                mChannels[slot].Pan = pan;
+            }
+
             long fileLen = mFile.Length;
             int smpHdrSize = Marshal.SizeOf(typeof(S3MTools.S3MSampleHeader));
 
@@ -239,7 +272,8 @@ namespace SharpMod {
 
                 int note = FrequencyToNote(smpH.c5speed);
                 //double f = Math.Pow(2.0, (note - 136) / 12.0) * 8000.0;
-                double f = Math.Pow(2.0, (note - 136) / 12.0) * 8372.018;
+                //double f = Math.Pow(2.0, (note - 136) / 12.0) * 8372.018;
+                double f = Math.Pow(2.0, (note - 136) / 12.0) * 8169;
                 mInstruments[i].FineTune = (uint)f;
 
                 mInstruments[i].LoopStart = smpH.loopStart;
@@ -252,6 +286,8 @@ namespace SharpMod {
                 if(smpH.Magic == "SCRS") {
                     bool is16 = (smpH.flags & (byte)S3MTools.S3MSampleHeader.SampleFlags.smp16Bit) != 0;
                     bool isStereo = (smpH.flags & (byte)S3MTools.S3MSampleHeader.SampleFlags.smpStereo) != 0;
+                    mInstruments[i].Is16Bit = is16;
+                    mInstruments[i].IsStereo = isStereo;
                     int sampleBytes = (int)smpH.length * (is16 ? 2 : 1) * (isStereo ? 2 : 1);
                     if(sampleBytes <= 0) continue;
 
@@ -333,6 +369,8 @@ namespace SharpMod {
 
             MusicSpeed = xm.speed;
             MusicTempo = xm.tempo;
+
+            for(i = 0; i < ActiveChannels; i++) mChannels[i].Pan = 128;
 
             mFile.Position = offset;
             mOrder = new byte[xm.orders];

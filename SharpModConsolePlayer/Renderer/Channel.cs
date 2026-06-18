@@ -14,13 +14,16 @@ namespace SharpModConsolePlayer.Renderer {
         internal const int VisibleWidth = ColumnWidth + 2;
         private const int VuMeterMaxVolume = 256;
         private const float VuDecayPerFrame = 16f;
-        private static readonly float[] vuLevels = new float[32];
+        private static readonly float[] vuLevelsL = new float[32];
+        private static readonly float[] vuLevelsR = new float[32];
 
-        // Upper half block: '\u2580'
-        // Lower half block: '\u2584'
-        // Full block: '\u2588'
-        // Left seven eighths block: '\u2589'
-        private const char vuChar = '\u2580';
+        // Upper half block (L only):   '\u2580'  ▀
+        // Lower half block (R only):   '\u2584'  ▄
+        // Full block (both / mono):    '\u2588'  █
+        // Left seven eighths block:    '\u2501'  ━
+        private const char vuCharL = '\u2580';
+        private const char vuCharR = '\u2584';
+        private const char vuCharLR = '\u2501';
 
         internal static void Render(SoundFile sf, int channelIndex, uint patternIndex, int consoleCol, int maxWidth) {
             if(maxWidth <= 0) return;
@@ -77,30 +80,61 @@ namespace SharpModConsolePlayer.Renderer {
             if(maxWidth <= 0) return;
             var ch = sf.Channels[channelIndex];
             bool isActive = ch.Length > 0 && ch.Pos < ch.Length;
-            float target = isActive ? ch.CurrentVolume : 0f;
-            if(target < 0f) target = 0f;
-            if(target > VuMeterMaxVolume) target = VuMeterMaxVolume;
 
-            float level = Math.Max(target, vuLevels[channelIndex] - VuDecayPerFrame);
-            vuLevels[channelIndex] = level;
+            float targetL, targetR;
+            if(isActive) {
+                float vol = ch.CurrentVolume;
+                if(ch.IsStereo) {
+                    // Stereo source: pan acts as L/R balance.
+                    int pan = ch.Pan;
+                    if(pan < 0) pan = 0; else if(pan > VuMeterMaxVolume) pan = VuMeterMaxVolume;
+                    targetL = vol * (VuMeterMaxVolume - pan) / VuMeterMaxVolume;
+                    targetR = vol * pan / VuMeterMaxVolume;
+                } else {
+                    // Mono source: same level on both sides (renders as full-block bar).
+                    targetL = vol;
+                    targetR = vol;
+                }
+            } else {
+                targetL = 0f;
+                targetR = 0f;
+            }
+            if(targetL < 0f) targetL = 0f; else if(targetL > VuMeterMaxVolume) targetL = VuMeterMaxVolume;
+            if(targetR < 0f) targetR = 0f; else if(targetR > VuMeterMaxVolume) targetR = VuMeterMaxVolume;
 
-            int filled = (int)(level * ColumnWidth / VuMeterMaxVolume);
+            float levelL = Math.Max(targetL, vuLevelsL[channelIndex] - VuDecayPerFrame);
+            float levelR = Math.Max(targetR, vuLevelsR[channelIndex] - VuDecayPerFrame);
+            vuLevelsL[channelIndex] = levelL;
+            vuLevelsR[channelIndex] = levelR;
 
-            int greenCount = Math.Min(filled, 8);
-            int yellowCount = Math.Max(0, Math.Min(filled, 11) - 8);
-            int redCount = Math.Max(0, filled - 11);
-            int emptyCount = ColumnWidth - filled;
+            int filledL = (int)(levelL * ColumnWidth / VuMeterMaxVolume);
+            int filledR = (int)(levelR * ColumnWidth / VuMeterMaxVolume);
+
+            // Build per-cell glyphs (top half = L, bottom half = R, both = full)
+            Span<char> cells = stackalloc char[ColumnWidth];
+            for(int c = 0; c < ColumnWidth; c++) {
+                bool l = c < filledL;
+                bool r = c < filledR;
+                cells[c] = (l && r) ? vuCharLR : (l ? vuCharL : (r ? vuCharR : ' '));
+            }
+
+            // Fixed color regions by position: green 0..7, yellow 8..10, red 11..13
+            const int greenEnd = 8;
+            const int yellowEnd = 11;
 
             int remaining = maxWidth;
             int leadSpace = Math.Min(1, remaining); remaining -= leadSpace;
-            int gEmit = Math.Min(greenCount, remaining); remaining -= gEmit;
-            int yEmit = Math.Min(yellowCount, remaining); remaining -= yEmit;
-            int rEmit = Math.Min(redCount, remaining); remaining -= rEmit;
-            int eEmit = Math.Min(emptyCount, remaining); remaining -= eEmit;
+            int gEmit = Math.Min(greenEnd, remaining); remaining -= gEmit;
+            int yEmit = Math.Min(yellowEnd - greenEnd, remaining); remaining -= yEmit;
+            int rEmit = Math.Min(ColumnWidth - yellowEnd, remaining); remaining -= rEmit;
             int trailSpace = Math.Min(1, remaining);
 
+            ReadOnlySpan<char> seg1 = cells[..gEmit];
+            ReadOnlySpan<char> seg2 = cells.Slice(greenEnd, yEmit);
+            ReadOnlySpan<char> seg3 = cells.Slice(yellowEnd, rEmit);
+
             Console.SetCursorPosition(col, VuMeterRow);
-            Console.WriteInterpolated($"{Default}{new WhiteSpace(leadSpace)}{Green}{new string(vuChar, gEmit)}{Yellow}{new string(vuChar, yEmit)}{Red}{new string(vuChar, rEmit)}{new WhiteSpace(eEmit + trailSpace)}{Default}");
+            Console.WriteInterpolated($"{Default}{new WhiteSpace(leadSpace)}{Green}{seg1}{Yellow}{seg2}{Red}{seg3}{new WhiteSpace(trailSpace)}{Default}");
         }
 
         private static void ClearRow(int col, int row, int maxWidth) {

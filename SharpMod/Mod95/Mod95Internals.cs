@@ -97,10 +97,10 @@ namespace SharpMod {
         public uint Read(byte[] lpBuffer, uint cbBuffer) {
             byte[] p = lpBuffer;
             uint lRead, lMax, lSampleSize;
-            short adjustvol = (short)ActiveChannels;
+            short adjustVol = (short)ActiveChannels;
             short[] CurrentVol = new short[32];
+            short[] CurrentPan = new short[32];
             byte[][] pSample = new byte[32][];
-            bool[] bTrkDest = new bool[32];
             uint j;
 
             if(Type == Types.INVALID) return 0;
@@ -114,14 +114,11 @@ namespace SharpMod {
             // Memorize channels settings
             for(j = 0; j < ActiveChannels; j++) {
                 CurrentVol[j] = mChannels[j].CurrentVolume;
+                CurrentPan[j] = mChannels[j].Pan;
                 if(mChannels[j].Length != 0) {
                     pSample[j] = new byte[mChannels[j].Sample.Length];
                     Array.Copy(mChannels[j].Sample, pSample[j], mChannels[j].Sample.Length);
                 }
-                if(ActiveChannels == 4)
-                    bTrkDest[j] = (((j & 3) == 1) || ((j & 3) == 2)) ? true : false;
-                else
-                    bTrkDest[j] = ((j & 1) != 0) ? false : true;
             }
             if(Pattern >= mPatterns.Length) return 0;
 
@@ -133,6 +130,7 @@ namespace SharpMod {
                     // Memorize channels settings
                     for(j = 0; j < ActiveChannels; j++) {
                         CurrentVol[j] = mChannels[j].CurrentVolume;
+                        CurrentPan[j] = mChannels[j].Pan;
                         if(mChannels[j].Length != 0) {
                             pSample[j] = new byte[mChannels[j].Sample.Length];
                             Array.Copy(mChannels[j].Sample, pSample[j], mChannels[j].Sample.Length);
@@ -144,34 +142,70 @@ namespace SharpMod {
                 BufferCount--;
 
                 int vRight = 0, vLeft = 0;
-                for(uint i = 0; i < ActiveChannels; i++) if(pSample[i] != null) {
-                    // Read sample
-                    int poshi = (int)(mChannels[i].Pos >> MOD_PRECISION);
-                    if((poshi + 1) >= pSample[i].Length) continue; // Until S3M's FineTune is correctly set, this will overflow...
-                    short poslo = (short)(mChannels[i].Pos & MOD_FRACMASK);
-                    short srcvol = (sbyte)pSample[i][poshi];
-                    short destvol = (sbyte)pSample[i][poshi + 1];
-                    int vol = srcvol + ((int)(poslo * (destvol - srcvol)) >> MOD_PRECISION);
-                    vol *= CurrentVol[i];
-                    if(bTrkDest[i]) vRight += vol; else vLeft += vol;
-                    mChannels[i].OldVol = vol;
-                    mChannels[i].Pos += mChannels[i].Inc;
-                    if(mChannels[i].Pos >= mChannels[i].Length) {
-                        mChannels[i].Length = mChannels[i].LoopEnd;
-                        mChannels[i].Pos = (mChannels[i].Pos & MOD_FRACMASK) + mChannels[i].LoopStart;
-                        if(mChannels[i].Length == 0) pSample[i] = null;
+                for(uint i = 0; i < ActiveChannels; i++) {
+                    if(pSample[i] != null) {
+                        // Read sample (8/16-bit, mono/stereo)
+                        int poshi = (int)(mChannels[i].Pos >> MOD_PRECISION);
+                        if((poshi + 1) >= mChannels[i].SampleCount) continue;
+                        short poslo = (short)(mChannels[i].Pos & MOD_FRACMASK);
+
+                        int volL, volR;
+                        if(mChannels[i].Is16Bit) {
+                            int idxL = poshi * 2;
+                            int sL = (short)(pSample[i][idxL] | (pSample[i][idxL + 1] << 8)) >> 8;
+                            int dL = (short)(pSample[i][idxL + 2] | (pSample[i][idxL + 3] << 8)) >> 8;
+                            volL = sL + ((poslo * (dL - sL)) >> MOD_PRECISION);
+                            if(mChannels[i].IsStereo) {
+                                int idxR = ((int)mChannels[i].SampleCount + poshi) * 2;
+                                int sR = (short)(pSample[i][idxR] | (pSample[i][idxR + 1] << 8)) >> 8;
+                                int dR = (short)(pSample[i][idxR + 2] | (pSample[i][idxR + 3] << 8)) >> 8;
+                                volR = sR + ((poslo * (dR - sR)) >> MOD_PRECISION);
+                            } else volR = volL;
+                        } else {
+                            int sL = (sbyte)pSample[i][poshi];
+                            int dL = (sbyte)pSample[i][poshi + 1];
+                            volL = sL + ((poslo * (dL - sL)) >> MOD_PRECISION);
+                            if(mChannels[i].IsStereo) {
+                                int idxR = (int)mChannels[i].SampleCount + poshi;
+                                int sR = (sbyte)pSample[i][idxR];
+                                int dR = (sbyte)pSample[i][idxR + 1];
+                                volR = sR + ((poslo * (dR - sR)) >> MOD_PRECISION);
+                            } else volR = volL;
+                        }
+                        volL *= CurrentVol[i];
+                        volR *= CurrentVol[i];
+
+                        int pan = CurrentPan[i];
+                        if(mChannels[i].IsStereo) {
+                            vLeft += volL;
+                            vRight += volR;
+                            mChannels[i].OldVol = (volL + volR) >> 1;
+                        } else {
+                            vLeft += (volL * (256 - pan)) >> 8;
+                            vRight += (volL * pan) >> 8;
+                            mChannels[i].OldVol = volL;
+                        }
+
+                        mChannels[i].Pos += mChannels[i].Inc;
+                        if(mChannels[i].Pos >= mChannels[i].Length) {
+                            mChannels[i].Length = mChannels[i].LoopEnd;
+                            mChannels[i].Pos = (mChannels[i].Pos & MOD_FRACMASK) + mChannels[i].LoopStart;
+                            if(mChannels[i].Length == 0) pSample[i] = null;
+                        }
+                    } else {
+                        int vol = mChannels[i].OldVol;
+                        int pan = CurrentPan[i];
+                        vLeft += (vol * (256 - pan)) >> 8;
+                        vRight += (vol * pan) >> 8;
                     }
-                } else {
-                    int vol = mChannels[i].OldVol;
-                    if(bTrkDest[i]) vRight += vol; else vLeft += vol;
                 }
 
                 // Sample ready
                 if(IsStereo) {
                     // Stereo - Surround
                     int vol = vRight;
-                    vRight = (vRight * 13 + vLeft * 3) / (adjustvol * 8);
-                    vLeft = (vLeft * 13 + vol * 3) / (adjustvol * 8);
+                    vRight = (vRight * 13 + vLeft * 3) / (adjustVol * 8);
+                    vLeft = (vLeft * 13 + vol * 3) / (adjustVol * 8);
                     if(Is16Bit) {
                         // 16-Bit
                         p[pIndex + 0] = (byte)(((uint)vRight) & 0xFF);
@@ -185,7 +219,7 @@ namespace SharpMod {
                     }
                 } else {
                     // Mono
-                    int vol = (vRight + vLeft) / adjustvol;
+                    int vol = (vRight + vLeft) / adjustVol;
                     if(Is16Bit) {
                         // 16-Bit
                         p[pIndex + 0] = (byte)(((uint)vol) & 0xFF);
@@ -277,6 +311,7 @@ namespace SharpMod {
                         if(noteCut) {
                             mChannels[chnIdx].Volume = 0;
                             mChannels[chnIdx].Period = 0;
+                            mChannels[chnIdx].OldVol = 0;
                         }
                     } else { // MOD
                         chnIdx = i;
@@ -304,15 +339,19 @@ namespace SharpMod {
                             if(Type == Types.MOD) mChannels[chnIdx].Volume = mInstruments[instIdx].Volume;
                             mChannels[chnIdx].Pos = 0;
                             mChannels[chnIdx].Length = mInstruments[instIdx].Length << MOD_PRECISION;
+                            mChannels[chnIdx].SampleCount = mInstruments[instIdx].Length;
                             mChannels[chnIdx].FineTune = mInstruments[instIdx].FineTune << MOD_PRECISION;
                             mChannels[chnIdx].LoopStart = mInstruments[instIdx].LoopStart << MOD_PRECISION;
                             mChannels[chnIdx].LoopEnd = mInstruments[instIdx].LoopEnd << MOD_PRECISION;
                             mChannels[chnIdx].Sample = mInstruments[instIdx].Sample;
+                            mChannels[chnIdx].Is16Bit = mInstruments[instIdx].Is16Bit;
+                            mChannels[chnIdx].IsStereo = mInstruments[instIdx].IsStereo;
                             mChannels[chnIdx].NextInstrumentIndex = 0;
                         }
                         if(((Effects)command != Effects.CMD_TONEPORTAMENTO) || (mChannels[chnIdx].Period == 0)) {
                             mChannels[chnIdx].Period = (int)period;
                             mChannels[chnIdx].Length = mInstruments[mChannels[chnIdx].InstrumentIndex].Length << MOD_PRECISION;
+                            mChannels[chnIdx].SampleCount = mInstruments[mChannels[chnIdx].InstrumentIndex].Length;
                             mChannels[chnIdx].Pos = 0;
                         }
                         mChannels[chnIdx].PortamentoDest = (int)period;

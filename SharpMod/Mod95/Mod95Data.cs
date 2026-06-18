@@ -106,6 +106,8 @@ namespace SharpMod {
             public uint FineTune;
             public int Volume;
             public byte[] Sample;
+            public bool Is16Bit;
+            public bool IsStereo;
             internal byte[] name;
             public string Name { get { return Encoding.UTF8.GetString(name).Trim('\0'); } }
         }
@@ -115,6 +117,7 @@ namespace SharpMod {
             public uint FineTune;
             public uint Pos, Inc;
             public uint Length, LoopStart, LoopEnd;
+            public uint SampleCount;
             public int Volume, VolumeSlide, OldVolumeSlide;
             public int Period, OldPeriod;
             public int FreqSlide, OldFreqSlide;
@@ -124,6 +127,8 @@ namespace SharpMod {
             public int Count1, Count2;
             public int Period1, Period2;
             public bool Portamento, Vibrato, Tremolo;
+            public bool Is16Bit, IsStereo;
+            public short Pan;
             public byte[] Sample;
             public int OldVol;
             public short CurrentVolume, NextInstrumentIndex;

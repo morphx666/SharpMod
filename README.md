@@ -17,4 +17,4 @@ A new `SoundFile` object is instantiated by calling the `SoundFile` ctor and pas
 
     SharpMod.SoundFile sf = new SharpMod.SoundFile(modFileFullPath, sampleRate, bitDepth == 16, channels == 2, false);
   
-Then, whenever the audio backend requests audio data, call the `SoundFile.Read` method to parse the MOD file and receive back a raw audio buffer, which can be passed back to the audio renderer.
+Then, whenever the audio backend requests audio data, call the `SoundFile.Read` method to parse the tracker and receive back a raw audio buffer, which can be passed back to the audio renderer.
