@@ -11,26 +11,22 @@ namespace SharpModConsolePlayer.Renderer {
         private const int VuMeterRow = HeaderRow + 1;
         private const int FirstPatternRow = VuMeterRow + 1;
         private const int ColumnWidth = 14;
+        private const int HalfWidth = ColumnWidth / 2;
         internal const int VisibleWidth = ColumnWidth + 2;
         private const int VuMeterMaxVolume = 256;
         private const float VuDecayPerFrame = 16f;
         private static readonly float[] vuLevelsL = new float[32];
         private static readonly float[] vuLevelsR = new float[32];
 
-        // Upper half block (L only):   '\u2580'  ▀
-        // Lower half block (R only):   '\u2584'  ▄
-        // Full block (both / mono):    '\u2588'  █
-        // Left seven eighths block:    '\u2501'  ━
-        private const char vuCharL = '\u2580';
-        private const char vuCharR = '\u2584';
-        private const char vuCharLR = '\u2501';
+        // Heavy horizontal box-drawing char: '\u2501'  ━
+        private const char vuChar = '\u2501';
 
         internal static void Render(SoundFile sf, int channelIndex, uint patternIndex, int consoleCol, int maxWidth) {
             if(maxWidth <= 0) return;
             int height = Console.WindowHeight - 1; // reserve last row for the song progress bar
             int playHead = FirstPatternRow + (height - FirstPatternRow) / 2;
 
-            RenderHeader(channelIndex + 1, consoleCol, maxWidth);
+            RenderHeader(channelIndex + 1, consoleCol, maxWidth, sf.Channels[channelIndex].Muted);
 
             // Snapshot mutable state so the audio thread can't shift it mid-render
             int currentPatternRow = (int)sf.Row;
@@ -63,17 +59,18 @@ namespace SharpModConsolePlayer.Renderer {
         internal static int ComputeConsoleRow(int playHead, int currentPatternRow, int row, int patternRelative)
             => playHead - currentPatternRow + row + patternRelative * RowsPerPattern;
 
-        private static void RenderHeader(int channelNumber, int col, int maxWidth) {
+        private static void RenderHeader(int channelNumber, int col, int maxWidth, bool muted) {
             if(maxWidth <= 0) return;
             Console.SetCursorPosition(col, HeaderRow);
-            string text = $"Channel {channelNumber}";
+            string text = muted ? $"Channel {channelNumber} [M]" : $"Channel {channelNumber}";
             int totalLen = Math.Min(VisibleWidth, maxWidth);
             int textLen = Math.Min(text.Length, totalLen);
             int pad = totalLen - textLen;
             int left = pad / 2;
             int right = pad - left;
             ReadOnlySpan<char> textSpan = text.AsSpan(0, textLen);
-            Console.WriteInterpolated($"{Default}{Blue}{new WhiteSpace(left)}{textSpan}{new WhiteSpace(right)}{Default}");
+            AnsiToken color = muted ? Red : Blue;
+            Console.WriteInterpolated($"{Default}{color}{new WhiteSpace(left)}{textSpan}{new WhiteSpace(right)}{Default}");
         }
 
         internal static void RenderVuMeter(SoundFile sf, int channelIndex, int col, int maxWidth) {
@@ -85,15 +82,15 @@ namespace SharpModConsolePlayer.Renderer {
             if(isActive) {
                 float vol = ch.CurrentVolume;
                 if(ch.IsStereo) {
-                    // Stereo source: pan acts as L/R balance.
+                    // Stereo sample: the mixer ignores Pan and routes L/R straight through.
+                    targetL = vol;
+                    targetR = vol;
+                } else {
+                    // Mono sample: the mixer pans across L/R using Pan (0=left, 256=right).
                     int pan = ch.Pan;
                     if(pan < 0) pan = 0; else if(pan > VuMeterMaxVolume) pan = VuMeterMaxVolume;
                     targetL = vol * (VuMeterMaxVolume - pan) / VuMeterMaxVolume;
                     targetR = vol * pan / VuMeterMaxVolume;
-                } else {
-                    // Mono source: same level on both sides (renders as full-block bar).
-                    targetL = vol;
-                    targetR = vol;
                 }
             } else {
                 targetL = 0f;
@@ -107,34 +104,40 @@ namespace SharpModConsolePlayer.Renderer {
             vuLevelsL[channelIndex] = levelL;
             vuLevelsR[channelIndex] = levelR;
 
-            int filledL = (int)(levelL * ColumnWidth / VuMeterMaxVolume);
-            int filledR = (int)(levelR * ColumnWidth / VuMeterMaxVolume);
+            int filledL = (int)(levelL * HalfWidth / VuMeterMaxVolume);
+            int filledR = (int)(levelR * HalfWidth / VuMeterMaxVolume);
+            if(filledL > HalfWidth) filledL = HalfWidth;
+            if(filledR > HalfWidth) filledR = HalfWidth;
 
-            // Build per-cell glyphs (top half = L, bottom half = R, both = full)
+            // Centered bar: left half (cells 0..6) grows from the center outward to the left,
+            // right half (cells 7..13) grows from the center outward to the right.
             Span<char> cells = stackalloc char[ColumnWidth];
-            for(int c = 0; c < ColumnWidth; c++) {
-                bool l = c < filledL;
-                bool r = c < filledR;
-                cells[c] = (l && r) ? vuCharLR : (l ? vuCharL : (r ? vuCharR : ' '));
-            }
+            cells.Fill(' ');
+            for(int i = 0; i < filledL; i++) cells[HalfWidth - 1 - i] = vuChar;
+            for(int i = 0; i < filledR; i++) cells[HalfWidth + i] = vuChar;
 
-            // Fixed color regions by position: green 0..7, yellow 8..10, red 11..13
-            const int greenEnd = 8;
-            const int yellowEnd = 11;
-
+            // Color regions by position, intensity grows outward from the center:
+            //   pos  0  | 1..2  | 3..6  ||  7..10 | 11..12 | 13
+            //   red | yellow | green || green  | yellow | red
             int remaining = maxWidth;
             int leadSpace = Math.Min(1, remaining); remaining -= leadSpace;
-            int gEmit = Math.Min(greenEnd, remaining); remaining -= gEmit;
-            int yEmit = Math.Min(yellowEnd - greenEnd, remaining); remaining -= yEmit;
-            int rEmit = Math.Min(ColumnWidth - yellowEnd, remaining); remaining -= rEmit;
+            int rL = Math.Min(1, remaining); remaining -= rL;
+            int yL = Math.Min(2, remaining); remaining -= yL;
+            int gL = Math.Min(4, remaining); remaining -= gL;
+            int gR = Math.Min(4, remaining); remaining -= gR;
+            int yR = Math.Min(2, remaining); remaining -= yR;
+            int rR = Math.Min(1, remaining); remaining -= rR;
             int trailSpace = Math.Min(1, remaining);
 
-            ReadOnlySpan<char> seg1 = cells[..gEmit];
-            ReadOnlySpan<char> seg2 = cells.Slice(greenEnd, yEmit);
-            ReadOnlySpan<char> seg3 = cells.Slice(yellowEnd, rEmit);
+            ReadOnlySpan<char> sRedL = cells.Slice(0, rL);
+            ReadOnlySpan<char> sYelL = cells.Slice(1, yL);
+            ReadOnlySpan<char> sGrnL = cells.Slice(3, gL);
+            ReadOnlySpan<char> sGrnR = cells.Slice(7, gR);
+            ReadOnlySpan<char> sYelR = cells.Slice(11, yR);
+            ReadOnlySpan<char> sRedR = cells.Slice(13, rR);
 
             Console.SetCursorPosition(col, VuMeterRow);
-            Console.WriteInterpolated($"{Default}{new WhiteSpace(leadSpace)}{Green}{seg1}{Yellow}{seg2}{Red}{seg3}{new WhiteSpace(trailSpace)}{Default}");
+            Console.WriteInterpolated($"{Default}{new WhiteSpace(leadSpace)}{Red}{sRedL}{Yellow}{sYelL}{Green}{sGrnL}{sGrnR}{Yellow}{sYelR}{Red}{sRedR}{new WhiteSpace(trailSpace)}{Default}");
         }
 
         private static void ClearRow(int col, int row, int maxWidth) {

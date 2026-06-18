@@ -11,7 +11,7 @@ namespace SharpMod {
             uint dwElapsedTime = 0, nRow = 0, nSpeedCount = 0, nCurrentPattern = 0, nNextPattern = 0, nPattern = 0;
             uint nMusicSpeed = 6, nMusicTempo = 125;
 
-            for(; ; ) {
+            for(; ;) {
                 if(nSpeedCount == 0) {
                     nRow = (nRow + 1) & 0x3F;
                     if(nRow == 0) {
@@ -99,7 +99,11 @@ namespace SharpMod {
         public uint Read(byte[] lpBuffer, uint cbBuffer) {
             byte[] p = lpBuffer;
             uint lRead, lMax, lSampleSize;
-            short adjustVol = (short)ActiveChannels;
+            // Original Mod95 was MOD-only: 4-channel dense mixes, so /(channels*8) prevented clipping.
+            // For S3M/XM/STM the declared channel count (often 16-32) wildly overestimates actual
+            // concurrent voicing, so the same divider produces a permanent ~3-8x gain shortfall vs
+            // OpenMPT. Clamp non-MOD formats to 4-channel-equivalent dilution.
+            short adjustVol = (short)(Type == Types.MOD ? (int)ActiveChannels : Math.Min((int)ActiveChannels, 4));
             short[] CurrentVol = new short[32];
             short[] CurrentPan = new short[32];
             byte[][] pSample = new byte[32][];
@@ -115,7 +119,7 @@ namespace SharpMod {
 
             // Memorize channels settings
             for(j = 0; j < ActiveChannels; j++) {
-                CurrentVol[j] = mChannels[j].CurrentVolume;
+                CurrentVol[j] = mChannels[j].Muted ? (short)0 : mChannels[j].CurrentVolume;
                 CurrentPan[j] = mChannels[j].Pan;
                 if(mChannels[j].Length != 0) {
                     pSample[j] = new byte[mChannels[j].Sample.Length];
@@ -131,7 +135,7 @@ namespace SharpMod {
                     ReadNote();
                     // Memorize channels settings
                     for(j = 0; j < ActiveChannels; j++) {
-                        CurrentVol[j] = mChannels[j].CurrentVolume;
+                        CurrentVol[j] = mChannels[j].Muted ? (short)0 : mChannels[j].CurrentVolume;
                         CurrentPan[j] = mChannels[j].Pan;
                         if(mChannels[j].Length != 0) {
                             pSample[j] = new byte[mChannels[j].Sample.Length];
@@ -199,10 +203,18 @@ namespace SharpMod {
                             if(mChannels[i].Length == 0) pSample[i] = null;
                         }
                     } else {
+                        // No active sample on this channel. The original Mod95 mixer keeps
+                        // adding the last interpolated value (OldVol) every frame as a click-
+                        // removal trick, but with the sample-termination fix this branch fires
+                        // continuously after a non-looping sample ends, producing a held DC
+                        // offset (audible as a hard cut/pop). Ramp OldVol toward 0 so the
+                        // tail fades out smoothly. `vol - (vol >> 4)` decays by ~6.25% per
+                        // frame for both positive and negative integers in C# arithmetic.
                         int vol = mChannels[i].OldVol;
                         int pan = CurrentPan[i];
                         vLeft += (vol * (256 - pan)) >> 8;
                         vRight += (vol * pan) >> 8;
+                        mChannels[i].OldVol = vol - (vol >> 4);
                     }
                 }
 
@@ -213,15 +225,15 @@ namespace SharpMod {
                     vRight = (vRight * 13 + vLeft * 3) / (adjustVol * 8);
                     vLeft = (vLeft * 13 + vol * 3) / (adjustVol * 8);
                     if(Is16Bit) {
-                        // 16-Bit
-                        p[pIndex + 0] = (byte)(((uint)vRight) & 0xFF);
-                        p[pIndex + 1] = (byte)(((uint)vRight) >> 8);
-                        p[pIndex + 2] = (byte)(((uint)vLeft) & 0xFF);
-                        p[pIndex + 3] = (byte)(((uint)vLeft) >> 8);
+                        // 16-Bit: interleaved L, R (matches ALFormat.Stereo16 / WAV)
+                        p[pIndex + 0] = (byte)(((uint)vLeft) & 0xFF);
+                        p[pIndex + 1] = (byte)(((uint)vLeft) >> 8);
+                        p[pIndex + 2] = (byte)(((uint)vRight) & 0xFF);
+                        p[pIndex + 3] = (byte)(((uint)vRight) >> 8);
                     } else {
-                        // 8-Bit
-                        p[pIndex + 0] = (byte)((((uint)vRight) >> 8) + 0x80);
-                        p[pIndex + 1] = (byte)((((uint)vLeft) >> 8) + 0x80);
+                        // 8-Bit: interleaved L, R (matches ALFormat.Stereo8 / WAV)
+                        p[pIndex + 0] = (byte)((((uint)vLeft) >> 8) + 0x80);
+                        p[pIndex + 1] = (byte)((((uint)vRight) >> 8) + 0x80);
                     }
                 } else {
                     // Mono
@@ -315,9 +327,13 @@ namespace SharpMod {
                         }
 
                         if(noteCut) {
+                            // Silence the channel by clearing Volume and Period (the slides loop
+                            // will then zero Length/Inc/Pos and the Read loop will null out
+                            // pSample[i]). Intentionally do NOT zero OldVol here: the else
+                            // branch in the mixer uses it to ramp the channel down smoothly
+                            // and avoid a hard click on ^^ / == cuts.
                             mChannels[chnIdx].Volume = 0;
                             mChannels[chnIdx].Period = 0;
-                            mChannels[chnIdx].OldVol = 0;
                         }
                     } else { // MOD
                         chnIdx = i;
@@ -344,7 +360,11 @@ namespace SharpMod {
                             mChannels[chnIdx].InstrumentIndex = instIdx;
                             if(Type == Types.MOD) mChannels[chnIdx].Volume = mInstruments[instIdx].Volume;
                             mChannels[chnIdx].Pos = 0;
-                            mChannels[chnIdx].Length = mInstruments[instIdx].Length << MOD_PRECISION;
+                            // For looping samples, terminate the very first pass at LoopEnd: data past
+                            // LoopEnd (the "tail") is never meant to be played and is often residual
+                            // garbage that produces audible noise on every retrigger.
+                            uint firstPassLen = mInstruments[instIdx].LoopEnd > 0 ? mInstruments[instIdx].LoopEnd : mInstruments[instIdx].Length;
+                            mChannels[chnIdx].Length = firstPassLen << MOD_PRECISION;
                             mChannels[chnIdx].SampleCount = mInstruments[instIdx].Length;
                             mChannels[chnIdx].FineTune = mInstruments[instIdx].FineTune << MOD_PRECISION;
                             mChannels[chnIdx].LoopStart = mInstruments[instIdx].LoopStart << MOD_PRECISION;
@@ -356,8 +376,11 @@ namespace SharpMod {
                         }
                         if(((Effects)command != Effects.CMD_TONEPORTAMENTO) || (mChannels[chnIdx].Period == 0)) {
                             mChannels[chnIdx].Period = (int)period;
-                            mChannels[chnIdx].Length = mInstruments[mChannels[chnIdx].InstrumentIndex].Length << MOD_PRECISION;
-                            mChannels[chnIdx].SampleCount = mInstruments[mChannels[chnIdx].InstrumentIndex].Length;
+                            uint instLen = mInstruments[mChannels[chnIdx].InstrumentIndex].Length;
+                            uint instLoopEnd = mInstruments[mChannels[chnIdx].InstrumentIndex].LoopEnd;
+                            uint firstPassLen = instLoopEnd > 0 ? instLoopEnd : instLen;
+                            mChannels[chnIdx].Length = firstPassLen << MOD_PRECISION;
+                            mChannels[chnIdx].SampleCount = instLen;
                             mChannels[chnIdx].Pos = 0;
                         }
                         mChannels[chnIdx].PortamentoDest = (int)period;

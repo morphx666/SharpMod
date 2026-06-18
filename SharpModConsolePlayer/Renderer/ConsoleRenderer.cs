@@ -78,8 +78,20 @@ namespace SharpModConsolePlayer.Renderer {
 
         private static bool HandleInput(SoundFile sf, ref int fromChannel, ref int fromSample, ref ViewMode mode, ref bool forceRedraw) {
             while(Console.KeyAvailable) {
-                ConsoleKey key = Console.ReadKey(intercept: true).Key;
+                ConsoleKeyInfo info = Console.ReadKey(intercept: true);
+                ConsoleKey key = info.Key;
                 int previousFromChannel = fromChannel;
+
+                if(key >= ConsoleKey.F1 && key <= ConsoleKey.F12) {
+                    int bank = (info.Modifiers & ConsoleModifiers.Control) != 0 ? 2
+                             : (info.Modifiers & ConsoleModifiers.Shift) != 0 ? 1
+                             : 0;
+                    uint channel = (uint)(bank * 12 + (key - ConsoleKey.F1));
+                    sf.ToggleMute(channel);
+                    forceRedraw = true;
+                    continue;
+                }
+
                 switch(key) {
                     case ConsoleKey.LeftArrow:
                         fromChannel = Math.Max(0, fromChannel - 1);

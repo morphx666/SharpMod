@@ -286,8 +286,13 @@ namespace SharpMod {
                 double f = Math.Pow(2.0, (note - 136) / 12.0) * 8169;
                 mInstruments[i].FineTune = (uint)f;
 
-                mInstruments[i].LoopStart = smpH.loopStart;
-                mInstruments[i].LoopEnd = smpH.loopEnd;
+                // Only honor loopStart/loopEnd when the smpLoop flag is set; ST3 leaves stale loop
+                // values in non-looping samples (matches OpenMPT's ConvertToMPT behavior).
+                bool hasLoop = (smpH.flags & (byte)S3MTools.S3MSampleHeader.SampleFlags.smpLoop) != 0;
+                if(hasLoop && smpH.loopEnd > smpH.loopStart && smpH.loopEnd <= smpH.length) {
+                    mInstruments[i].LoopStart = smpH.loopStart;
+                    mInstruments[i].LoopEnd = smpH.loopEnd;
+                }
 
                 mInstruments[i].Volume = smpH.defaultVolume;
                 if(mInstruments[i].Volume > 0x40) mInstruments[i].Volume = 0x40;

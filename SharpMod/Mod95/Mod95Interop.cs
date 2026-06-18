@@ -29,5 +29,10 @@
         }
 
         public uint PositionCount => GetTotalPos();
+
+        public void ToggleMute(uint channelIndex) {
+            if(channelIndex >= ActiveChannels) return;
+            mChannels[channelIndex].Muted = !mChannels[channelIndex].Muted;
+        }
     }
 }

@@ -7,6 +7,9 @@
 		<Nullable>enable</Nullable>
 		<AssemblyVersion>2026.6.17.46</AssemblyVersion>
 		<FileVersion>2026.6.17.46</FileVersion>
+		<OutputPath>..\Release\</OutputPath>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
 	</PropertyGroup>
 
 	<ItemGroup>

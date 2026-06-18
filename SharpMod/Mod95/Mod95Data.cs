@@ -133,6 +133,7 @@ namespace SharpMod {
             public byte[] Sample;
             public int OldVol;
             public short CurrentVolume, NextInstrumentIndex;
+            public bool Muted;
         }
 
         private readonly FileStream mFile;

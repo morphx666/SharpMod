@@ -75,10 +75,12 @@ namespace SharpModPlayer {
             StartAudio();
 
             Task.Run(async () => {
-                while(true) {
-                    await Task.Delay(fps);
-                    this.Invoke((MethodInvoker)delegate { this.Invalidate(); });
-                }
+                try {
+                    while(true) {
+                        await Task.Delay(fps);
+                        this.Invoke((MethodInvoker)delegate { this.Invalidate(); });
+                    }
+                } catch { }
             });
         }
 

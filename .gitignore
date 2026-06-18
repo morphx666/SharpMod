@@ -348,5 +348,10 @@ healthchecksdb
 **/Release/*.manifest
 **/Release/netstandard2.0/
 **/Release/netstandard2.1/
+**/Release/runtimes/
 
 **/openmpt-master
+**/scripts
+
+*.wav
+*.json

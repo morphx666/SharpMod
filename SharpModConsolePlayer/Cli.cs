@@ -10,6 +10,8 @@ namespace SharpModConsolePlayer {
         internal int Channels { get; init; } = 2;
         internal bool Loop { get; init; } = false;
         internal bool ShowSampleProgress { get; init; } = true;
+        internal string ExportPath { get; init; } = string.Empty;
+        internal double ExportDuration { get; init; } = 0;
 
         private static readonly int[] ValidSampleRates = [8000, 11025, 16000, 22050, 32000, 44100, 48000, 88200, 96000];
         private static readonly int[] ValidBitDepths = [8, 16];
@@ -25,6 +27,8 @@ namespace SharpModConsolePlayer {
             int bitDepth = 16;
             bool loop = false;
             bool showSampleProgress = true;
+            string exportPath = string.Empty;
+            double exportDuration = 0;
 
             for(int i = 0; i < args.Length; i++) {
                 string a = args[i];
@@ -49,6 +53,19 @@ namespace SharpModConsolePlayer {
                     case "--no-sample-progress":
                         showSampleProgress = false;
                         break;
+                    case "-o":
+                    case "--export":
+                        if(i + 1 >= args.Length) { PrintError($"Option {a} requires a path."); return null; }
+                        exportPath = args[++i];
+                        break;
+                    case "-d":
+                    case "--duration":
+                        if(i + 1 >= args.Length) { PrintError($"Option {a} requires a value in seconds."); return null; }
+                        if(!double.TryParse(args[++i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out exportDuration) || exportDuration <= 0) {
+                            PrintError($"Option {a} expects a positive number of seconds.");
+                            return null;
+                        }
+                        break;
                     default:
                         if(a.StartsWith('-')) {
                             PrintError($"Unknown option: {a}");
@@ -68,12 +85,19 @@ namespace SharpModConsolePlayer {
                 return null;
             }
 
+            if(loop && exportPath.Length > 0 && exportDuration <= 0) {
+                PrintError("--export combined with --loop requires --duration to bound the output.");
+                return null;
+            }
+
             return new Cli {
                 ModFile = modFile,
                 SampleRate = sampleRate,
                 BitDepth = bitDepth,
                 Loop = loop,
                 ShowSampleProgress = showSampleProgress,
+                ExportPath = exportPath,
+                ExportDuration = exportDuration,
             };
         }
 
@@ -124,6 +148,8 @@ namespace SharpModConsolePlayer {
             Console.WriteLineInterpolated($"                              Valid: {DarkGray}8, 16{Default}");
             Console.WriteLineInterpolated($"  {Green}-l{Default}, {Green}--loop{Default}               Loop the track when it ends");
             Console.WriteLineInterpolated($"  {Green}-P{Default}, {Green}--no-sample-progress{Default} Disable the in-name playback progress bar in the samples view");
+            Console.WriteLineInterpolated($"  {Green}-o{Default}, {Green}--export{Default} {DarkGray}<path>{Default}      Render the track to a WAV file at {DarkGray}<path>{Default} (no live playback)");
+            Console.WriteLineInterpolated($"  {Green}-d{Default}, {Green}--duration{Default} {DarkGray}<secs>{Default}    Limit export length to {DarkGray}<secs>{Default} seconds (required with {Green}--loop{Default})");
             Console.WriteLineInterpolated($"  {Green}-h{Default}, {Green}--help{Default}               Show this help and exit");
             Console.NewLine();
 
@@ -132,6 +158,9 @@ namespace SharpModConsolePlayer {
             Console.WriteLineInterpolated($"  {Green}Left{Default} / {Green}Right{Default}             Scroll channels horizontally");
             Console.WriteLineInterpolated($"  {Green}Up{Default} / {Green}Down{Default}                Scroll samples vertically");
             Console.WriteLineInterpolated($"  {Green}PageUp{Default} / {Green}PageDown{Default}        Seek track backward/forward");
+            Console.WriteLineInterpolated($"  {Green}F1{Default}-{Green}F12{Default}                  Toggle mute on channels 1-12");
+            Console.WriteLineInterpolated($"  {Green}Shift{Default}+{Green}F1{Default}-{Green}F12{Default}            Toggle mute on channels 13-24");
+            Console.WriteLineInterpolated($"  {Green}Ctrl{Default}+{Green}F1{Default}-{Green}F12{Default}             Toggle mute on channels 25-36");
             Console.WriteLineInterpolated($"  {Green}Esc {Default}| {Green}Q{Default}                  Stop playback and exit");
         }
     }

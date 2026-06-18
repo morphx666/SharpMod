@@ -9,6 +9,11 @@ namespace SharpModConsolePlayer {
 
             SoundFile sf = OpenAlStreamPlayer.LoadSoundFile(cli);
 
+            if(cli.ExportPath.Length > 0) {
+                WavExporter.Export(sf, cli.ExportPath, cli.SampleRate, cli.BitDepth, cli.Channels, cli.ExportDuration);
+                return;
+            }
+
             ConsoleRenderer.InitializeConsole();
             _ = Task.Run(() => ConsoleRenderer.RenderLoop(sf, cli.ShowSampleProgress));
             await OpenAlStreamPlayer.Play(sf, cli.SampleRate, cli.BitDepth, cli.Channels);
