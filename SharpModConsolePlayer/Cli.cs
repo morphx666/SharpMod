@@ -5,6 +5,7 @@ using static PrettyConsole.Color;
 namespace SharpModConsolePlayer {
     internal class Cli {
         internal string ModFile { get; set; } = string.Empty;
+        internal List<string> ModFiles { get; init; } = [];
         internal int SampleRate { get; init; } = 44100;
         internal int BitDepth { get; init; } = 16;
         internal int Channels { get; init; } = 2;
@@ -21,7 +22,7 @@ namespace SharpModConsolePlayer {
                 return null;
             }
 
-            string modFile = string.Empty;
+            List<string> modFiles = [];
             int sampleRate = 44100;
             int bitDepth = 16;
             bool loop = false;
@@ -61,16 +62,12 @@ namespace SharpModConsolePlayer {
                             PrintError($"Unknown option: {a}");
                             return null;
                         }
-                        if(modFile.Length > 0) {
-                            PrintError($"Unexpected argument: {a}");
-                            return null;
-                        }
-                        modFile = a;
+                        modFiles.Add(a);
                         break;
                 }
             }
 
-            if(modFile.Length == 0) {
+            if(modFiles.Count == 0) {
                 PrintError("Missing required <modfile> argument.");
                 return null;
             }
@@ -78,7 +75,8 @@ namespace SharpModConsolePlayer {
             if(exportPath.Length > 0) loop = false;
 
             return new Cli {
-                ModFile = modFile,
+                ModFile = modFiles[0],
+                ModFiles = modFiles,
                 SampleRate = sampleRate,
                 BitDepth = bitDepth,
                 Loop = loop,
@@ -124,7 +122,8 @@ namespace SharpModConsolePlayer {
             Console.NewLine();
 
             Console.WriteLineInterpolated($"{Yellow}ARGUMENTS{Default}");
-            Console.WriteLineInterpolated($"  {Cyan}<modfile>{Default}                Path to the tracker module to play");
+            Console.WriteLineInterpolated($"  {Cyan}<modfile>{Default}                Can be a single file, a directory (recursively searches for supported files)");
+            Console.WriteLineInterpolated($"                           or a glob pattern (e.g. {DarkGray}music/*.mod{Default})");
             Console.NewLine();
 
             Console.WriteLineInterpolated($"{Yellow}OPTIONS{Default}");
@@ -143,6 +142,7 @@ namespace SharpModConsolePlayer {
             Console.WriteLineInterpolated($"  {Green}Left{Default} / {Green}Right{Default}             Scroll channels horizontally");
             Console.WriteLineInterpolated($"  {Green}Up{Default} / {Green}Down{Default}                Scroll samples vertically");
             Console.WriteLineInterpolated($"  {Green}PageUp{Default} / {Green}PageDown{Default}        Seek track backward/forward");
+            Console.WriteLineInterpolated($"  {Green}Home{Default} / {Green}End{Default}               Jump to previous/next file in the playlist");
             Console.WriteLineInterpolated($"  {Green}F1{Default} - {Green}F12{Default}                 Toggle mute on channels 1-12");
             Console.WriteLineInterpolated($"  {Green}Shift{Default} + {Green}F1{Default} - {Green}F12{Default}         Toggle mute on channels 13-24");
             Console.WriteLineInterpolated($"  {Green}Ctrl{Default} + {Green}F1{Default} - {Green}F12{Default}          Toggle mute on channels 25-36");

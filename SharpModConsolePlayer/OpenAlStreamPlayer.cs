@@ -3,8 +3,13 @@ using OpenTK.Audio.OpenAL;
 using SharpMod;
 
 namespace SharpModConsolePlayer {
+    internal enum PlaybackRequest { None, Previous, Next, Quit }
+
     internal static class OpenAlStreamPlayer {
         internal static bool isPlaying = false;
+        internal static PlaybackRequest request = PlaybackRequest.None;
+        internal static int playlistIndex = 0;
+        internal static int playlistCount = 0;
         private const int BufferLength = 6000;
         private const int TargetQueueDepth = 3;
 

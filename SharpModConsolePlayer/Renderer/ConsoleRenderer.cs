@@ -16,7 +16,7 @@ namespace SharpModConsolePlayer.Renderer {
             Console.CursorVisible = true;
         }
 
-        internal static async Task RenderLoop(SoundFile sf, bool showSampleProgress) {
+        internal static async Task RenderLoop(Func<SoundFile?> getSoundFile, bool showSampleProgress) {
             int fromChannel = 0;
             int fromSample = 0;
             uint lastRow = uint.MaxValue;
@@ -25,9 +25,23 @@ namespace SharpModConsolePlayer.Renderer {
             int lastHeight = Console.WindowHeight;
             ViewMode mode = ViewMode.Patterns;
             bool forceRedraw = true;
+            SoundFile? lastSoundFile = null;
 
             while(true) {
                 await Task.Delay(30);
+
+                SoundFile? sf = getSoundFile();
+                if(sf == null) continue;
+
+                if(!ReferenceEquals(sf, lastSoundFile)) {
+                    lastSoundFile = sf;
+                    fromChannel = Math.Min(fromChannel, MaxFromChannel(sf));
+                    fromSample = 0;
+                    lastRow = uint.MaxValue;
+                    lastCurrentPattern = uint.MaxValue;
+                    Console.Clear();
+                    forceRedraw = true;
+                }
 
                 int width = Console.WindowWidth;
                 int height = Console.WindowHeight;
@@ -123,8 +137,21 @@ namespace SharpModConsolePlayer.Renderer {
                     case ConsoleKey.PageDown:
                         sf.Position =  Math.Min(sf.Position + 10, sf.PositionCount - 1);
                         break;
+                    case ConsoleKey.Home:
+                        if(OpenAlStreamPlayer.playlistIndex > 0) {
+                            OpenAlStreamPlayer.request = PlaybackRequest.Previous;
+                            OpenAlStreamPlayer.isPlaying = false;
+                        }
+                        break;
+                    case ConsoleKey.End:
+                        if(OpenAlStreamPlayer.playlistIndex < OpenAlStreamPlayer.playlistCount - 1) {
+                            OpenAlStreamPlayer.request = PlaybackRequest.Next;
+                            OpenAlStreamPlayer.isPlaying = false;
+                        }
+                        break;
                     case ConsoleKey.Q:
                     case ConsoleKey.Escape:
+                        OpenAlStreamPlayer.request = PlaybackRequest.Quit;
                         OpenAlStreamPlayer.isPlaying = false;
                         return false;
                 }

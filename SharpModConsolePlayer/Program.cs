@@ -3,57 +3,68 @@ using SharpModConsolePlayer.Renderer;
 
 namespace SharpModConsolePlayer {
     internal static class Program {
-        static readonly string[] supportedExtensions = new[] { ".mod", ".stm", ".s3m", ".xm" };
+        static readonly string[] supportedExtensions = [".mod", ".stm", ".s3m", ".xm"];
+        static SoundFile? currentSoundFile;
 
         static async Task Main(string[] args) {
             Cli? cli = Cli.Parse(args);
             if(cli == null) return;
+            List<string> filesToPlay = [];
 
-            if(File.Exists(cli.ModFile)) {
-                await PlayFile(cli);
-            } else if(cli.ModFile.Contains('?') || cli.ModFile.Contains('*')) {
-                string directory = Path.GetDirectoryName(cli.ModFile) ?? ".";
-                string pattern = Path.GetFileName(cli.ModFile);
-                if(!Directory.Exists(directory)) {
-                    Console.WriteLine($"Directory not found: {directory}");
-                    return;
-                }
+            foreach(string input in cli.ModFiles) {
+                if(File.Exists(input)) {
+                    filesToPlay.Add(input);
+                } else if(input.Contains('?') || input.Contains('*')) {
+                    string directory = Path.GetDirectoryName(input) ?? ".";
+                    string pattern = Path.GetFileName(input);
+                    if(!Directory.Exists(directory)) {
+                        Console.WriteLine($"Directory not found: {directory}");
+                        continue;
+                    }
 
-                string[] files = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
-                if(files.Length == 0) {
-                    Console.WriteLine($"No files found matching pattern: {cli.ModFile}");
-                    return;
-                }
+                    string[] files = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
+                    if(files.Length == 0) {
+                        Console.WriteLine($"No files found matching pattern: {input}");
+                        continue;
+                    }
 
-                foreach(string file in files) {
-                    cli.ModFile = file;
-                    await PlayFile(cli);
-                }
-            } else if(Directory.Exists(cli.ModFile)) {
-                string[] files = [.. Directory.GetFiles(cli.ModFile, "*.*", SearchOption.AllDirectories).Where(f => supportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))];
-                if(files.Length == 0) {
-                    Console.WriteLine($"No files found in directory: {cli.ModFile}");
-                    return;
-                }
+                    filesToPlay.AddRange(files.Where(f => supportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant())));
+                } else if(Directory.Exists(input)) {
+                    string[] files = [.. Directory.GetFiles(input, "*.*", SearchOption.AllDirectories).Where(f => supportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))];
+                    if(files.Length == 0) {
+                        Console.WriteLine($"No files found in directory: {input}");
+                        continue;
+                    }
 
-                foreach(string file in files) {
-                    cli.ModFile = file;
-                    await PlayFile(cli);
+                    filesToPlay.AddRange(files);
+                } else {
+                    Console.WriteLine($"File or directory not found: {input}");
                 }
-            } else if(Directory.Exists(cli.ModFile)) {
-                string[] files = [.. Directory.GetFiles(cli.ModFile, "*.*", SearchOption.AllDirectories).Where(f => supportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))];
-                if(files.Length == 0) {
-                    Console.WriteLine($"No files found in directory: {cli.ModFile}");
-                    return;
-                }
-
-                foreach(string file in files) {
-                    cli.ModFile = file;
-                    await PlayFile(cli);
-                }
-            } else {
-                Console.WriteLine($"File or directory not found: {cli.ModFile}");
             }
+
+            if(filesToPlay.Count == 0) {
+                Console.WriteLine("No valid files to play.");
+                return;
+            }
+
+            ConsoleRenderer.InitializeConsole();
+            _ = Task.Run(() => ConsoleRenderer.RenderLoop(() => currentSoundFile, cli.ShowSampleProgress));
+
+            OpenAlStreamPlayer.playlistCount = filesToPlay.Count;
+            int idx = 0;
+            while(idx >= 0 && idx < filesToPlay.Count) {
+                OpenAlStreamPlayer.playlistIndex = idx;
+                cli.ModFile = filesToPlay[idx];
+                await PlayFile(cli);
+
+                PlaybackRequest req = OpenAlStreamPlayer.request;
+                OpenAlStreamPlayer.request = PlaybackRequest.None;
+
+                if(req == PlaybackRequest.Quit) break;
+                if(req == PlaybackRequest.Previous) idx--;
+                else idx++;
+            }
+            ConsoleRenderer.RestoreConsole();
         }
 
         static async Task PlayFile(Cli cli) {
@@ -64,10 +75,8 @@ namespace SharpModConsolePlayer {
                 return;
             }
 
-            ConsoleRenderer.InitializeConsole();
-            _ = Task.Run(() => ConsoleRenderer.RenderLoop(sf, cli.ShowSampleProgress));
+            currentSoundFile = sf;
             await OpenAlStreamPlayer.Play(sf, cli.SampleRate, cli.BitDepth, cli.Channels);
-            ConsoleRenderer.RestoreConsole();
         }
     }
 }
