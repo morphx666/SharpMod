@@ -22,15 +22,15 @@ namespace SharpModConsolePlayer {
                         continue;
                     }
 
-                    string[] files = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
+                    string[] files = [..Directory.GetFiles(directory, pattern, SearchOption.AllDirectories).Where(f => supportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))];
                     if(files.Length == 0) {
-                        Console.WriteLine($"No files found matching pattern: {input}");
+                        Console.WriteLine($"No files found matching pattern '{pattern}' in directory: {directory}");
                         continue;
                     }
 
-                    filesToPlay.AddRange(files.Where(f => supportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant())));
+                    filesToPlay.AddRange(files);
                 } else if(Directory.Exists(input)) {
-                    string[] files = [.. Directory.GetFiles(input, "*.*", SearchOption.AllDirectories).Where(f => supportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))];
+                    string[] files = [..Directory.GetFiles(input, "*.*", SearchOption.AllDirectories).Where(f => supportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))];
                     if(files.Length == 0) {
                         Console.WriteLine($"No files found in directory: {input}");
                         continue;
