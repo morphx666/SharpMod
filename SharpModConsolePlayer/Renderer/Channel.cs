@@ -21,6 +21,11 @@ namespace SharpModConsolePlayer.Renderer {
         // Heavy horizontal box-drawing char: '\u2501'  ━
         private const char vuChar = '\u2501';
 
+        internal static void ResetVuMeters() {
+            Array.Clear(vuLevelsL, 0, vuLevelsL.Length);
+            Array.Clear(vuLevelsR, 0, vuLevelsR.Length);
+        }
+
         internal static void Render(SoundFile sf, int channelIndex, uint patternIndex, int consoleCol, int maxWidth) {
             if(maxWidth <= 0) return;
             int height = Console.WindowHeight - 1; // reserve last row for the song progress bar

@@ -13,22 +13,38 @@ namespace SharpModConsolePlayer {
         private const int BufferLength = 6000;
         private const int TargetQueueDepth = 3;
 
+        // The device/context/source and the pinned mix buffer are created on the first track and
+        // reused for the rest of the playlist. Re-creating them per track (as we used to) leaked
+        // ALDevice/ALContext/ALSource handles and left stale sources playing on a stale context,
+        // which broke audio on the second track in directory-mode playback.
+        private static bool audioInitialized;
+        private static int alSrc;
+        private static byte[] sharedBuffer = [];
+        private static GCHandle pinnedBufferHandle;
+        private static IntPtr bufferPtr;
+
         internal static SoundFile LoadSoundFile(Cli cli)
             => new(cli.ModFile, (uint)cli.SampleRate, cli.BitDepth == 16, cli.Channels == 2, cli.Loop);
 
         internal static async Task Play(SoundFile sndFile, int sampleRate, int bitDepth, int channels) {
             isPlaying = true;
 
-            InitializeAudioContext(sampleRate);
             ALFormat alf = GetAlFormat(bitDepth, channels);
 
-            byte[] buffer = new byte[BufferLength];
-            GCHandle pinnedBufferHandle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
-            IntPtr bufferPtr = pinnedBufferHandle.AddrOfPinnedObject();
-
-            int alSrc = AL.GenSource();
+            if(!audioInitialized) {
+                InitializeAudioContext(sampleRate);
+                sharedBuffer = new byte[BufferLength];
+                pinnedBufferHandle = GCHandle.Alloc(sharedBuffer, GCHandleType.Pinned);
+                bufferPtr = pinnedBufferHandle.AddrOfPinnedObject();
+                alSrc = AL.GenSource();
+                audioInitialized = true;
+            } else {
+                ResetSource(alSrc);
+                Array.Clear(sharedBuffer, 0, BufferLength);
+            }
             PrimeSource(alSrc, alf, bufferPtr, sampleRate);
 
+            byte[] buffer = sharedBuffer;
             bool bufferIsClear = false;
             uint totalPositions = sndFile.PositionCount;
 
@@ -74,6 +90,17 @@ namespace SharpModConsolePlayer {
             AL.BufferData(primer, alf, bufferPtr, BufferLength, sampleRate);
             AL.SourceQueueBuffer(alSrc, primer);
             AL.SourcePlay(alSrc);
+        }
+
+        private static void ResetSource(int src) {
+            // Halt the source and drain its full queue so the next track does not
+            // hear the tail of the previous one and so buffer ids do not leak.
+            AL.SourceStop(src);
+            AL.GetSource(src, ALGetSourcei.BuffersQueued, out int queued);
+            for(int i = 0; i < queued; i++) {
+                int done = AL.SourceUnqueueBuffer(src);
+                AL.DeleteBuffer(done);
+            }
         }
 
         private static void DrainProcessedBuffers(int alSrc) {

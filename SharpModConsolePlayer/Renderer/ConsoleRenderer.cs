@@ -39,6 +39,7 @@ namespace SharpModConsolePlayer.Renderer {
                     fromSample = 0;
                     lastRow = uint.MaxValue;
                     lastCurrentPattern = uint.MaxValue;
+                    Renderer.Channel.ResetVuMeters();
                     Console.Clear();
                     forceRedraw = true;
                 }
