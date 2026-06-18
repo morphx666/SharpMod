@@ -1,6 +1,6 @@
 ﻿namespace SharpMod {
     public partial class SoundFile {
-        public string Title { get => mTitle; }
+        public string Title { get => title; }
         public Types Type { get; private set; }
         public uint Rate { get; }
         public uint ActiveChannels { get; private set; }
@@ -18,10 +18,10 @@
         public bool Loop { get; }
         public uint Length => GetLength();
         public bool IsValid { get; private set; }
-        public ModInstrument[] Instruments => mInstruments;
-        public ModChannel[] Channels => mChannels;
-        public byte[] Order => mOrder;
-        public byte[][] Patterns => mPatterns;
+        public ModInstrument[] Instruments => instruments;
+        public ModChannel[] Channels => channels;
+        public byte[] Order => order;
+        public byte[][] Patterns => patterns;
 
         public uint Position {
             get { return (CurrentPattern * 64) + Row; }
@@ -32,7 +32,7 @@
 
         public void ToggleMute(uint channelIndex) {
             if(channelIndex >= ActiveChannels) return;
-            mChannels[channelIndex].Muted = !mChannels[channelIndex].Muted;
+            channels[channelIndex].Muted = !channels[channelIndex].Muted;
         }
     }
 }

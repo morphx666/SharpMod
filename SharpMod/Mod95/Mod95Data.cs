@@ -136,11 +136,11 @@ namespace SharpMod {
             public bool Muted;
         }
 
-        private readonly FileStream mFile;
-        private string mTitle;
-        private ModInstrument[] mInstruments;
-        private readonly ModChannel[] mChannels = new ModChannel[32];
-        private byte[] mOrder = new byte[256];
-        private byte[][] mPatterns;
+        private readonly FileStream file;
+        private string title;
+        private ModInstrument[] instruments;
+        private readonly ModChannel[] channels = new ModChannel[32];
+        private byte[] order = new byte[256];
+        private byte[][] patterns;
     }
 }

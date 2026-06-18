@@ -65,8 +65,6 @@ namespace SharpModPlayer {
             SetSoundFile(new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false));
             UpdateTitleBarText();
 
-            //string tmp = sndFile.CommandToString(1, 0, 0);
-
             this.SizeChanged += (object s, EventArgs e) => UpdateTitleBarText();
             this.Paint += new PaintEventHandler(RenderUI);
 
@@ -75,12 +73,10 @@ namespace SharpModPlayer {
             StartAudio();
 
             Task.Run(async () => {
-                try {
-                    while(true) {
-                        await Task.Delay(fps);
-                        this.Invoke((MethodInvoker)delegate { this.Invalidate(); });
-                    }
-                } catch { }
+                while(true) {
+                    await Task.Delay(fps);
+                    if(!this.IsDisposed) this.Invoke((MethodInvoker)delegate { this.Invalidate(); });
+                }
             });
         }
 
