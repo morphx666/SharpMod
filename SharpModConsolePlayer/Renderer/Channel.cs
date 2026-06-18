@@ -19,7 +19,7 @@ namespace SharpModConsolePlayer.Renderer {
         public static void Render(SoundFile sf, int channelIndex, uint patternIndex, int consoleCol, int maxWidth) {
             if(maxWidth <= 0) return;
             int height = Console.WindowHeight - 1; // reserve last row for the song progress bar
-            int center = FirstPatternRow + (height - FirstPatternRow) / 2;
+            int playHead = FirstPatternRow + (height - FirstPatternRow) / 2;
 
             RenderHeader(channelIndex + 1, consoleCol, maxWidth);
 
@@ -38,7 +38,7 @@ namespace SharpModConsolePlayer.Renderer {
                 bool isActivePattern = patternRelative == 0;
 
                 for(int row = 0; row < RowsPerPattern; row++) {
-                    int consoleRow = ComputeConsoleRow(center, currentPatternRow, row, patternRelative);
+                    int consoleRow = ComputeConsoleRow(playHead, currentPatternRow, row, patternRelative);
                     if(consoleRow < FirstPatternRow || consoleRow >= height) continue;
 
                     if(pi == -1) {
@@ -51,8 +51,8 @@ namespace SharpModConsolePlayer.Renderer {
             }
         }
 
-        internal static int ComputeConsoleRow(int center, int currentPatternRow, int row, int patternRelative)
-            => center - currentPatternRow + row + patternRelative * RowsPerPattern;
+        internal static int ComputeConsoleRow(int playHead, int currentPatternRow, int row, int patternRelative)
+            => playHead - currentPatternRow + row + patternRelative * RowsPerPattern;
 
         private static void RenderHeader(int channelNumber, int col, int maxWidth) {
             if(maxWidth <= 0) return;

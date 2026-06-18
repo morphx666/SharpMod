@@ -134,8 +134,8 @@ namespace SharpMod {
                 mInstruments[i].LoopEnd = (uint)k;
             }
 
-            for(i = 0; i < 32; i++) {
-                j = 31;
+            for(i = 0; i < mInstruments.Length; i++) {
+                j = mInstruments[i].name.Length - 1;
                 while((j >= 0) && (mInstruments[i].name[j] <= ' ')) mInstruments[i].name[j--] = 0;
                 while(j >= 0) {
                     if(mInstruments[i].name[j] < ' ') mInstruments[i].name[j] = (byte)' ';
