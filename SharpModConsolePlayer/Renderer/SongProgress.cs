@@ -4,6 +4,12 @@ using static PrettyConsole.Color;
 
 namespace SharpModConsolePlayer.Renderer {
     internal class SongProgress {
+        // static ProgressBar progress = new() {
+        //     ProgressChar = '■',
+        //     ForegroundColor = Color.DarkGray,
+        //     ProgressColor = Color.Cyan,
+        // };
+
         public static void Render(SoundFile sf) {
             int width = Console.WindowWidth;
             int row = Console.WindowHeight - 1;
@@ -20,7 +26,10 @@ namespace SharpModConsolePlayer.Renderer {
             int empty = width - filled;
 
             Console.SetCursorPosition(0, row);
-            Console.WriteInterpolated($"{Default}{Magenta}{new string('\u2588', filled)}{DarkGray}{new string('\u2588', empty)}{Default}");
+            Console.WriteInterpolated($"{Default}{Cyan}{new string('\u2588', filled)}{DarkGray}{new string('\u2588', empty)}{Default}");
+
+            // Not using it b/c lack of customization options as well as considerable flickering
+            // progress.Update((int)(pos * 100.0 / total), $"Playing {pos}/{total} rows");
         }
     }
 }
