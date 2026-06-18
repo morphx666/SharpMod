@@ -12,7 +12,8 @@ namespace SharpMod {
             WAV = 1, // ???
             MOD = 2,
             S3M = 3,
-            XM = 4
+            XM = 4,
+            STM = 5
         }
 
         private static readonly uint[] FineTuneTable = {

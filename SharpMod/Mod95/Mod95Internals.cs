@@ -35,6 +35,7 @@ namespace SharpMod {
                                 break;
                             case Types.S3M:
                             case Types.XM:
+                            case Types.STM:
                                 param = p[5];
                                 command = (uint)S3MTools.ConvertEffect((Effects)p[4], (int)param);
                                 break;
@@ -147,46 +148,50 @@ namespace SharpMod {
                     if(pSample[i] != null) {
                         // Read sample (8/16-bit, mono/stereo)
                         int poshi = (int)(mChannels[i].Pos >> MOD_PRECISION);
-                        if((poshi + 1) >= mChannels[i].SampleCount) continue;
-                        short poslo = (short)(mChannels[i].Pos & MOD_FRACMASK);
+                        if((poshi + 1) < mChannels[i].SampleCount) {
+                            short poslo = (short)(mChannels[i].Pos & MOD_FRACMASK);
 
-                        int volL, volR;
-                        if(mChannels[i].Is16Bit) {
-                            int idxL = poshi * 2;
-                            int sL = (short)(pSample[i][idxL] | (pSample[i][idxL + 1] << 8)) >> 8;
-                            int dL = (short)(pSample[i][idxL + 2] | (pSample[i][idxL + 3] << 8)) >> 8;
-                            volL = sL + ((poslo * (dL - sL)) >> MOD_PRECISION);
+                            int volL, volR;
+                            if(mChannels[i].Is16Bit) {
+                                int idxL = poshi * 2;
+                                int sL = (short)(pSample[i][idxL] | (pSample[i][idxL + 1] << 8)) >> 8;
+                                int dL = (short)(pSample[i][idxL + 2] | (pSample[i][idxL + 3] << 8)) >> 8;
+                                volL = sL + ((poslo * (dL - sL)) >> MOD_PRECISION);
+                                if(mChannels[i].IsStereo) {
+                                    int idxR = ((int)mChannels[i].SampleCount + poshi) * 2;
+                                    int sR = (short)(pSample[i][idxR] | (pSample[i][idxR + 1] << 8)) >> 8;
+                                    int dR = (short)(pSample[i][idxR + 2] | (pSample[i][idxR + 3] << 8)) >> 8;
+                                    volR = sR + ((poslo * (dR - sR)) >> MOD_PRECISION);
+                                } else volR = volL;
+                            } else {
+                                int sL = (sbyte)pSample[i][poshi];
+                                int dL = (sbyte)pSample[i][poshi + 1];
+                                volL = sL + ((poslo * (dL - sL)) >> MOD_PRECISION);
+                                if(mChannels[i].IsStereo) {
+                                    int idxR = (int)mChannels[i].SampleCount + poshi;
+                                    int sR = (sbyte)pSample[i][idxR];
+                                    int dR = (sbyte)pSample[i][idxR + 1];
+                                    volR = sR + ((poslo * (dR - sR)) >> MOD_PRECISION);
+                                } else volR = volL;
+                            }
+                            volL *= CurrentVol[i];
+                            volR *= CurrentVol[i];
+
+                            int pan = CurrentPan[i];
                             if(mChannels[i].IsStereo) {
-                                int idxR = ((int)mChannels[i].SampleCount + poshi) * 2;
-                                int sR = (short)(pSample[i][idxR] | (pSample[i][idxR + 1] << 8)) >> 8;
-                                int dR = (short)(pSample[i][idxR + 2] | (pSample[i][idxR + 3] << 8)) >> 8;
-                                volR = sR + ((poslo * (dR - sR)) >> MOD_PRECISION);
-                            } else volR = volL;
-                        } else {
-                            int sL = (sbyte)pSample[i][poshi];
-                            int dL = (sbyte)pSample[i][poshi + 1];
-                            volL = sL + ((poslo * (dL - sL)) >> MOD_PRECISION);
-                            if(mChannels[i].IsStereo) {
-                                int idxR = (int)mChannels[i].SampleCount + poshi;
-                                int sR = (sbyte)pSample[i][idxR];
-                                int dR = (sbyte)pSample[i][idxR + 1];
-                                volR = sR + ((poslo * (dR - sR)) >> MOD_PRECISION);
-                            } else volR = volL;
-                        }
-                        volL *= CurrentVol[i];
-                        volR *= CurrentVol[i];
-
-                        int pan = CurrentPan[i];
-                        if(mChannels[i].IsStereo) {
-                            vLeft += volL;
-                            vRight += volR;
-                            mChannels[i].OldVol = (volL + volR) >> 1;
-                        } else {
-                            vLeft += (volL * (256 - pan)) >> 8;
-                            vRight += (volL * pan) >> 8;
-                            mChannels[i].OldVol = volL;
+                                vLeft += volL;
+                                vRight += volR;
+                                mChannels[i].OldVol = (volL + volR) >> 1;
+                            } else {
+                                vLeft += (volL * (256 - pan)) >> 8;
+                                vRight += (volL * pan) >> 8;
+                                mChannels[i].OldVol = volL;
+                            }
                         }
 
+                        // Always advance the position and check for end-of-sample so non-looping
+                        // samples terminate cleanly; otherwise the bounds-check above would skip
+                        // this block forever and Length would never reach 0.
                         mChannels[i].Pos += mChannels[i].Inc;
                         if(mChannels[i].Pos >= mChannels[i].Length) {
                             mChannels[i].Length = mChannels[i].LoopEnd;

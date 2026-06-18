@@ -14,6 +14,7 @@ using SharpMod.Helpers;
     Code ported to C# by Xavier Flix (https://github.com/morphx666) on 2019/ 4/25
     S3M (partial) support added by Xavier Flix on 2019/ 4/29
     XM  (partial) support added by Xavier Flix on 2019/ 5/ 4
+    STM (basic)   support added by Xavier Flix on 2026/ 6/18
 */
 
 namespace SharpMod {
@@ -24,6 +25,7 @@ namespace SharpMod {
             byte[] s = new byte[1024];
             S3MTools.S3MFileHeader s3mFH = new S3MTools.S3MFileHeader();
             XMTools.XMFileHeader xmFH = new XMTools.XMFileHeader();
+            STMTools.STMFileHeader stmFH = new STMTools.STMFileHeader();
 
             Type = Types.INVALID;
             Rate = sampleRate;
@@ -57,21 +59,28 @@ namespace SharpMod {
                             mFile.Seek(0x2c, SeekOrigin.Begin);
                             mFile.Read(s, 0, 4);
                             string magic = Encoding.Default.GetString(s).TrimEnd((char)0);
+                            mFile.Seek(0x00, SeekOrigin.Begin);
+                            mFile.Read(s, 0, 17);
+                            string xmTag = Encoding.Default.GetString(s).TrimEnd((char)0);
                             if(magic == "SCRM") {
                                 Type = Types.S3M;
                                 mFile.Seek(0, SeekOrigin.Begin);
                                 s3mFH = SoundFile.LoadStruct<S3MTools.S3MFileHeader>(mFile);
-                            } else if(magic == "XXXX") {
-                                Type = Types.S3M;
+                            } else if(xmTag == "Extended Module: ") {
+                                Type = Types.XM;
                                 mFile.Seek(0, SeekOrigin.Begin);
-                                s3mFH = SoundFile.LoadStruct<S3MTools.S3MFileHeader>(mFile);
+                                xmFH = SoundFile.LoadStruct<XMTools.XMFileHeader>(mFile);
                             } else {
-                                mFile.Seek(0x00, SeekOrigin.Begin);
-                                mFile.Read(s, 0, 17);
-                                if(Encoding.Default.GetString(s).TrimEnd((char)0) == "Extended Module: ") {
-                                    Type = Types.XM;
+                                // STM validation must run before the XXXX-as-S3M fallback because
+                                // ST2 stuffs the reserved field with 0x58 (= 'X'), which collides.
+                                mFile.Seek(0, SeekOrigin.Begin);
+                                stmFH = SoundFile.LoadStruct<STMTools.STMFileHeader>(mFile);
+                                if(STMTools.IsValidHeader(stmFH)) {
+                                    Type = Types.STM;
+                                } else if(magic == "XXXX") {
+                                    Type = Types.S3M;
                                     mFile.Seek(0, SeekOrigin.Begin);
-                                    xmFH = SoundFile.LoadStruct<XMTools.XMFileHeader>(mFile);
+                                    s3mFH = SoundFile.LoadStruct<S3MTools.S3MFileHeader>(mFile);
                                 } else {
                                     ActiveSamples = 15;
                                 }
@@ -86,6 +95,7 @@ namespace SharpMod {
                 case Types.MOD: ParseModFile(20); break;
                 case Types.S3M: ParseS3MFile(96, s3mFH); break;
                 case Types.XM: ParseXMFile(80, xmFH); break;
+                case Types.STM: ParseSTMFile(stmFH); break;
             }
 
             CloseFile(true);
@@ -530,6 +540,190 @@ namespace SharpMod {
                     }
                 }
             }
+        }
+
+        private void ParseSTMFile(STMTools.STMFileHeader stm) {
+            int i;
+
+            mTitle = stm.SongName;
+
+            ActiveChannels = 4;
+            ActiveSamples = 31;
+
+            byte initTempo = stm.initTempo;
+            if(stm.verMinor < 21) initTempo = (byte)(((initTempo / 10) << 4) + initTempo % 10);
+            if(initTempo == 0) initTempo = 0x60;
+            MusicSpeed = (uint)(initTempo >> 4);
+            MusicTempo = 125; // ST2 has a peculiar tick-length model; use a sensible default BPM
+
+            // ST2 default panning: even channels left, odd channels right
+            for(i = 0; i < 4; i++) mChannels[i].Pan = (short)((i & 1) != 0 ? 64 : 192);
+
+            mInstruments = new ModInstrument[ActiveSamples + 1];
+            for(i = 0; i < mInstruments.Length; i++) mInstruments[i].name = new byte[32];
+
+            // 31 sample headers immediately follow the 48-byte file header
+            mFile.Seek(48, SeekOrigin.Begin);
+            ushort[] sampleOffsets = new ushort[31];
+            for(int idx = 1; idx <= 31; idx++) {
+                STMTools.STMSampleHeader sh = SoundFile.LoadStruct<STMTools.STMSampleHeader>(mFile);
+
+                Array.Copy(sh.filename, mInstruments[idx].name, Math.Min(sh.filename.Length, mInstruments[idx].name.Length));
+
+                uint len = sh.length;
+                if(len < 2) len = 0;
+                mInstruments[idx].Length = len;
+
+                if(sh.sampleRate > 0) {
+                    int note = FrequencyToNote(sh.sampleRate);
+                    double f = Math.Pow(2.0, (note - 136) / 12.0) * 8169;
+                    mInstruments[idx].FineTune = (uint)f;
+                } else {
+                    mInstruments[idx].FineTune = FineTuneTable[8];
+                }
+
+                int vol = sh.volume;
+                if(vol > 0x40) vol = 0x40;
+                mInstruments[idx].Volume = vol << 2;
+
+                if(sh.loopStart < len && sh.loopEnd > sh.loopStart && sh.loopEnd != 0xFFFF) {
+                    mInstruments[idx].LoopStart = sh.loopStart;
+                    mInstruments[idx].LoopEnd = Math.Min((uint)sh.loopEnd, len);
+                }
+
+                sampleOffsets[idx - 1] = sh.offset;
+            }
+
+            // Order list: 64 entries on verMinor==0, 128 otherwise. Pad to 256 with 0xFF.
+            int orderCount = stm.verMinor == 0 ? 64 : 128;
+            mOrder = new byte[256];
+            for(int k = 0; k < 256; k++) mOrder[k] = 0xFF;
+            byte[] tmpOrder = new byte[orderCount];
+            mFile.Read(tmpOrder, 0, orderCount);
+            for(int k = 0; k < orderCount; k++) {
+                byte v = tmpOrder[k];
+                if(v == 99 || v == 255) mOrder[k] = 0xFF;
+                else if(v < 64) mOrder[k] = v;
+                // values >63 are invalid; leave as 0xFF (treated as end of song by the engine)
+            }
+
+            // Patterns: fixed 64 rows x 4 channels, packed run-length cells
+            int numPatterns = stm.numPatterns;
+            mPatterns = new byte[numPatterns][];
+            int rowSize = 4 * 6;
+            int patternBytes = 64 * rowSize;
+
+            for(int p = 0; p < numPatterns; p++) {
+                byte[] patBuf = new byte[patternBytes];
+                for(int cellIdx = 0; cellIdx < 64 * 4; cellIdx++) {
+                    int row = cellIdx >> 2;
+                    int chn = cellIdx & 3;
+                    int idx = row * rowSize + chn * 6;
+
+                    int note = mFile.ReadByte();
+                    if(note < 0) break;
+
+                    byte insvol = 0, volcmd = 0, cmdinf = 0;
+                    if(note == 0xFC) continue;                              // empty cell, no more bytes
+                    if(note == 0xFD) {                                      // note cut, no more bytes
+                        patBuf[idx + 0] = (byte)(0x20 | (chn & 0x1F));
+                        patBuf[idx + 1] = 0xFE;
+                        continue;
+                    }
+                    if(note != 0xFB) {                                      // 0xFB = zeroed cell, no extra bytes
+                        insvol = (byte)mFile.ReadByte();
+                        volcmd = (byte)mFile.ReadByte();
+                        cmdinf = (byte)mFile.ReadByte();
+                    }
+
+                    EncodeSTMCell(patBuf, idx, chn, (byte)note, insvol, volcmd, cmdinf, stm.verMinor);
+                }
+                mPatterns[p] = patBuf;
+            }
+
+            // Sample data: 8-bit signed mono PCM at offset = sampleOffsets[i] << 4
+            long fileLen = mFile.Length;
+            for(int s = 1; s <= 31; s++) {
+                if(mInstruments[s].Length == 0 || mInstruments[s].Volume == 0) continue;
+
+                long sampleOffset = (long)sampleOffsets[s - 1] << 4;
+                if(sampleOffset <= 48 || sampleOffset >= fileLen) continue;
+                int sampleBytes = (int)mInstruments[s].Length;
+                if(sampleOffset + sampleBytes > fileLen) sampleBytes = (int)(fileLen - sampleOffset);
+                if(sampleBytes <= 0) continue;
+
+                mFile.Position = sampleOffset;
+                mInstruments[s].Sample = new byte[mInstruments[s].Length];
+                mFile.Read(mInstruments[s].Sample, 0, sampleBytes);
+                mInstruments[s].Is16Bit = false;
+                mInstruments[s].IsStereo = false;
+            }
+        }
+
+        private static void EncodeSTMCell(byte[] buf, int idx, int chn, byte note, byte insvol, byte volcmd, byte cmdinf, byte verMinor) {
+            byte mode = 0;
+            byte encNote = 0, instr = 0, vol = 0, cmd = 0, param = 0;
+
+            if(note == 0xFE) {
+                encNote = 0xFE; // note cut
+                mode |= 0x20;
+            } else if(note < 0x60) {
+                // STM note byte: (octave << 4) | semitone, with octave 0 = C-2 (MIDI 36).
+                // Engine note byte: (octave << 4) | semitone, with octave 0 = C-1 (MIDI 12).
+                // Adding 0x20 (two octaves) maps STM C-2 -> engine C-3, preserving pitch.
+                encNote = (byte)(note + 0x20);
+                mode |= 0x20;
+            }
+
+            int rawInst = insvol >> 3;
+            if(rawInst > 31) rawInst = 0;
+            instr = (byte)rawInst;
+
+            int rawVol = (insvol & 0x07) | ((volcmd & 0xF0) >> 1);
+            if(rawVol <= 64) {
+                vol = (byte)rawVol;
+                mode |= 0x40;
+            }
+
+            // STM effects 1..10 map directly to S3M letters A..J; 11..15 are no-ops in ST2.
+            int effIdx = volcmd & 0x0F;
+            byte effParam = cmdinf;
+            if(effIdx >= 1 && effIdx <= 10) {
+                bool keep = true;
+                switch(effIdx) {
+                    case 1: // A - Set Speed: BCD on old versions, then take high nibble
+                        if(verMinor < 21) effParam = (byte)(((effParam / 10) << 4) + effParam % 10);
+                        effParam = (byte)(effParam >> 4);
+                        if(effParam == 0) keep = false;
+                        break;
+                    case 3: // C - Pattern Break: BCD -> decimal row number
+                        effParam = (byte)(((effParam >> 4) * 10) + (effParam & 0x0F));
+                        break;
+                    case 4: // D - Volume Slide: lower nibble has precedence, no fine slides
+                        if((effParam & 0x0F) != 0) effParam &= 0x0F;
+                        else effParam &= 0xF0;
+                        if(effParam == 0) keep = false;
+                        break;
+                    default:
+                        if(effParam == 0) keep = false; // ST2 has no effect memory
+                        break;
+                }
+                if(keep) {
+                    cmd = (byte)effIdx; // engine stores effect as 1..26 (A..Z)
+                    param = effParam;
+                    mode |= 0x80;
+                }
+            }
+
+            if(mode == 0) return;
+
+            mode |= (byte)(chn & 0x1F);
+            buf[idx + 0] = mode;
+            buf[idx + 1] = encNote;
+            buf[idx + 2] = instr;
+            buf[idx + 3] = vol;
+            buf[idx + 4] = cmd;
+            buf[idx + 5] = param;
         }
 
         private static void EncodeXMCell(byte[] buf, int idx, byte rawNote, byte rawInst, byte rawVol, byte rawCmd, byte rawParam) {
