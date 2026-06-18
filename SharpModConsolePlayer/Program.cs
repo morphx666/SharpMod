@@ -7,11 +7,11 @@ namespace SharpModConsolePlayer {
             Cli? cli = Cli.Parse(args);
             if(cli == null) return;
 
-            SoundFile sf = AudioSupport.LoadSoundFile(cli);
+            SoundFile sf = OpenAlStreamPlayer.LoadSoundFile(cli);
 
             ConsoleRenderer.InitializeConsole();
             _ = Task.Run(() => ConsoleRenderer.RenderLoop(sf, cli.ShowSampleProgress));
-            await AudioSupport.Play(sf, cli.SampleRate, cli.BitDepth, cli.Channels);
+            await OpenAlStreamPlayer.Play(sf, cli.SampleRate, cli.BitDepth, cli.Channels);
             ConsoleRenderer.RestoreConsole();
         }
     }

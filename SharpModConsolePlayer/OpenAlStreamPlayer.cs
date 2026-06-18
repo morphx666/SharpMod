@@ -3,7 +3,7 @@ using OpenTK.Audio.OpenAL;
 using SharpMod;
 
 namespace SharpModConsolePlayer {
-    internal static class AudioSupport {
+    internal static class OpenAlStreamPlayer {
         public static bool isPlaying = false;
         private const int BufferLength = 6000;
         private const int TargetQueueDepth = 3;

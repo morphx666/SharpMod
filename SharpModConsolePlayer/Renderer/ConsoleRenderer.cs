@@ -113,7 +113,7 @@ namespace SharpModConsolePlayer.Renderer {
                         break;
                     case ConsoleKey.Q:
                     case ConsoleKey.Escape:
-                        AudioSupport.isPlaying = false;
+                        OpenAlStreamPlayer.isPlaying = false;
                         return false;
                 }
 
