@@ -121,6 +121,7 @@ namespace SharpModConsolePlayer {
             Console.WriteLineInterpolated($"  {Green}Tab{Default}                      Toggle between patterns and samples view");
             Console.WriteLineInterpolated($"  {Green}Left{Default} / {Green}Right{Default}             Scroll channels horizontally");
             Console.WriteLineInterpolated($"  {Green}Up{Default} / {Green}Down{Default}                Scroll samples vertically");
+            Console.WriteLineInterpolated($"  {Green}PageUp{Default} / {Green}PageDown{Default}        Seek track backward/forward");
             Console.WriteLineInterpolated($"  {Green}Esc {Default}| {Green}Q{Default}                  Stop playback and exit");
         }
     }

@@ -99,7 +99,6 @@ namespace SharpModConsolePlayer {
                     case ConsoleKey.UpArrow:
                         if(mode == ViewMode.Samples) {
                             fromSample = Math.Max(0, fromSample - 1);
-                            forceRedraw = true;
                         }
                         break;
                     case ConsoleKey.DownArrow:
@@ -108,8 +107,13 @@ namespace SharpModConsolePlayer {
                             if(fromSample + Console.WindowHeight - Renderer.Samples.FirstSampleRow >= sf.Instruments.Length - 1) {
                                 fromSample = Math.Max(0, sf.Instruments.Length - Console.WindowHeight + Renderer.Samples.FirstSampleRow);
                             }
-                            forceRedraw = true;
                         }
+                        break;
+                    case ConsoleKey.PageUp:
+                        sf.Position =  Math.Max(sf.Position - 10, 0);
+                        break;
+                    case ConsoleKey.PageDown:
+                        sf.Position =  Math.Min(sf.Position + 10, sf.PositionCount - 1);
                         break;
                     case ConsoleKey.Q:
                     case ConsoleKey.Escape:
