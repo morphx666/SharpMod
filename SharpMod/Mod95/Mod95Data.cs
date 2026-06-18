@@ -110,7 +110,7 @@ namespace SharpMod {
             public bool Is16Bit;
             public bool IsStereo;
             internal byte[] name;
-            public string Name { get { return Encoding.UTF8.GetString(name).Trim('\0'); } }
+            public string Name { get { return Helpers.LegacyEncoding.Cp437.GetString(name).TrimEnd('\0', ' '); } }
         }
 
         public struct ModChannel {

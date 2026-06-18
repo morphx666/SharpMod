@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Text;
 
 namespace SharpMod.Helpers {
     public static class ExtensionMethods {
@@ -14,6 +15,15 @@ namespace SharpMod.Helpers {
         public static UInt32 ReadUInt32(this FileStream fs) {
             fs.Read(tmp4, 0, 4);
             return BitConverter.ToUInt32(tmp4, 0);
+        }
+    }
+
+    internal static class LegacyEncoding {
+        internal static readonly Encoding Cp437;
+
+        static LegacyEncoding() {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            Cp437 = Encoding.GetEncoding(437);
         }
     }
 }

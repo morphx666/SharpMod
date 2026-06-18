@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using System.Text;
+using SharpMod.Helpers;
 
 // https://www.fileformat.info/format/xm/corion.htm
 
@@ -77,8 +78,8 @@ namespace SharpMod {
             public UInt16 tempo;             // Default Tempo
 
             public string Signature { get { return Encoding.UTF8.GetString(signature).Trim('\0'); } }
-            public string Name { get { return Encoding.UTF8.GetString(songName).Trim('\0'); } }
-            public string Tracker { get { return Encoding.UTF8.GetString(trackerName).Trim('\0'); } }
+            public string Name { get { return LegacyEncoding.Cp437.GetString(songName).TrimEnd('\0', ' '); } }
+            public string Tracker { get { return LegacyEncoding.Cp437.GetString(trackerName).TrimEnd('\0', ' '); } }
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -130,7 +131,7 @@ namespace SharpMod {
             public UInt32 sampleHeaderSize;  // Size of XMSample
             public XMInstrument instrument;
 
-            public string Name { get { return Encoding.UTF8.GetString(name).Trim('\0'); } }
+            public string Name { get { return LegacyEncoding.Cp437.GetString(name).TrimEnd('\0', ' '); } }
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -148,8 +149,8 @@ namespace SharpMod {
             public UInt16 numSamples;        // Number of embedded sample headers + samples
 
             public string Signature { get { return Encoding.UTF8.GetString(signature).Trim('\0'); } }
-            public string Name { get { return Encoding.UTF8.GetString(name).Trim('\0'); } }
-            public string Tracker { get { return Encoding.UTF8.GetString(trackerName).Trim('\0'); } }
+            public string Name { get { return LegacyEncoding.Cp437.GetString(name).TrimEnd('\0', ' '); } }
+            public string Tracker { get { return LegacyEncoding.Cp437.GetString(trackerName).TrimEnd('\0', ' '); } }
         };
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -174,7 +175,7 @@ namespace SharpMod {
             public byte reserved;       // Reserved (abused for ModPlug's ADPCM compression)
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 22)] internal byte[] name;      // Sample Name, not null-terminated (any nulls are treated as spaces)
 
-            public string Name { get { return Encoding.UTF8.GetString(name).Trim('\0'); } }
+            public string Name { get { return LegacyEncoding.Cp437.GetString(name).TrimEnd('\0', ' '); } }
         }
     }
 }

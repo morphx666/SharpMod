@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using SharpMod.Helpers;
 
 // https://moddingwiki.shikadi.net/wiki/STM_Format
 // https://github.com/OpenMPT/openmpt (soundlib/Load_stm.cpp)
@@ -19,8 +20,8 @@ namespace SharpMod {
             public byte globalVolume;
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 13)] internal byte[] reserved;
 
-            public string SongName    { get { return Encoding.UTF8.GetString(songname).TrimEnd('\0'); } }
-            public string TrackerName { get { return Encoding.UTF8.GetString(trackername); } }
+            public string SongName    { get { return LegacyEncoding.Cp437.GetString(songname).TrimEnd('\0', ' '); } }
+            public string TrackerName { get { return LegacyEncoding.Cp437.GetString(trackername).TrimEnd('\0', ' '); } }
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -37,7 +38,7 @@ namespace SharpMod {
             public ushort sampleRate;
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 6)] internal byte[] reserved3;
 
-            public string FileName { get { return Encoding.UTF8.GetString(filename).TrimEnd('\0'); } }
+            public string FileName { get { return LegacyEncoding.Cp437.GetString(filename).TrimEnd('\0', ' '); } }
         }
 
         // Mirrors OpenMPT Load_stm.cpp::ValidateHeader. Rejects files that are clearly not STM

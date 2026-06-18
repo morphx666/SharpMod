@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using System.Text;
+using SharpMod.Helpers;
 
 // http://www.shikadi.net/moddingwiki/S3M_Format
 // https://www.fileformat.info/format/mod/corion.htm
@@ -68,7 +69,7 @@ namespace SharpMod {
             public UInt16 special;                     // Pointer to special custom data (unused)
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)] public byte[] channels;   // Channel setup
 
-            public string Name { get { return Encoding.UTF8.GetString(name).Trim('\0'); } }
+            public string Name { get { return LegacyEncoding.Cp437.GetString(name).TrimEnd('\0', ' '); } }
             public string Magic { get { return Encoding.UTF8.GetString(magic).Trim('\0'); } }
         }
 
@@ -107,8 +108,8 @@ namespace SharpMod {
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 28)] public byte[] name;          // Sample name
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)] public byte[] magic;          // "SCRS" magic bytes ("SCRI" for Adlib instruments)
 
-            public string FileName { get { return Encoding.UTF8.GetString(filename).Trim('\0'); } }
-            public string Name { get { return Encoding.UTF8.GetString(name).Trim('\0'); } }
+            public string FileName { get { return LegacyEncoding.Cp437.GetString(filename).TrimEnd('\0', ' '); } }
+            public string Name { get { return LegacyEncoding.Cp437.GetString(name).TrimEnd('\0', ' '); } }
             public string Magic { get { return Encoding.UTF8.GetString(magic).Trim('\0'); } }
         }
 
