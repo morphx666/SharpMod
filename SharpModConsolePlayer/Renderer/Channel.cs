@@ -5,11 +5,11 @@ using static PrettyConsole.Color;
 // https://github.com/dusrdev/PrettyConsole
 
 namespace SharpModConsolePlayer.Renderer {
-    internal class Channel {
+    internal static class Channel {
         internal const int RowsPerPattern = 64;
-        internal const int HeaderRow = Info.InfoRow + 1;
-        internal const int VuMeterRow = HeaderRow + 1;
-        internal const int FirstPatternRow = VuMeterRow + 1;
+        private const int HeaderRow = Info.InfoRow + 1;
+        private const int VuMeterRow = HeaderRow + 1;
+        private const int FirstPatternRow = VuMeterRow + 1;
         private const int ColumnWidth = 14;
         internal const int VisibleWidth = ColumnWidth + 2;
         private const int VuMeterMaxVolume = 256;
@@ -22,7 +22,7 @@ namespace SharpModConsolePlayer.Renderer {
         // Left seven eighths block: '\u2589'
         private const char vuChar = '\u2580';
 
-        public static void Render(SoundFile sf, int channelIndex, uint patternIndex, int consoleCol, int maxWidth) {
+        internal static void Render(SoundFile sf, int channelIndex, uint patternIndex, int consoleCol, int maxWidth) {
             if(maxWidth <= 0) return;
             int height = Console.WindowHeight - 1; // reserve last row for the song progress bar
             int playHead = FirstPatternRow + (height - FirstPatternRow) / 2;
@@ -73,7 +73,7 @@ namespace SharpModConsolePlayer.Renderer {
             Console.WriteInterpolated($"{Default}{Blue}{new WhiteSpace(left)}{textSpan}{new WhiteSpace(right)}{Default}");
         }
 
-        public static void RenderVuMeter(SoundFile sf, int channelIndex, int col, int maxWidth) {
+        internal static void RenderVuMeter(SoundFile sf, int channelIndex, int col, int maxWidth) {
             if(maxWidth <= 0) return;
             var ch = sf.Channels[channelIndex];
             bool isActive = ch.Length > 0 && ch.Pos < ch.Length;

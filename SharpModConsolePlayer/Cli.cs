@@ -4,23 +4,27 @@ using static PrettyConsole.Color;
 
 namespace SharpModConsolePlayer {
     internal class Cli {
-        public string ModFile = string.Empty;
-        public int SampleRate = 44100;
-        public int BitDepth = 16;
-        public int Channels = 2;
-        public bool Loop = false;
-        public bool ShowSampleProgress = true;
+        internal string ModFile { get; init; } = string.Empty;
+        internal int SampleRate { get; init; } = 44100;
+        internal int BitDepth { get; init; } = 16;
+        internal int Channels { get; init; } = 2;
+        internal bool Loop { get; init; } = false;
+        internal bool ShowSampleProgress { get; init; } = true;
 
         private static readonly int[] ValidSampleRates = [8000, 11025, 16000, 22050, 32000, 44100, 48000, 88200, 96000];
         private static readonly int[] ValidBitDepths = [8, 16];
 
-        public static Cli? Parse(string[] args) {
+        internal static Cli? Parse(string[] args) {
             if(args.Length == 0) {
                 PrintUsage();
                 return null;
             }
 
-            Cli cli = new();
+            string modFile = string.Empty;
+            int sampleRate = 44100;
+            int bitDepth = 16;
+            bool loop = false;
+            bool showSampleProgress = true;
 
             for(int i = 0; i < args.Length; i++) {
                 string a = args[i];
@@ -31,40 +35,46 @@ namespace SharpModConsolePlayer {
                         return null;
                     case "-r":
                     case "--sample-rate":
-                        if(!TryReadIntOption(args, ref i, a, ValidSampleRates, out cli.SampleRate)) return null;
+                        if(!TryReadIntOption(args, ref i, a, ValidSampleRates, out sampleRate)) return null;
                         break;
                     case "-b":
                     case "--bit-depth":
-                        if(!TryReadIntOption(args, ref i, a, ValidBitDepths, out cli.BitDepth)) return null;
+                        if(!TryReadIntOption(args, ref i, a, ValidBitDepths, out bitDepth)) return null;
                         break;
                     case "-l":
                     case "--loop":
-                        cli.Loop = true;
+                        loop = true;
                         break;
                     case "-P":
                     case "--no-sample-progress":
-                        cli.ShowSampleProgress = false;
+                        showSampleProgress = false;
                         break;
                     default:
                         if(a.StartsWith('-')) {
                             PrintError($"Unknown option: {a}");
                             return null;
                         }
-                        if(cli.ModFile.Length > 0) {
+                        if(modFile.Length > 0) {
                             PrintError($"Unexpected argument: {a}");
                             return null;
                         }
-                        cli.ModFile = a;
+                        modFile = a;
                         break;
                 }
             }
 
-            if(cli.ModFile.Length == 0) {
+            if(modFile.Length == 0) {
                 PrintError("Missing required <modfile> argument.");
                 return null;
             }
 
-            return cli;
+            return new Cli {
+                ModFile = modFile,
+                SampleRate = sampleRate,
+                BitDepth = bitDepth,
+                Loop = loop,
+                ShowSampleProgress = showSampleProgress,
+            };
         }
 
         private static bool TryReadIntOption(string[] args, ref int i, string name, int[] allowed, out int value) {

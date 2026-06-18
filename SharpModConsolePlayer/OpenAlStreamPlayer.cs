@@ -4,14 +4,14 @@ using SharpMod;
 
 namespace SharpModConsolePlayer {
     internal static class OpenAlStreamPlayer {
-        public static bool isPlaying = false;
+        internal static bool isPlaying = false;
         private const int BufferLength = 6000;
         private const int TargetQueueDepth = 3;
 
-        public static SoundFile LoadSoundFile(Cli cli)
+        internal static SoundFile LoadSoundFile(Cli cli)
             => new(cli.ModFile, (uint)cli.SampleRate, cli.BitDepth == 16, cli.Channels == 2, cli.Loop);
 
-        public static async Task Play(SoundFile sndFile, int sampleRate, int bitDepth, int channels) {
+        internal static async Task Play(SoundFile sndFile, int sampleRate, int bitDepth, int channels) {
             isPlaying = true;
 
             InitializeAudioContext(sampleRate);

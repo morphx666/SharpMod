@@ -5,18 +5,18 @@ namespace SharpModConsolePlayer.Renderer {
         private const int ChannelWidth = 20;
         private enum ViewMode { Patterns, Samples }
 
-        public static void InitializeConsole() {
+        internal static void InitializeConsole() {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
             Console.CursorVisible = false;
             Console.Clear();
         }
 
-        public static void RestoreConsole() {
+        internal static void RestoreConsole() {
             Console.Clear();
             Console.CursorVisible = true;
         }
 
-        public static async Task RenderLoop(SoundFile sf, bool showSampleProgress) {
+        internal static async Task RenderLoop(SoundFile sf, bool showSampleProgress) {
             int fromChannel = 0;
             int fromSample = 0;
             uint lastRow = uint.MaxValue;

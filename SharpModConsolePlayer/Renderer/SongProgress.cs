@@ -3,14 +3,14 @@ using PrettyConsole;
 using static PrettyConsole.Color;
 
 namespace SharpModConsolePlayer.Renderer {
-    internal class SongProgress {
+    internal static class SongProgress {
         // static ProgressBar progress = new() {
         //     ProgressChar = '■',
         //     ForegroundColor = Color.DarkGray,
         //     ProgressColor = Color.Cyan,
         // };
 
-        public static void Render(SoundFile sf) {
+        internal static void Render(SoundFile sf) {
             int width = Console.WindowWidth;
             int row = Console.WindowHeight - 1;
             if(width <= 0 || row < 0) return;

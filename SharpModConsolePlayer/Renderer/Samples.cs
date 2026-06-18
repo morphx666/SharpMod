@@ -3,12 +3,12 @@ using PrettyConsole;
 using static PrettyConsole.Color;
 
 namespace SharpModConsolePlayer.Renderer {
-    internal class Samples {
-        internal const int HeaderRow = Info.InfoRow + 1;
+    internal static class Samples {
+        private const int HeaderRow = Info.InfoRow + 1;
         internal const int FirstSampleRow = HeaderRow + 1;
         private const int NameWidth = 28;
 
-        public static void Render(SoundFile sf, bool showProgress, int fromSample = 0) {
+        internal static void Render(SoundFile sf, bool showProgress, int fromSample = 0) {
             int width = Console.WindowWidth;
             int height = Console.WindowHeight - 1; // reserve last row for the song progress bar
             if(width <= 0) return;
