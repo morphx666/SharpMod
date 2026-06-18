@@ -187,8 +187,17 @@ namespace SharpMod {
             mTitle = s3m.Name;
 
             ActiveSamples = (uint)s3m.smpNum;
-            for(i = 0; i < s3m.channels.Length; i++) {
-                if(s3m.channels[i] != 0xFF) j++;
+
+            // Build map: S3M channel index -> active slot (or -1 for AdLib / unused channels)
+            sbyte[] chnMap = new sbyte[32];
+            for(i = 0; i < 32; i++) {
+                byte ch = s3m.channels[i];
+                byte chType = (byte)(ch & 0x7F);
+                if(ch == 0xFF || chType >= 0x10) {
+                    chnMap[i] = -1;
+                } else {
+                    chnMap[i] = (sbyte)j++;
+                }
             }
             ActiveChannels = (uint)j;
 
@@ -205,19 +214,24 @@ namespace SharpMod {
             mOrder = new byte[s3m.ordNum];
             mFile.Read(mOrder, 0, s3m.ordNum);
 
-            // Skip Sample Header Offsets (for now?)
             UInt16[] sampleHeaderOffsets = new UInt16[s3m.smpNum];
-            for(i = 0; i < s3m.smpNum * 2; i += 2) {
-                sampleHeaderOffsets[i / 2] = mFile.ReadUInt16();
+            for(i = 0; i < s3m.smpNum; i++) {
+                sampleHeaderOffsets[i] = mFile.ReadUInt16();
             }
 
             UInt16[] patternsOffsets = new UInt16[s3m.patNum];
-            for(i = 0; i < s3m.patNum * 2; i += 2) {
-                patternsOffsets[i / 2] = mFile.ReadUInt16();
+            for(i = 0; i < s3m.patNum; i++) {
+                patternsOffsets[i] = mFile.ReadUInt16();
             }
 
+            long fileLen = mFile.Length;
+            int smpHdrSize = Marshal.SizeOf(typeof(S3MTools.S3MSampleHeader));
+
             for(i = 1; i <= (int)ActiveSamples; i++) {
-                mFile.Position = sampleHeaderOffsets[i - 1] * 16;
+                long hdrPos = sampleHeaderOffsets[i - 1] * 16L;
+                if(hdrPos == 0 || hdrPos + smpHdrSize > fileLen) continue;
+
+                mFile.Position = hdrPos;
                 smpH = SoundFile.LoadStruct<S3MTools.S3MSampleHeader>(mFile);
 
                 Array.Copy(smpH.name, mInstruments[i].name, smpH.name.Length);
@@ -236,47 +250,77 @@ namespace SharpMod {
                 mInstruments[i].Volume <<= 2;
 
                 if(smpH.Magic == "SCRS") {
-                    mInstruments[i].Sample = new byte[mInstruments[i].Length];
+                    bool is16 = (smpH.flags & (byte)S3MTools.S3MSampleHeader.SampleFlags.smp16Bit) != 0;
+                    bool isStereo = (smpH.flags & (byte)S3MTools.S3MSampleHeader.SampleFlags.smpStereo) != 0;
+                    int sampleBytes = (int)smpH.length * (is16 ? 2 : 1) * (isStereo ? 2 : 1);
+                    if(sampleBytes <= 0) continue;
+
                     UInt32 sampleOffset = (uint)((smpH.dataPointer[1] << 4) | (smpH.dataPointer[2] << 12) | (smpH.dataPointer[0] << 20));
+                    if(sampleOffset == 0 || sampleOffset + (uint)sampleBytes > fileLen) continue;
+
+                    mInstruments[i].Sample = new byte[sampleBytes];
                     p = mFile.Position;
                     mFile.Seek(sampleOffset, SeekOrigin.Begin);
-                    mFile.Read(mInstruments[i].Sample, 0, (int)mInstruments[i].Length);
+                    mFile.Read(mInstruments[i].Sample, 0, sampleBytes);
                     mFile.Position = p;
 
-                    for(j = 0; j < mInstruments[i].Sample.Length; j++) {
-                        mInstruments[i].Sample[j] -= 0x80;
+                    // Only the "new" format (formatVersion == 2) stores unsigned samples
+                    if(s3m.formatVersion == (UInt16)S3MTools.S3MFileHeader.S3MFormatVersion.newVersion) {
+                        if(is16) {
+                            for(j = 1; j < sampleBytes; j += 2) mInstruments[i].Sample[j] ^= 0x80;
+                        } else {
+                            for(j = 0; j < sampleBytes; j++) mInstruments[i].Sample[j] -= 0x80;
+                        }
                     }
                 }
             }
 
+            // ST3-saved S3M stores Cxx (Pattern Break) param in BCD; IT-saved keeps it hex
+            bool fromIT = (s3m.cwtv & (UInt16)S3MTools.S3MFileHeader.S3MTrackerVersions.trackerMask) == (UInt16)S3MTools.S3MFileHeader.S3MTrackerVersions.trkImpulseTracker;
+
             mPatterns = new byte[s3m.patNum][];
             byte[] pattern = new byte[6];
+            int rowSize = (int)ActiveChannels * 6;
             for(i = 0; i < s3m.patNum; i++) {
-                // Unpack patterns
-                List<byte> bl = new List<byte>();
-                mFile.Position = patternsOffsets[i] * 16 + 2;
+                byte[] rowBuf = new byte[64 * rowSize];
+                long patStart = patternsOffsets[i] * 16L;
+
+                if(patStart == 0 || patStart + 2 > fileLen) {
+                    mPatterns[i] = rowBuf;
+                    continue;
+                }
+                mFile.Position = patStart;
+                int packedLen = mFile.ReadUInt16();
+                long dataEnd = Math.Min(mFile.Position + packedLen, fileLen);
+
                 int row = 0;
-                int chn = 0;
-                while(row < 64) {
-                    mFile.Read(pattern, 0, 1);
-                    if(pattern[0] == 0) { // Pad row, to the right, with empty channels
-                        for(j = chn; j < ActiveChannels; j++) bl.AddRange(new byte[6]);
-                        chn = 0;
-                        row++;
+                while(row < 64 && mFile.Position < dataEnd) {
+                    int b = mFile.ReadByte();
+                    if(b <= 0) {
+                        if(b == 0) row++;
                         continue;
-                    } else {  // Pad row, to the left, with empty channels
-                        int chnIdx = pattern[0] & 0x1F;
-                        for(j = chn; j < chnIdx; j++) bl.AddRange(new byte[6]);
-                        chn = chnIdx;
                     }
 
-                    if((pattern[0] & 0x20) != 0) mFile.Read(pattern, 1, 2);
-                    if((pattern[0] & 0x40) != 0) mFile.Read(pattern, 3, 1);
-                    if((pattern[0] & 0x80) != 0) mFile.Read(pattern, 4, 2);
-                    bl.AddRange(pattern);
-                    chn++;
+                    int s3mChn = b & 0x1F;
+                    byte flagBits = (byte)(b & 0xE0);
+                    Array.Clear(pattern, 0, pattern.Length);
+
+                    if((flagBits & 0x20) != 0 && mFile.Position + 2 <= dataEnd) mFile.Read(pattern, 1, 2);
+                    if((flagBits & 0x40) != 0 && mFile.Position + 1 <= dataEnd) mFile.Read(pattern, 3, 1);
+                    if((flagBits & 0x80) != 0 && mFile.Position + 2 <= dataEnd) mFile.Read(pattern, 4, 2);
+
+                    int slot = chnMap[s3mChn];
+                    if(slot < 0) continue;
+
+                    // Convert ST3 BCD Pattern Break (Cxy) param to a row number (10x + y)
+                    if((flagBits & 0x80) != 0 && pattern[4] == 3 && !fromIT) {
+                        pattern[5] = (byte)((pattern[5] >> 4) * 10 + (pattern[5] & 0x0F));
+                    }
+
+                    pattern[0] = (byte)(flagBits | (slot & 0x1F));
+                    Buffer.BlockCopy(pattern, 0, rowBuf, row * rowSize + slot * 6, 6);
                 }
-                mPatterns[i] = bl.ToArray();
+                mPatterns[i] = rowBuf;
             }
         }
 

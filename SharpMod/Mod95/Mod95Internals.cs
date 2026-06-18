@@ -54,8 +54,7 @@ namespace SharpMod {
                             // 0F: Set Speed
                             case Effects.CMD_SPEED:
                                 if((param != 0) && (param < 0x20)) nMusicSpeed = param;
-                                else
-                                    if(param >= 0x20) nMusicTempo = param;
+                                else if(param >= 0x20) nMusicTempo = param;
                                 break;
                         }
                     }
@@ -242,12 +241,16 @@ namespace SharpMod {
                         param = 0;
                         chnIdx = mode & 0x1F;
 
+                        bool noteCut = false;
                         if((mode & 0x20) != 0) {
                             instIdx = p[pIndex + 2];
 
                             int note = p[pIndex + 1];
-                            if(note < 0xF0) {
-                                if((note >= 0xFB) && (note <= 0xFF)) note = 0;
+                            if((note >= 0xFE) && (note <= 0xFF)) {
+                                // Note cut (0xFE) / note off (0xFF): silence channel, don't retrigger
+                                noteCut = true;
+                                instIdx = 0;
+                            } else if(note < 0xF0) {
                                 int octave = note >> 4;
                                 int semitone = note & 0x0F;
                                 note = semitone + 12 * octave + 12;// + 1;
@@ -269,6 +272,11 @@ namespace SharpMod {
                             command = p[pIndex + 4];
                             param = p[pIndex + 5];
                             command = (uint)S3MTools.ConvertEffect((Effects)command, (int)param);
+                        }
+
+                        if(noteCut) {
+                            mChannels[chnIdx].Volume = 0;
+                            mChannels[chnIdx].Period = 0;
                         }
                     } else { // MOD
                         chnIdx = i;

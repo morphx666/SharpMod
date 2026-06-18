@@ -92,7 +92,7 @@ namespace SharpMod {
                 pADPCM = 0x04,      // MODPlugin ADPCM :(
             };
 
-            byte sampleType;     // Sample type, see SampleType
+            public byte sampleType;     // Sample type, see SampleType
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 12)] public byte[] filename;   // Sample filename
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)] public byte[] dataPointer; // Pointer to sample data (divided by 16)
             public UInt32 length;           // Sample length, in samples
