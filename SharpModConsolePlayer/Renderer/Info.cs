@@ -20,7 +20,9 @@ namespace SharpModConsolePlayer.Renderer {
             string s1 = ClipSegment(string.Concat(title, " "), ref remaining);
             string s2 = ClipSegment("| ", ref remaining);
             string s3 = ClipSegment("Type:", ref remaining);
-            string s4 = ClipSegment($" {sf.Type.ToString()[..3],-3}  ", ref remaining);
+            string typeStr = sf.Type.ToString();
+            if(typeStr.Length > 3) typeStr = typeStr[..3];
+            string s4 = ClipSegment($" {typeStr,-3}  ", ref remaining);
             string s5 = ClipSegment("Channels:", ref remaining);
             string s6 = ClipSegment($" {sf.ActiveChannels,2}  ", ref remaining);
             string s7 = ClipSegment("Pattern:", ref remaining);

@@ -366,83 +366,213 @@ namespace SharpMod {
             mTitle = xm.Name;
 
             ActiveChannels = xm.channels;
+            ActiveSamples = xm.instruments;
 
-            MusicSpeed = xm.speed;
-            MusicTempo = xm.tempo;
+            MusicSpeed = xm.speed > 0 ? xm.speed : 6u;
+            MusicTempo = xm.tempo > 0 ? xm.tempo : 125u;
 
             for(i = 0; i < ActiveChannels; i++) mChannels[i].Pan = 128;
 
+            // Orders: pad to 256 with 0xFF so out-of-range CurrentPattern hits the engine's end-of-song check.
             mFile.Position = offset;
-            mOrder = new byte[xm.orders];
-            mFile.Read(mOrder, 0, xm.orders);
+            mOrder = new byte[256];
+            for(int k = 0; k < 256; k++) mOrder[k] = 0xFF;
+            int orderCount = Math.Min((int)xm.orders, 256);
+            if(orderCount > 0) mFile.Read(mOrder, 0, orderCount);
 
             mFile.Position = xm.size + 60;
 
-            if(xm.version >= 0x0104) {
-                mPatterns = new byte[xm.patterns][];
-                for(i = 0; i < xm.patterns; i++) {
-                    UInt32 headerSize = mFile.ReadUInt32();
-                    mFile.Position += 1;
+            int rowSize = 6 * (int)xm.channels;
+            int patternBytes = 64 * rowSize;
+            int patternCount = Math.Max((int)xm.patterns, 1);
+            mPatterns = new byte[patternCount][];
 
-                    int numRows;
-                    if(xm.version == 0x0102) {
-                        numRows = mFile.ReadByte() + 1;
-                    } else {
-                        numRows = mFile.ReadUInt16();
-                    }
-                    if(numRows == 0 || numRows > 64) numRows = 64; //FIXME: Apparently, XM files can support patterns with up to 1024 rows
+            for(i = 0; i < xm.patterns; i++) {
+                UInt32 headerSize = mFile.ReadUInt32();
+                long headerStart = mFile.Position - 4;
+                mFile.Position += 1; // packing type, always 0
 
-                    UInt16 packedSize = mFile.ReadUInt16();
+                int numRows;
+                if(xm.version == 0x0102) {
+                    numRows = mFile.ReadByte() + 1;
+                } else {
+                    numRows = mFile.ReadUInt16();
+                }
+                if(numRows < 1) numRows = 1;
+                if(numRows > 64) numRows = 64; // FIXME: basic implementation only, XM can have up to 256 rows
 
-                    List<byte> bl = new List<byte>();
-                    byte[] pattern = new byte[6];
+                UInt16 packedSize = mFile.ReadUInt16();
+                // Always advance to the declared header end before reading data
+                mFile.Position = headerStart + headerSize;
 
-                    long curPos = mFile.Position;
-                    while(mFile.Position - curPos < packedSize) {
-                        Array.Clear(pattern, 0, pattern.Length);
+                byte[] patBuf = new byte[patternBytes];
 
-                        int info = (byte)mFile.ReadByte();
-                        if((info & (byte)XMTools.PatternFlags.IsPackByte) != 0) {
-                            if((info & (byte)XMTools.PatternFlags.NotePresent) != 0) {
-                                pattern[0] = 0x20;
-                                pattern[1] = (byte)mFile.ReadByte();
+                if(packedSize > 0) {
+                    long dataStart = mFile.Position;
+                    long dataEnd = dataStart + packedSize;
+                    for(int row = 0; row < numRows && mFile.Position < dataEnd; row++) {
+                        for(int ch = 0; ch < xm.channels && mFile.Position < dataEnd; ch++) {
+                            int info = mFile.ReadByte();
+                            if(info < 0) break;
+
+                            byte rawNote = 0, rawInst = 0, rawVol = 0, rawCmd = 0, rawParam = 0;
+                            bool hasNote, hasInst, hasVol, hasCmd, hasParam;
+
+                            if((info & (byte)XMTools.PatternFlags.IsPackByte) != 0) {
+                                hasNote  = (info & (byte)XMTools.PatternFlags.NotePresent)    != 0;
+                                hasInst  = (info & (byte)XMTools.PatternFlags.InstrPresent)   != 0;
+                                hasVol   = (info & (byte)XMTools.PatternFlags.VolPresent)     != 0;
+                                hasCmd   = (info & (byte)XMTools.PatternFlags.CommandPresent) != 0;
+                                hasParam = (info & (byte)XMTools.PatternFlags.ParamPresent)   != 0;
+                                if(hasNote) rawNote = (byte)mFile.ReadByte();
+                            } else {
+                                rawNote = (byte)info;
+                                hasNote = true;
+                                hasInst = hasVol = hasCmd = hasParam = true;
                             }
-                        } else {
-                            pattern[0] = 0x20;
-                            pattern[1] = (byte)info;
-                            info = (byte)XMTools.PatternFlags.AllFlags;
+
+                            if(hasInst)  rawInst  = (byte)mFile.ReadByte();
+                            if(hasVol)   rawVol   = (byte)mFile.ReadByte();
+                            if(hasCmd)   rawCmd   = (byte)mFile.ReadByte();
+                            if(hasParam) rawParam = (byte)mFile.ReadByte();
+
+                            EncodeXMCell(patBuf, row * rowSize + ch * 6, rawNote, rawInst, rawVol, rawCmd, rawParam);
                         }
-
-                        if((info & (byte)XMTools.PatternFlags.InstrPresent) != 0) { pattern[2] = (byte)mFile.ReadByte(); }
-                        if((info & (byte)XMTools.PatternFlags.VolPresent) != 0) { pattern[0] |= 0x40; pattern[3] = (byte)mFile.ReadByte(); }
-                        if((info & (byte)XMTools.PatternFlags.CommandPresent) != 0) { pattern[0] |= 0x80; pattern[4] = (byte)mFile.ReadByte(); }
-                        if((info & (byte)XMTools.PatternFlags.ParamPresent) != 0) { pattern[0] |= 0x80; pattern[5] = (byte)mFile.ReadByte(); }
-
-                        //if(mPatterns[i][2] == 0xFF) mPatterns[i][2] = 0;
-
-                        //FIXME: Extended Volume Commands are not Implemented
-                        if(pattern[3] >= 0x10 && pattern[3] <= 0x50) {
-                            pattern[3] -= 0x10;
-                        } else if(pattern[3] >= 0x60) {
-                            pattern[3] &= 0x0F;
-                        }
-                        bl.AddRange(pattern);
                     }
-                    while(bl.Count < numRows * 6 * xm.channels) bl.AddRange(new byte[6]);
-                    mPatterns[i] = bl.ToArray();
+                    mFile.Position = dataEnd;
+                }
+
+                mPatterns[i] = patBuf;
+            }
+            for(i = (int)xm.patterns; i < patternCount; i++) {
+                mPatterns[i] = new byte[patternBytes];
+            }
+
+            // Instruments: 1..N, with mInstruments[0] reserved for the "no instrument" slot.
+            mInstruments = new ModInstrument[xm.instruments + 1];
+            for(i = 0; i < mInstruments.Length; i++) mInstruments[i].name = new byte[32];
+
+            for(i = 1; i <= xm.instruments; i++) {
+                long instStart = mFile.Position;
+                UInt32 instSize = mFile.ReadUInt32();
+                if(instSize < 29) instSize = 29;
+
+                // Read the rest of the instrument header (29 bytes minimum, 263 with sample header info)
+                int rawLen = (int)Math.Min(instSize, 263u);
+                byte[] instHdr = new byte[rawLen];
+                instHdr[0] = (byte)(instSize & 0xFF);
+                instHdr[1] = (byte)((instSize >> 8) & 0xFF);
+                instHdr[2] = (byte)((instSize >> 16) & 0xFF);
+                instHdr[3] = (byte)((instSize >> 24) & 0xFF);
+                mFile.Read(instHdr, 4, rawLen - 4);
+
+                Array.Copy(instHdr, 4, mInstruments[i].name, 0, Math.Min(22, mInstruments[i].name.Length));
+
+                int numSamples = rawLen >= 29 ? BitConverter.ToUInt16(instHdr, 27) : 0;
+                mFile.Position = instStart + instSize;
+
+                if(numSamples <= 0) continue;
+
+                XMTools.XMSample[] smpHdrs = new XMTools.XMSample[numSamples];
+                for(int s = 0; s < numSamples; s++) smpHdrs[s] = SoundFile.LoadStruct<XMTools.XMSample>(mFile);
+
+                for(int s = 0; s < numSamples; s++) {
+                    int sampleBytes = (int)smpHdrs[s].length;
+                    if(sampleBytes <= 0) continue;
+
+                    byte[] data = new byte[sampleBytes];
+                    mFile.Read(data, 0, sampleBytes);
+
+                    if(s != 0) continue; // basic implementation: keep only the first sample per instrument
+
+                    bool is16 = (smpHdrs[s].flags & (byte)XMTools.XMSample.XMSampleFlags.sample16Bit) != 0;
+                    int bytesPerSample = is16 ? 2 : 1;
+                    int sampleCount = sampleBytes / bytesPerSample;
+
+                    // XM samples are delta-encoded
+                    if(is16) {
+                        short prev = 0;
+                        for(int n = 0; n + 1 < sampleBytes; n += 2) {
+                            short delta = (short)(data[n] | (data[n + 1] << 8));
+                            prev = (short)(prev + delta);
+                            data[n]     = (byte)(prev & 0xFF);
+                            data[n + 1] = (byte)((prev >> 8) & 0xFF);
+                        }
+                    } else {
+                        sbyte prev = 0;
+                        for(int n = 0; n < sampleBytes; n++) {
+                            prev = (sbyte)(prev + (sbyte)data[n]);
+                            data[n] = (byte)prev;
+                        }
+                    }
+
+                    mInstruments[i].Length = (uint)sampleCount;
+                    mInstruments[i].Sample = data;
+                    mInstruments[i].Is16Bit = is16;
+                    mInstruments[i].IsStereo = false;
+
+                    int vol = smpHdrs[s].vol;
+                    if(vol > 0x40) vol = 0x40;
+                    mInstruments[i].Volume = vol << 2;
+
+                    sbyte relnote = (sbyte)smpHdrs[s].relnote;
+                    sbyte finetune = (sbyte)smpHdrs[s].finetune;
+                    double c5speed = 8363.0 * Math.Pow(2.0, (relnote * 128.0 + finetune) / (12.0 * 128.0));
+                    int note = FrequencyToNote(c5speed);
+                    double f = Math.Pow(2.0, (note - 136) / 12.0) * 8169;
+                    mInstruments[i].FineTune = (uint)f;
+
+                    bool hasLoop = (smpHdrs[s].flags & ((byte)XMTools.XMSample.XMSampleFlags.sampleLoop
+                                                     | (byte)XMTools.XMSample.XMSampleFlags.sampleBidiLoop)) != 0;
+                    if(hasLoop && smpHdrs[s].loopLength > 0) {
+                        mInstruments[i].LoopStart = smpHdrs[s].loopStart / (uint)bytesPerSample;
+                        mInstruments[i].LoopEnd = (smpHdrs[s].loopStart + smpHdrs[s].loopLength) / (uint)bytesPerSample;
+                    }
+                }
+            }
+        }
+
+        private static void EncodeXMCell(byte[] buf, int idx, byte rawNote, byte rawInst, byte rawVol, byte rawCmd, byte rawParam) {
+            byte mode = 0;
+            byte note = 0;
+            byte inst = rawInst;
+            byte vol = 0;
+            byte cmd = 0;
+            byte param = rawParam;
+
+            if(rawNote >= 1 && rawNote <= 96) {
+                int n = rawNote - 1;
+                note = (byte)(((n / 12) << 4) | (n % 12));
+                mode |= 0x20;
+            } else if(rawNote == 97) {
+                note = 0xFF; // key off -> note cut in the engine
+                mode |= 0x20;
+            }
+
+            // Volume column: only the set-volume range (0x10..0x50) is supported in the basic implementation
+            if(rawVol >= 0x10 && rawVol <= 0x50) {
+                vol = (byte)(rawVol - 0x10);
+                mode |= 0x40;
+            }
+
+            if(rawCmd == 0x0C) {
+                // XM Cxx Set Volume -> route into the volume column
+                vol = rawParam > 0x40 ? (byte)0x40 : rawParam;
+                mode |= 0x40;
+            } else if(rawCmd < XMTools.XMEffectTable.Length) {
+                byte mapped = XMTools.XMEffectTable[rawCmd];
+                if(mapped != 0) {
+                    cmd = mapped;
+                    mode |= 0x80;
                 }
             }
 
-            mInstruments = new ModInstrument[ActiveSamples + 1]; // TODO: Probably wrong
-            for(i = 1; i <= xm.instruments; i++) {
-                UInt32 headerSize = mFile.ReadUInt32();
-                if(headerSize == 0) headerSize = (UInt32)Marshal.SizeOf(typeof(XMTools.XMInstrumentHeader));
-
-                mFile.Position -= 4;
-                XMTools.XMInstrumentHeader xIH = SoundFile.LoadStruct<XMTools.XMInstrumentHeader>(mFile);
-
-                mInstruments[i] = new ModInstrument();
-            }
+            buf[idx + 0] = mode;
+            buf[idx + 1] = note;
+            buf[idx + 2] = inst;
+            buf[idx + 3] = vol;
+            buf[idx + 4] = cmd;
+            buf[idx + 5] = param;
         }
 
         private void CloseFile(bool isValid) {

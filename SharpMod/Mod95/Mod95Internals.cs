@@ -34,6 +34,7 @@ namespace SharpMod {
                                 param = p[3];
                                 break;
                             case Types.S3M:
+                            case Types.XM:
                                 param = p[5];
                                 command = (uint)S3MTools.ConvertEffect((Effects)p[4], (int)param);
                                 break;
@@ -265,7 +266,7 @@ namespace SharpMod {
                     uint param;
                     int chnIdx;
 
-                    if(Type == Types.S3M) { // S3M
+                    if(Type != Types.MOD) { // S3M / XM
                         int mode = p[pIndex + 0];
                         if(mode == 0) continue;
 

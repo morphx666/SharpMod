@@ -6,6 +6,44 @@ using System.Text;
 
 namespace SharpMod {
     public class XMTools {
+        // XM effect number (0x00..0x1F) -> S3M effect letter index (1..26 = 'A'..'Z'), or 0 if unmapped.
+        // The engine runs the result through S3MTools.ConvertEffect to obtain the internal Effects enum.
+        // XM Cxx (Set Volume) is handled separately by routing the value into the volume column.
+        public static readonly byte[] XMEffectTable = {
+            'J' - 'A' + 1,  // 0x00 Arpeggio
+            'F' - 'A' + 1,  // 0x01 Porta Up
+            'E' - 'A' + 1,  // 0x02 Porta Down
+            'G' - 'A' + 1,  // 0x03 Tone Portamento
+            'H' - 'A' + 1,  // 0x04 Vibrato
+            'L' - 'A' + 1,  // 0x05 Tone Porta + Volume Slide
+            'K' - 'A' + 1,  // 0x06 Vibrato  + Volume Slide
+            'R' - 'A' + 1,  // 0x07 Tremolo
+            'X' - 'A' + 1,  // 0x08 Set Panning
+            'O' - 'A' + 1,  // 0x09 Sample Offset
+            'D' - 'A' + 1,  // 0x0A Volume Slide
+            'B' - 'A' + 1,  // 0x0B Position Jump
+            0,              // 0x0C Set Volume (mapped to the volume column at parse time)
+            'C' - 'A' + 1,  // 0x0D Pattern Break
+            'Q' - 'A' + 1,  // 0x0E Extended (routed to engine's MOD-style 0xE handler via CMD_RETRIG)
+            'A' - 'A' + 1,  // 0x0F Set Speed / Tempo
+            'V' - 'A' + 1,  // 0x10 G - Set Global Volume
+            'W' - 'A' + 1,  // 0x11 H - Global Volume Slide
+            0,              // 0x12 I unused
+            0,              // 0x13 J unused
+            0,              // 0x14 K - Key Off (not supported in basic implementation)
+            0,              // 0x15 L - Set Envelope Position (not supported)
+            0,              // 0x16 M unused
+            0,              // 0x17 N unused
+            0,              // 0x18 O unused
+            'P' - 'A' + 1,  // 0x19 P - Panning Slide
+            0,              // 0x1A Q unused
+            0,              // 0x1B R - Multi Retrigger (conflicts with extended handler, skipped)
+            0,              // 0x1C S unused
+            'I' - 'A' + 1,  // 0x1D T - Tremor
+            0,              // 0x1E U unused
+            0,              // 0x1F V unused
+        };
+
         public enum PatternFlags {
             IsPackByte = 0x80,
             AllFlags = 0xFF,
