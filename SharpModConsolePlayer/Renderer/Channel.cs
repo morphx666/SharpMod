@@ -16,6 +16,12 @@ namespace SharpModConsolePlayer.Renderer {
         private const float VuDecayPerFrame = 16f;
         private static readonly float[] vuLevels = new float[32];
 
+        // Upper half block: '\u2580'
+        // Lower half block: '\u2584'
+        // Full block: '\u2588'
+        // Left seven eighths block: '\u2589'
+        private const char vuChar = '\u2580';
+
         public static void Render(SoundFile sf, int channelIndex, uint patternIndex, int consoleCol, int maxWidth) {
             if(maxWidth <= 0) return;
             int height = Console.WindowHeight - 1; // reserve last row for the song progress bar
@@ -94,7 +100,7 @@ namespace SharpModConsolePlayer.Renderer {
             int trailSpace = Math.Min(1, remaining);
 
             Console.SetCursorPosition(col, VuMeterRow);
-            Console.WriteInterpolated($"{Default}{new WhiteSpace(leadSpace)}{Green}{new string('\u2588', gEmit)}{Yellow}{new string('\u2588', yEmit)}{Red}{new string('\u2588', rEmit)}{new WhiteSpace(eEmit + trailSpace)}{Default}");
+            Console.WriteInterpolated($"{Default}{new WhiteSpace(leadSpace)}{Green}{new string(vuChar, gEmit)}{Yellow}{new string(vuChar, yEmit)}{Red}{new string(vuChar, rEmit)}{new WhiteSpace(eEmit + trailSpace)}{Default}");
         }
 
         private static void ClearRow(int col, int row, int maxWidth) {

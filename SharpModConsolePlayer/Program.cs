@@ -43,34 +43,52 @@ namespace SharpModConsolePlayer {
             int fromSample = 0;
             uint lastRow = uint.MaxValue;
             uint lastCurrentPattern = uint.MaxValue;
+            int lastWidth = Console.WindowWidth;
+            int lastHeight = Console.WindowHeight;
             ViewMode mode = ViewMode.Patterns;
             bool forceRedraw = true;
 
             while(true) {
                 await Task.Delay(30);
 
+                int width = Console.WindowWidth;
+                int height = Console.WindowHeight;
+                if(width != lastWidth || height != lastHeight) {
+                    lastWidth = width;
+                    lastHeight = height;
+                    fromChannel = Math.Min(fromChannel, MaxFromChannel(sf));
+                    Console.Clear();
+                    forceRedraw = true;
+                }
+                if(width <= 0 || height <= 0) continue;
+
                 if(!HandleInput(sf, ref fromChannel, ref fromSample, ref mode, ref forceRedraw)) return;
 
-                if(mode == ViewMode.Samples) {
-                    Renderer.Info.Render(sf);
-                    if(forceRedraw || showSampleProgress) {
-                        Renderer.Samples.Render(sf, showSampleProgress, fromSample);
-                        forceRedraw = false;
-                    }
-                } else {
-                    RenderHeaderAndVuMeters(sf, fromChannel);
+                try {
+                    if(mode == ViewMode.Samples) {
+                        Renderer.Info.Render(sf);
+                        if(forceRedraw || showSampleProgress) {
+                            Renderer.Samples.Render(sf, showSampleProgress, fromSample);
+                            forceRedraw = false;
+                        }
+                    } else {
+                        RenderHeaderAndVuMeters(sf, fromChannel);
 
-                    uint currentRow = sf.Row;
-                    uint currentPattern = sf.CurrentPattern;
-                    if(forceRedraw || currentRow != lastRow || currentPattern != lastCurrentPattern) {
-                        lastRow = currentRow;
-                        lastCurrentPattern = currentPattern;
-                        forceRedraw = false;
-                        RenderPatterns(sf, fromChannel);
+                        uint currentRow = sf.Row;
+                        uint currentPattern = sf.CurrentPattern;
+                        if(forceRedraw || currentRow != lastRow || currentPattern != lastCurrentPattern) {
+                            lastRow = currentRow;
+                            lastCurrentPattern = currentPattern;
+                            forceRedraw = false;
+                            RenderPatterns(sf, fromChannel);
+                        }
                     }
+
+                    Renderer.SongProgress.Render(sf);
+                } catch(ArgumentOutOfRangeException) {
+                    // Window resized mid-frame; next iteration will detect the new size and redraw.
+                    forceRedraw = true;
                 }
-
-                Renderer.SongProgress.Render(sf);
             }
         }
 
