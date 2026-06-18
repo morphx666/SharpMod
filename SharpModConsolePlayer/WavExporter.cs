@@ -7,9 +7,8 @@ namespace SharpModConsolePlayer {
     internal static class WavExporter {
         private const int BufferLength = 6000;
 
-        internal static int Export(SoundFile sf, string outPath, int sampleRate, int bitDepth, int channels, double maxSeconds) {
+        internal static int Export(SoundFile sf, string outPath, int sampleRate, int bitDepth, int channels) {
             int blockAlign = channels * (bitDepth / 8);
-            long maxBytes = maxSeconds > 0 ? (long)(maxSeconds * sampleRate) * blockAlign : long.MaxValue;
             uint totalPositions = sf.PositionCount;
 
             Console.WriteLineInterpolated($"{Yellow}Exporting{Default} to {Cyan}{outPath}{Default}");
@@ -31,11 +30,8 @@ namespace SharpModConsolePlayer {
                     continue;
                 }
                 zeroReads = 0;
-                int toWrite = (int)Math.Min(read, maxBytes - bytesWritten);
-                if(toWrite <= 0) break;
-                bw.Write(buffer, 0, toWrite);
-                bytesWritten += toWrite;
-                if(bytesWritten >= maxBytes) break;
+                bw.Write(buffer, 0, (int)read);
+                bytesWritten += read;
                 if(sf.Position >= totalPositions) break;
             }
 

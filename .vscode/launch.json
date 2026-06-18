@@ -10,8 +10,8 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/SharpModConsolePlayer/bin/Debug/net10.0/SharpModConsolePlayer.dll",
-            "args": [],
+            "program": "${workspaceFolder}/Release/SharpModConsolePlayer.dll",
+            "args": ["/Users/xavier/Desktop/SharpMod/Release/mods/*.s3m"],
             "cwd": "${workspaceFolder}/SharpModConsolePlayer",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "internalConsole",
