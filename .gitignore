@@ -349,6 +349,7 @@ healthchecksdb
 **/Release/netstandard2.0/
 **/Release/netstandard2.1/
 **/Release/runtimes/
+**/Release/SharpModConsolePlayer
 
 **/openmpt-master
 **/scripts

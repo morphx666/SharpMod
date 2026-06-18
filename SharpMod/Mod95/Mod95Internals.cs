@@ -602,7 +602,10 @@ namespace SharpMod {
                         mChannels[nChn].VibratoPos = (mChannels[nChn].VibratoPos + (mChannels[nChn].VibratoSlide >> 4)) & 0x3F;
                     }
                     if(period < 1) period = 1;
-                    mChannels[nChn].Inc = (uint)((mChannels[nChn].FineTune * MOD_AMIGAC2) / (period * Rate));
+                    // 64-bit intermediate: FineTune is c5speed << MOD_PRECISION, so for c5speed > ~9824
+                    // (common in S3M/XM/STM samples) FineTune * MOD_AMIGAC2 overflows uint and Inc collapses
+                    // to a fraction of its true value, audibly dropping the affected voices by an octave or more.
+                    mChannels[nChn].Inc = (uint)(((long)mChannels[nChn].FineTune * MOD_AMIGAC2) / (period * Rate));
                 } else {
                     mChannels[nChn].Inc = 0;
                     mChannels[nChn].Pos = 0;
