@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -65,22 +63,22 @@ namespace SharpMod {
                             if(magic == "SCRM") {
                                 Type = Types.S3M;
                                 file.Seek(0, SeekOrigin.Begin);
-                                s3mFH = SoundFile.LoadStruct<S3MTools.S3MFileHeader>(file);
+                                s3mFH = LoadStruct<S3MTools.S3MFileHeader>(file);
                             } else if(xmTag == "Extended Module: ") {
                                 Type = Types.XM;
                                 file.Seek(0, SeekOrigin.Begin);
-                                xmFH = SoundFile.LoadStruct<XMTools.XMFileHeader>(file);
+                                xmFH = LoadStruct<XMTools.XMFileHeader>(file);
                             } else {
                                 // STM validation must run before the XXXX-as-S3M fallback because
                                 // ST2 stuffs the reserved field with 0x58 (= 'X'), which collides.
                                 file.Seek(0, SeekOrigin.Begin);
-                                stmFH = SoundFile.LoadStruct<STMTools.STMFileHeader>(file);
+                                stmFH = LoadStruct<STMTools.STMFileHeader>(file);
                                 if(STMTools.IsValidHeader(stmFH)) {
                                     Type = Types.STM;
                                 } else if(magic == "XXXX") {
                                     Type = Types.S3M;
                                     file.Seek(0, SeekOrigin.Begin);
-                                    s3mFH = SoundFile.LoadStruct<S3MTools.S3MFileHeader>(file);
+                                    s3mFH = LoadStruct<S3MTools.S3MFileHeader>(file);
                                 } else {
                                     ActiveSamples = 15;
                                 }
@@ -275,7 +273,7 @@ namespace SharpMod {
                 if(hdrPos == 0 || hdrPos + smpHdrSize > fileLen) continue;
 
                 file.Position = hdrPos;
-                smpH = SoundFile.LoadStruct<S3MTools.S3MSampleHeader>(file);
+                smpH = LoadStruct<S3MTools.S3MSampleHeader>(file);
 
                 Array.Copy(smpH.name, instruments[i].name, smpH.name.Length);
                 instruments[i].Length = smpH.length;
@@ -485,7 +483,7 @@ namespace SharpMod {
                 if(numSamples <= 0) continue;
 
                 XMTools.XMSample[] smpHdrs = new XMTools.XMSample[numSamples];
-                for(int s = 0; s < numSamples; s++) smpHdrs[s] = SoundFile.LoadStruct<XMTools.XMSample>(file);
+                for(int s = 0; s < numSamples; s++) smpHdrs[s] = LoadStruct<XMTools.XMSample>(file);
 
                 for(int s = 0; s < numSamples; s++) {
                     int sampleBytes = (int)smpHdrs[s].length;
@@ -565,7 +563,7 @@ namespace SharpMod {
             file.Seek(48, SeekOrigin.Begin);
             ushort[] sampleOffsets = new ushort[31];
             for(int idx = 1; idx <= 31; idx++) {
-                STMTools.STMSampleHeader sh = SoundFile.LoadStruct<STMTools.STMSampleHeader>(file);
+                STMTools.STMSampleHeader sh = LoadStruct<STMTools.STMSampleHeader>(file);
 
                 Array.Copy(sh.filename, instruments[idx].name, Math.Min(sh.filename.Length, instruments[idx].name.Length));
 

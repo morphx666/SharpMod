@@ -1,4 +1,5 @@
 using SharpMod;
+using static PrettyConsole.Color;
 
 namespace SharpModConsolePlayer.Renderer {
     internal static class ConsoleRenderer {
@@ -39,7 +40,7 @@ namespace SharpModConsolePlayer.Renderer {
                     fromSample = 0;
                     lastRow = uint.MaxValue;
                     lastCurrentPattern = uint.MaxValue;
-                    Renderer.Channel.ResetVuMeters();
+                    Channel.ResetVuMeters();
                     Console.Clear();
                     forceRedraw = true;
                 }
@@ -82,12 +83,14 @@ namespace SharpModConsolePlayer.Renderer {
                     // Window resized mid-frame; next iteration will detect the new size and redraw.
                     forceRedraw = true;
                 }
+
+                if(Dialog.IsOpen) Dialog.ShowMessage();
             }
         }
 
         private static int MaxFromChannel(SoundFile sf) {
             int width = Console.WindowWidth;
-            int fitFromRight = Math.Max(0, (width - Renderer.Channel.VisibleWidth) / ChannelWidth);
+            int fitFromRight = Math.Max(0, (width - Channel.VisibleWidth) / ChannelWidth);
             return Math.Max(0, (int)sf.ActiveChannels - 1 - fitFromRight);
         }
 
@@ -97,11 +100,11 @@ namespace SharpModConsolePlayer.Renderer {
                 ConsoleKey key = info.Key;
                 int previousFromChannel = fromChannel;
 
-                if(key >= ConsoleKey.F1 && key <= ConsoleKey.F12) {
+                if(key >= ConsoleKey.D1 && key <= ConsoleKey.D9) {
                     int bank = (info.Modifiers & ConsoleModifiers.Control) != 0 ? 2
                              : (info.Modifiers & ConsoleModifiers.Shift) != 0 ? 1
                              : 0;
-                    uint channel = (uint)(bank * 12 + (key - ConsoleKey.F1));
+                    uint channel = (uint)(bank * 12 + (key - ConsoleKey.D1));
                     sf.ToggleMute(channel);
                     forceRedraw = true;
                     continue;
@@ -127,16 +130,16 @@ namespace SharpModConsolePlayer.Renderer {
                     case ConsoleKey.DownArrow:
                         if(mode == ViewMode.Samples) {
                             fromSample = Math.Min(sf.Instruments.Length - 1, fromSample + 1);
-                            if(fromSample + Console.WindowHeight - Renderer.Samples.FirstSampleRow >= sf.Instruments.Length - 1) {
-                                fromSample = Math.Max(0, sf.Instruments.Length - Console.WindowHeight + Renderer.Samples.FirstSampleRow);
+                            if(fromSample + Console.WindowHeight - Samples.FirstSampleRow >= sf.Instruments.Length - 1) {
+                                fromSample = Math.Max(0, sf.Instruments.Length - Console.WindowHeight + Samples.FirstSampleRow);
                             }
                         }
                         break;
                     case ConsoleKey.PageUp:
-                        sf.Position =  Math.Max(sf.Position - 10, 0);
+                        sf.Position = Math.Max(sf.Position - 10, 0);
                         break;
                     case ConsoleKey.PageDown:
-                        sf.Position =  Math.Min(sf.Position + 10, sf.PositionCount - 1);
+                        sf.Position = Math.Min(sf.Position + 10, sf.PositionCount - 1);
                         break;
                     case ConsoleKey.Home:
                         if(OpenAlStreamPlayer.playlistIndex > 0) {
@@ -150,30 +153,50 @@ namespace SharpModConsolePlayer.Renderer {
                             OpenAlStreamPlayer.isPlaying = false;
                         }
                         break;
-                    case ConsoleKey.Q:
                     case ConsoleKey.Escape:
+                        if(Dialog.IsOpen) {
+                            Dialog.Close();
+                            Console.Clear();
+                            forceRedraw = true;
+                            break;
+                        } else {
+                            OpenAlStreamPlayer.request = PlaybackRequest.Quit;
+                            OpenAlStreamPlayer.isPlaying = false;
+                            return false;
+                        }
+                    case ConsoleKey.Q:
                         OpenAlStreamPlayer.request = PlaybackRequest.Quit;
                         OpenAlStreamPlayer.isPlaying = false;
                         return false;
-                }
-
-                if(fromChannel != previousFromChannel) {
-                    Console.Clear();
-                    forceRedraw = true;
+                    case ConsoleKey.F1:
+                        Dialog.SetMessage([
+                            $"{Green}F1{Default}                       Show this help",
+                            $"{Green}Tab{Default}                      Toggle between patterns and samples view",
+                            $"{Green}Left{Default} / {Green}Right{Default}           Scroll channels horizontally",
+                            $"{Green}Up{Default} / {Green}Down{Default}              Scroll samples vertically",
+                            $"{Green}PageUp{Default} / {Green}PageDown{Default}      Seek track backward/forward",
+                            $"{Green}Home{Default} / {Green}End{Default}             Jump to previous/next file in the playlist",
+                            $"{Green}1{Default} - {Green}9{Default}                  Toggle mute on channels 1-9",
+                            $"{Green}Shift{Default} + {Green}1{Default} - {Green}9{Default}        Toggle mute on channels 10-18",
+                            $"{Green}Ctrl{Default} + {Green}1{Default} - {Green}9{Default}         Toggle mute on channels 19-27",
+                            $"{Green}Esc {Default}| {Green}Q{Default}                Stop playback and exit"
+                        ]);
+                        Dialog.ShowMessage();
+                        break;
                 }
             }
             return true;
         }
 
         private static void RenderHeaderAndVuMeters(SoundFile sf, int fromChannel) {
-            Renderer.Info.Render(sf);
+            Info.Render(sf);
 
             int width = Console.WindowWidth;
             for(int i = 0; fromChannel + i < sf.ActiveChannels; i++) {
                 int x = i * ChannelWidth;
                 if(x >= width) break;
-                int cellWidth = Math.Min(Renderer.Channel.VisibleWidth, width - x);
-                Renderer.Channel.RenderVuMeter(sf, fromChannel + i, x, cellWidth);
+                int cellWidth = Math.Min(Channel.VisibleWidth, width - x);
+                Channel.RenderVuMeter(sf, fromChannel + i, x, cellWidth);
             }
         }
 
@@ -186,8 +209,8 @@ namespace SharpModConsolePlayer.Renderer {
             for(int i = 0; fromChannel + i < sf.ActiveChannels; i++) {
                 int x = i * ChannelWidth;
                 if(x >= width) break;
-                int cellWidth = Math.Min(Renderer.Channel.VisibleWidth, width - x);
-                Renderer.Channel.Render(sf, fromChannel + i, patternIndex, x, cellWidth);
+                int cellWidth = Math.Min(Channel.VisibleWidth, width - x);
+                Channel.Render(sf, fromChannel + i, patternIndex, x, cellWidth);
             }
         }
     }

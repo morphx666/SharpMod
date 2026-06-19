@@ -57,7 +57,7 @@ namespace SharpModPlayer {
         public FormMain() {
             InitializeComponent();
 
-            base.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
             monoFontSize = new Size((int)(monoFont.Size - 4), monoFont.Height);
             maxChannels = 4;
             channelWidth = monoFontSize.Width * 13 + 8;

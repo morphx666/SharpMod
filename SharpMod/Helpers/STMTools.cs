@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Text;
 using SharpMod.Helpers;
 
 // https://moddingwiki.shikadi.net/wiki/STM_Format

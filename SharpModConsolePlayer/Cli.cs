@@ -138,14 +138,15 @@ namespace SharpModConsolePlayer {
             Console.NewLine();
 
             Console.WriteLineInterpolated($"{Yellow}KEYS{Default}");
+            Console.WriteLineInterpolated($"  {Green}F1{Default}                       Show this help");
             Console.WriteLineInterpolated($"  {Green}Tab{Default}                      Toggle between patterns and samples view");
             Console.WriteLineInterpolated($"  {Green}Left{Default} / {Green}Right{Default}             Scroll channels horizontally");
             Console.WriteLineInterpolated($"  {Green}Up{Default} / {Green}Down{Default}                Scroll samples vertically");
             Console.WriteLineInterpolated($"  {Green}PageUp{Default} / {Green}PageDown{Default}        Seek track backward/forward");
             Console.WriteLineInterpolated($"  {Green}Home{Default} / {Green}End{Default}               Jump to previous/next file in the playlist");
-            Console.WriteLineInterpolated($"  {Green}F1{Default} - {Green}F12{Default}                 Toggle mute on channels 1-12");
-            Console.WriteLineInterpolated($"  {Green}Shift{Default} + {Green}F1{Default} - {Green}F12{Default}         Toggle mute on channels 13-24");
-            Console.WriteLineInterpolated($"  {Green}Ctrl{Default} + {Green}F1{Default} - {Green}F12{Default}          Toggle mute on channels 25-36");
+            Console.WriteLineInterpolated($"  {Green}1{Default} - {Green}9{Default}                    Toggle mute on channels 1-9");
+            Console.WriteLineInterpolated($"  {Green}Shift{Default} + {Green}1{Default} - {Green}9{Default}            Toggle mute on channels 10-18");
+            Console.WriteLineInterpolated($"  {Green}Ctrl{Default} + {Green}1{Default} - {Green}9{Default}             Toggle mute on channels 19-27");
             Console.WriteLineInterpolated($"  {Green}Esc {Default}| {Green}Q{Default}                  Stop playback and exit");
         }
     }

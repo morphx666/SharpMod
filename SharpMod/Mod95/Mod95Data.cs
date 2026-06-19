@@ -1,5 +1,4 @@
 ﻿using System.IO;
-using System.Text;
 
 namespace SharpMod {
     public partial class SoundFile {

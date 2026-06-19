@@ -2,8 +2,8 @@
 
 	<PropertyGroup>
 		<TargetFramework>netstandard2.0</TargetFramework>
-		<AssemblyVersion>2026.6.18.2010</AssemblyVersion>
-		<FileVersion>2026.6.18.2010</FileVersion>
+		<AssemblyVersion>2026.6.19.2012</AssemblyVersion>
+		<FileVersion>2026.6.19.2012</FileVersion>
 		<Authors>Xavier Flix</Authors>
 		<Company>xFX JumpStart</Company>
 		<Description>
