@@ -1,4 +1,5 @@
 {
+    "dotnet.defaultSolution": "SharpModPlayer.sln",
     "dotnet.preferCSharpExtension": true,
     "cSpell.words": [
         "Ansi",
