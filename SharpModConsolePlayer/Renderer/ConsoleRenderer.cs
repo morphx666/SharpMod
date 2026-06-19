@@ -154,23 +154,19 @@ namespace SharpModConsolePlayer.Renderer {
                         }
                         break;
                     case ConsoleKey.Escape:
-                        if(Dialog.IsOpen) {
-                            Dialog.Close();
-                            Console.Clear();
-                            forceRedraw = true;
-                            break;
-                        } else {
-                            OpenAlStreamPlayer.request = PlaybackRequest.Quit;
-                            OpenAlStreamPlayer.isPlaying = false;
-                            return false;
-                        }
                     case ConsoleKey.Q:
                         OpenAlStreamPlayer.request = PlaybackRequest.Quit;
                         OpenAlStreamPlayer.isPlaying = false;
                         return false;
                     case ConsoleKey.F1:
+                        if(Dialog.IsOpen) {
+                            Dialog.Close();
+                            Console.Clear();
+                            forceRedraw = true;
+                            break;
+                        }
                         Dialog.SetMessage([
-                            $"{Green}F1{Default}                       Show this help",
+                            $"{Green}F1{Default}                       Toggle this help",
                             $"{Green}Tab{Default}                      Toggle between patterns and samples view",
                             $"{Green}Left{Default} / {Green}Right{Default}           Scroll channels horizontally",
                             $"{Green}Up{Default} / {Green}Down{Default}              Scroll samples vertically",
