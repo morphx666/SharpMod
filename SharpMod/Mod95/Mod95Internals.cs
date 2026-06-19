@@ -99,11 +99,14 @@ namespace SharpMod {
         public uint Read(byte[] lpBuffer, uint cbBuffer) {
             byte[] p = lpBuffer;
             uint lRead, lMax, lSampleSize;
-            // Original Mod95 was MOD-only: 4-channel dense mixes, so /(channels*8) prevented clipping.
-            // For S3M/XM/STM the declared channel count (often 16-32) wildly overestimates actual
-            // concurrent voicing, so the same divider produces a permanent ~3-8x gain shortfall vs
-            // OpenMPT. Clamp non-MOD formats to 4-channel-equivalent dilution.
-            short adjustVol = (short)(Type == Types.MOD ? (int)ActiveChannels : Math.Min((int)ActiveChannels, 4));
+            // Per-mix attenuation follows OpenMPT's PreAmpTable curve (Sndmix.cpp) rather
+            // than a linear /(channels*8): the linear form over-attenuates dense voicings
+            // in many-channel formats, while clamping at 4 (the previous workaround) leaves
+            // no headroom and lets sums wrap through the byte cast as harsh crackling.
+            // Calibrated so chCount=4 yields the original divisor of 32 (0x60/3).
+            int chCount = (int)ActiveChannels;
+            if(chCount < 1) chCount = 1; else if(chCount > 31) chCount = 31;
+            int attenuation = PreAmpTable[chCount >> 1];
             short[] CurrentVol = new short[32];
             short[] CurrentPan = new short[32];
             byte[][] pSample = new byte[32][];
@@ -218,12 +221,16 @@ namespace SharpMod {
                     }
                 }
 
-                // Sample ready
+                // Sample ready. Saturate the post-mix value to int16 range so any residual
+                // peak hard-clips at the rails instead of wrapping through the byte cast
+                // below (which would otherwise turn small overflows into harsh crackling).
                 if(IsStereo) {
                     // Stereo - Surround
                     int vol = vRight;
-                    vRight = (vRight * 13 + vLeft * 3) / (adjustVol * 8);
-                    vLeft = (vLeft * 13 + vol * 3) / (adjustVol * 8);
+                    vRight = (vRight * 13 + vLeft * 3) * 3 / attenuation;
+                    vLeft = (vLeft * 13 + vol * 3) * 3 / attenuation;
+                    if(vLeft > 32767) vLeft = 32767; else if(vLeft < -32768) vLeft = -32768;
+                    if(vRight > 32767) vRight = 32767; else if(vRight < -32768) vRight = -32768;
                     if(Is16Bit) {
                         // 16-Bit: interleaved L, R (matches ALFormat.Stereo16 / WAV)
                         p[pIndex + 0] = (byte)(((uint)vLeft) & 0xFF);
@@ -237,7 +244,8 @@ namespace SharpMod {
                     }
                 } else {
                     // Mono
-                    int vol = (vRight + vLeft) / adjustVol;
+                    int vol = (vRight + vLeft) * 24 / attenuation;
+                    if(vol > 32767) vol = 32767; else if(vol < -32768) vol = -32768;
                     if(Is16Bit) {
                         // 16-Bit
                         p[pIndex + 0] = (byte)(((uint)vol) & 0xFF);

@@ -52,6 +52,17 @@ namespace SharpMod {
             42, -34, 89, -4, -51, -72, 21, -29, 112, 123, 84, -101, -92, 98, -54, -95
         };
 
+        // OpenMPT pre-amp attenuation curve (Sndmix.cpp PreAmpTable). Indexed by
+        // min(declared channels, 31) / 2. Grows sub-linearly so multi-channel
+        // formats get headroom without the 5-8x gain shortfall a linear divider
+        // produces; calibrated so chCount=4 maps to the original Mod95 divisor.
+        private static readonly byte[] PreAmpTable = {
+            0x60, 0x60, 0x60, 0x70,
+            0x80, 0x88, 0x90, 0x98,
+            0xA0, 0xA4, 0xA8, 0xAC,
+            0xB0, 0xB4, 0xB8, 0xBC,
+        };
+
         public enum Effects {
             CMD_NONE = 0,
             CMD_ARPEGGIO = 1,
