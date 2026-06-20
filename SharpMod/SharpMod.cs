@@ -13,6 +13,14 @@ using SharpMod.Helpers;
     S3M (partial) support added by Xavier Flix on 2019/ 4/29
     XM  (partial) support added by Xavier Flix on 2019/ 5/ 4
     STM (basic)   support added by Xavier Flix on 2026/ 6/18
+
+    2026/ 06/20
+    Most formats are now fully supported, but some features remain unimplemented (see TODOs in the code).
+    The code is still a direct port of the original C++ and retains some of its quirks, such as
+    the "no sample" slot at index 0 of the instrument array and the redundant storage of both fine-tune
+    and C5 speed values for each sample.
+
+    Most of these enhancements were made using Augment + Opus 4.7
 */
 
 namespace SharpMod {

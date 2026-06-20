@@ -25,7 +25,7 @@ namespace SharpModConsolePlayer {
                     string[] files = [.. Directory.GetFiles(directory, pattern, SearchOption.AllDirectories).Where(f => supportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))];
                     if(cli.Randomize) {
                         Random rng = new();
-                        files = files.OrderBy(_ => rng.Next()).ToArray();
+                        files = [.. files.OrderBy(_ => rng.Next())];
                     }
                     if(files.Length == 0) {
                         Console.WriteLine($"No files found matching pattern '{pattern}' in directory: {directory}");
@@ -37,7 +37,7 @@ namespace SharpModConsolePlayer {
                     string[] files = [..Directory.GetFiles(input, "*.*", SearchOption.AllDirectories).Where(f => supportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))];
                     if(cli.Randomize) {
                         Random rng = new();
-                        files = files.OrderBy(_ => rng.Next()).ToArray();
+                        files = [.. files.OrderBy(_ => rng.Next())];
                     }
                     if(files.Length == 0) {
                         Console.WriteLine($"No files found in directory: {input}");

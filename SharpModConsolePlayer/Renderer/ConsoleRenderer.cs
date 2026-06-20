@@ -4,6 +4,7 @@ using static PrettyConsole.Color;
 namespace SharpModConsolePlayer.Renderer {
     internal static class ConsoleRenderer {
         private const int ChannelWidth = 20;
+        private const uint PreviousPatternRowThreshold = 1;
         private enum ViewMode { Patterns, Samples }
 
         internal static void InitializeConsole() {
@@ -151,12 +152,24 @@ namespace SharpModConsolePlayer.Renderer {
                             }
                         }
                         break;
-                    case ConsoleKey.PageUp:
-                        sf.Position = Math.Max(sf.Position - 10, 0);
+                    case ConsoleKey.PageUp: {
+                        // If we are well into the current pattern (row >= threshold), snap to its row 0.
+                        // Otherwise step back one order entry. The threshold is comfortably above the
+                        // number of rows the engine can advance between two keypresses, so a second
+                        // PageUp after the first reliably falls into the "step back" branch.
+                        uint orderIndex = sf.Position / 64;
+                        uint row = sf.Position % 64;
+                        if(row < PreviousPatternRowThreshold) sf.Position = (orderIndex - 1) * 64;
+                        else sf.Position = orderIndex * 64;
                         break;
-                    case ConsoleKey.PageDown:
-                        sf.Position = Math.Min(sf.Position + 10, sf.PositionCount - 1);
+                    }
+                    case ConsoleKey.PageDown: {
+                        // OpenMPT "Next Pattern": step forward one order entry to row 0.
+                        uint orderIndex = sf.Position / 64;
+                        uint maxOrder = sf.PositionCount / 64;
+                        if(maxOrder > 0 && orderIndex + 1 < maxOrder) sf.Position = (orderIndex + 1) * 64;
                         break;
+                    }
                     case ConsoleKey.Home:
                         NextTrack();
                         break;
@@ -192,7 +205,7 @@ namespace SharpModConsolePlayer.Renderer {
                             $"{Green}Space{Default}                    Toggle pause",
                             $"{Green}Left{Default} / {Green}Right{Default}           Scroll channels horizontally",
                             $"{Green}Up{Default} / {Green}Down{Default}              Scroll samples vertically",
-                            $"{Green}PageUp{Default} / {Green}PageDown{Default}      Seek track backward/forward",
+                            $"{Green}PageUp{Default} / {Green}PageDown{Default}      Jump to previous/next pattern in the order",
                             $"{Green}Home{Default} / {Green}End{Default}             Jump to previous/next file in the playlist",
                             $"{Green}1{Default} - {Green}9{Default}                  Toggle mute on channels 1-9",
                             $"{Green}Shift{Default} + {Green}1{Default} - {Green}9{Default}        Toggle mute on channels 10-18",
