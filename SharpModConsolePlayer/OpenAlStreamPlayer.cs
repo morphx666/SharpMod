@@ -5,6 +5,12 @@ using SharpMod;
 namespace SharpModConsolePlayer {
     internal enum PlaybackRequest { None, Previous, Next, Quit }
 
+    // macOS note: OpenTK.dll.config maps openal32.dll to /System/Library/Frameworks/OpenAL.framework,
+    // which is deprecated since macOS 10.15 and crashes (SIGSEGV inside alGetSourcei) under the rapid
+    // SourceQueueBuffer/SourceUnqueueBuffer/SourceStop churn produced by spamming track switches with
+    // Home/End. The issue is inside Apple's framework, not in this code; OpenAL Soft (used on Windows
+    // and Linux) does not have the bug. Fix on macOS is `brew install openal-soft` and repointing the
+    // osx openal32.dll dllmap in OpenTK.dll.config at the resulting libopenal.dylib.
     internal static class OpenAlStreamPlayer {
         internal static bool IsPlaying = false;
         internal static bool IsPaused = false;
