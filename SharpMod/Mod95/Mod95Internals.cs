@@ -276,8 +276,13 @@ namespace SharpMod {
                         BufferCount = (Rate * 5) / (MusicTempo * 2);
                         return false;
                     }
-                    CurrentPattern = 0;
-                    NextPattern = 1;
+                    // FT2/OpenMPT semantics: when looping, jump back to the song-defined restart
+                    // position (XMFileHeader.restartPos) instead of pattern 0. Falls back to 0
+                    // for formats that don't supply one or if the restart slot itself is invalid.
+                    uint restart = RestartPos;
+                    if(restart >= order.Length || order[restart] >= patterns.Length) restart = 0;
+                    CurrentPattern = restart;
+                    NextPattern = restart + 1;
                     Pattern = order[CurrentPattern];
                 }
 
@@ -327,9 +332,15 @@ namespace SharpMod {
                         //if((mode & 0x40) != 0) mChannels[chnIdx].Volume = p[pIndex + 3] << 2;
 
                         if((mode & 0x40) != 0) {
+                            // Volume column always wins when present.
                             channels[chnIdx].Volume = p[pIndex + 3] << 2;
-                        } else {
-                            if(instIdx < instruments.Length) channels[chnIdx].Volume = instruments[instIdx].Volume;
+                        } else if((mode & 0x20) != 0 && instIdx != 0 && instIdx < instruments.Length) {
+                            // Note + explicit instrument: reset to the sample default. The
+                            // other paths leave the channel's running volume intact:
+                            //   - "note without instrument" retriggers at current volume (FT2/OpenMPT semantics).
+                            //   - effect-only cells (mode == 0x80) must not zero the volume via instruments[0].
+                            //   - note-cut/off (note byte 0xFE/0xFF) is handled by the noteCut path below.
+                            channels[chnIdx].Volume = instruments[instIdx].Volume;
                         }
 
                         if((mode & 0x80) != 0) {
@@ -385,6 +396,10 @@ namespace SharpMod {
                             channels[chnIdx].Is16Bit = instruments[instIdx].Is16Bit;
                             channels[chnIdx].IsStereo = instruments[instIdx].IsStereo;
                             channels[chnIdx].NextInstrumentIndex = 0;
+                            // Apply per-sample default panning (set by the XM loader from XMSample.pan).
+                            // Honored only when the loader explicitly opted in so MOD/S3M/STM channels
+                            // keep the pan their loader assigned to them.
+                            if(instruments[instIdx].HasDefaultPan) channels[chnIdx].Pan = instruments[instIdx].DefaultPan;
                         }
                         if(((Effects)command != Effects.CMD_TONEPORTAMENTO) || (channels[chnIdx].Period == 0)) {
                             channels[chnIdx].Period = (int)period;
@@ -453,7 +468,13 @@ namespace SharpMod {
                             channels[chnIdx].Tremolo = true;
                             break;
                         case Effects.CMD_PANNING8:
-                            // Not Implemented
+                            // S3M Xxx / XM 8xx: set absolute pan (0..255). Mapped to the engine's
+                            // 0..256 range with full-right clamped at 256.
+                            {
+                                int pan = (int)param;
+                                if(pan >= 0xFF) pan = 256;
+                                channels[chnIdx].Pan = (short)pan;
+                            }
                             break;
                         case Effects.CMD_OFFSET:
                             if(param > 0) {

@@ -4,5 +4,6 @@
         "Ansi",
         "Sourcei",
         "Unqueue"
-    ]
+    ],
+    "dotnet.defaultSolution": "SharpModPlayer.sln"
 }

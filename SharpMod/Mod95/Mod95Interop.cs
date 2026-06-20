@@ -1,6 +1,8 @@
 ﻿namespace SharpMod {
     public partial class SoundFile {
         public string Title { get => title; }
+        public string TrackerName { get => trackerName; }
+        public uint RestartPos { get; private set; }
         public Types Type { get; private set; }
         public uint Rate { get; }
         public uint ActiveChannels { get; private set; }
