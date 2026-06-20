@@ -454,7 +454,7 @@ namespace SharpMod {
                             if(hasParam) rawParam = (byte)file.ReadByte();
 
                             if(row < storedRows) {
-                                EncodeXMCell(patBuf, row * rowSize + ch * 6, rawNote, rawInst, rawVol, rawCmd, rawParam);
+                                EncodeXMCell(patBuf, row * rowSize + ch * 6, (byte)ch, rawNote, rawInst, rawVol, rawCmd, rawParam);
                             }
                         }
                     }
@@ -754,7 +754,7 @@ namespace SharpMod {
             buf[idx + 5] = param;
         }
 
-        private static void EncodeXMCell(byte[] buf, int idx, byte rawNote, byte rawInst, byte rawVol, byte rawCmd, byte rawParam) {
+        private static void EncodeXMCell(byte[] buf, int idx, byte chn, byte rawNote, byte rawInst, byte rawVol, byte rawCmd, byte rawParam) {
             byte mode = 0;
             byte note = 0;
             byte inst = rawInst;
@@ -870,6 +870,13 @@ namespace SharpMod {
                 }
             }
 
+            // The engine extracts the destination channel from `mode & 0x1F` when reading
+            // S3M/XM cells. Omitting it routes every cell to channel 0, collapsing all
+            // channels onto one and silencing whichever cell isn't the last in the row.
+            // Empty cells (no flag bits set) are left zeroed so the engine's `mode == 0`
+            // skip still applies and per-channel effect memory survives empty rows.
+            if(mode == 0) return;
+            mode |= (byte)(chn & 0x1F);
             buf[idx + 0] = mode;
             buf[idx + 1] = note;
             buf[idx + 2] = inst;

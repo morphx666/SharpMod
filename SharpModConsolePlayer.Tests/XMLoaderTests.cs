@@ -130,6 +130,36 @@ public class XMLoaderTests : IDisposable {
         Assert.Equal(0x40, c[3]);
     }
 
+    // Regression: EncodeXMCell used to omit the channel index from the mode byte, so the
+    // engine's `chnIdx = mode & 0x1F` always read 0 and every cell on every channel was
+    // routed to channel 0 -- collapsing multi-channel rows into one and only lighting up
+    // the first channel's VU meter.
+    [Fact]
+    public void Cell_ChannelIndex_IsEncodedIntoModeByte() {
+        byte[] payload = BuildPackedPattern(
+            (0, 0, (byte)49, (byte)1, 0, 0, 0),
+            (0, 1, (byte)49, (byte)1, 0, 0, 0),
+            (0, 2, (byte)49, (byte)1, 0, 0, 0),
+            (0, 3, (byte)49, (byte)1, 0, 0, 0));
+        var sf = LoadXm(BuildXmFull(patternPayloads: new[] { payload }));
+        for(int ch = 0; ch < 4; ch++) {
+            var c = ReadCell(sf, row: 0, ch: ch);
+            Assert.Equal(ch, c[0] & 0x1F);                  // channel slot encoded in mode
+            Assert.Equal(0x20, c[0] & 0xE0);                // note-present flag
+        }
+    }
+
+    // Empty cells must stay fully zeroed so the engine's `mode == 0` early-skip preserves
+    // per-channel effect memory across rows that have no data on that channel.
+    [Fact]
+    public void Cell_EmptyOnNonZeroChannel_StaysZeroed() {
+        var sf = LoadXm(BuildXmFull(patternPayloads: new[] { EmptyPatternPayload() }));
+        for(int ch = 0; ch < 4; ch++) {
+            var c = ReadCell(sf, row: 0, ch: ch);
+            for(int b = 0; b < 6; b++) Assert.Equal(0, c[b]);
+        }
+    }
+
     // When the effect column already carries a real command, the volume column's extended effects
     // must yield (the engine only has a single effect slot per cell).
     [Fact]
@@ -140,11 +170,145 @@ public class XMLoaderTests : IDisposable {
         Assert.Equal(0x10, c[5]);
     }
 
+    // ----- sample-level tests -----
+
+    // XMSample.pan goes straight to ModInstrument.DefaultPan when the loader opts in.
+    [Fact]
+    public void DefaultPan_FromSampleHeader_IsApplied() {
+        var s = new SampleSpec(1, 0, 0, vol: 64, finetune: 0, flags: 0, pan: 64, relnote: 0, reserved: 0, new byte[] { 0 });
+        var sf = LoadXm(BuildXmFull(instruments: new[] { new[] { s } }));
+        Assert.True(sf.Instruments[1].HasDefaultPan);
+        Assert.Equal(64, sf.Instruments[1].DefaultPan);
+    }
+
+    // 0xFF is the right rail in XM; the engine's 0..256 range needs a special case to avoid an off-by-one.
+    [Fact]
+    public void DefaultPan_0xFF_MapsToFullRight() {
+        var s = new SampleSpec(1, 0, 0, 64, 0, 0, 0xFF, 0, 0, new byte[] { 0 });
+        var sf = LoadXm(BuildXmFull(instruments: new[] { new[] { s } }));
+        Assert.Equal(256, sf.Instruments[1].DefaultPan);
+    }
+
+    // Stereo XM samples store the left block followed by the right block, each independently delta-encoded.
+    // L deltas +1,+2 -> 1, 3. R deltas +10,-5 -> 10, 5.
+    [Fact]
+    public void StereoSample_DeltaDecodes_LeftThenRight() {
+        byte[] delta = {
+            0x01, 0x00, 0x02, 0x00,                         // L: +1, +2
+            0x0A, 0x00, 0xFB, 0xFF,                         // R: +10, -5
+        };
+        const byte F16 = (byte)XMTools.XMSample.XMSampleFlags.sample16Bit;
+        const byte FStereo = (byte)XMTools.XMSample.XMSampleFlags.sampleStereo;
+        var s = new SampleSpec(8, 0, 0, 64, 0, (byte)(F16 | FStereo), 128, 0, 0, delta);
+        var sf = LoadXm(BuildXmFull(instruments: new[] { new[] { s } }));
+        byte[] sample = sf.Instruments[1].Sample;
+
+        Assert.True(sf.Instruments[1].Is16Bit);
+        Assert.True(sf.Instruments[1].IsStereo);
+        Assert.Equal(2u, sf.Instruments[1].Length);
+        // L block: 1, 3
+        Assert.Equal(0x01, sample[0]); Assert.Equal(0x00, sample[1]);
+        Assert.Equal(0x03, sample[2]); Assert.Equal(0x00, sample[3]);
+        // R block: 10, 5
+        Assert.Equal(0x0A, sample[4]); Assert.Equal(0x00, sample[5]);
+        Assert.Equal(0x05, sample[6]); Assert.Equal(0x00, sample[7]);
+    }
+
+    // ModPlugin's ADPCM (reserved == 0xAD) isn't decoded; the loader must consume the right number
+    // of disk bytes (16-byte step table + (N+1)/2 nibble bytes) so subsequent reads stay aligned.
+    [Fact]
+    public void AdpcmSample_IsSkipped_NextInstrumentStillAligned() {
+        const byte ADPCM = (byte)XMTools.XMSample.XMSampleFlags.sampleADPCM;
+        var adpcm = new SampleSpec(10, 0, 0, 64, 0, 0, 128, 0, ADPCM, new byte[16 + 5]);
+        // 8-bit mono with delta +5 four times -> decoded 5,10,15,20.
+        var regular = new SampleSpec(4, 0, 0, 64, 0, 0, 128, 0, 0, new byte[] { 5, 5, 5, 5 });
+        var sf = LoadXm(BuildXmFull(instruments: new[] { new[] { adpcm }, new[] { regular } }));
+
+        Assert.Null(sf.Instruments[1].Sample);              // ADPCM block consumed but not decoded
+        Assert.Equal(4u, sf.Instruments[2].Length);         // alignment preserved -> 2nd instrument's header parsed correctly
+        byte[] data = sf.Instruments[2].Sample;
+        Assert.Equal(5,  (sbyte)data[0]);
+        Assert.Equal(10, (sbyte)data[1]);
+        Assert.Equal(15, (sbyte)data[2]);
+        Assert.Equal(20, (sbyte)data[3]);
+    }
+
+    // Regression: effect-only cells (mode == 0x80 only) used to reset the channel volume to
+    // instruments[0].Volume (= 0) because instIdx defaulted to 0. The fix gates the reset on a
+    // real note trigger with an instrument byte.
+    [Fact]
+    public void EffectOnlyCell_DoesNotResetChannelVolume() {
+        var s = new SampleSpec(4, 0, 0, vol: 32, 0, 0, 128, 0, 0, new byte[4]);
+        byte[] payload = BuildPackedPattern(
+            (row: 0, ch: 0, rawNote: (byte)49, rawInst: (byte)1, rawVol: (byte)0, rawCmd: (byte)0,    rawParam: (byte)0),
+            (row: 1, ch: 0, rawNote: (byte)0,  rawInst: (byte)0, rawVol: (byte)0, rawCmd: (byte)0x04, rawParam: (byte)0x07));
+        var sf = LoadXm(BuildXmFull(patternPayloads: new[] { payload }, instruments: new[] { new[] { s } }));
+
+        StepTicks(sf, 1);                                   // land on row 0, instrument volume applied
+        Assert.Equal(0u, sf.Row);
+        Assert.Equal(128, sf.Channels[0].Volume);
+        StepTicks(sf, 6);                                   // speed=6 -> next note tick lands on row 1
+        Assert.Equal(1u, sf.Row);
+        Assert.Equal(128, sf.Channels[0].Volume);
+    }
+
+    // When Loop=true and the song runs past the last pattern, the engine must jump back to
+    // RestartPos (FT2/OpenMPT semantics) rather than always wrapping to order 0.
+    [Fact]
+    public void RestartPos_OnLoop_ReturnsToConfiguredOrder() {
+        var s = new SampleSpec(2, 0, 0, 64, 0, 0, 128, 0, 0, new byte[2]);
+        // Pattern 0 row 0 = Bxx with param=5 (jumps past the order table; engine wraps via Loop path).
+        byte[] pat0 = BuildPackedPattern(
+            (0, 0, (byte)49, (byte)1, (byte)0, (byte)0x0B, (byte)0x05));
+        byte[] pat1 = EmptyPatternPayload();
+        var sf = LoadXm(BuildXmFull(
+            restartPos: 1, orderTable: new byte[] { 0, 1 },
+            patternPayloads: new[] { pat0, pat1 },
+            instruments: new[] { new[] { s } }), loop: true);
+
+        StepTicks(sf, 10);                                  // ~7 ticks suffice; pad to be safe
+        Assert.Equal(1u, sf.CurrentPattern);
+    }
+
     // ----- helpers -----
 
-    private SoundFile LoadXm(byte[] data) {
+    private SoundFile LoadXm(byte[] data, bool loop = false) {
         File.WriteAllBytes(_tempPath, data);
-        return new SoundFile(_tempPath, sampleRate: 44100, is16Bit: true, isStereo: true, loop: false);
+        return new SoundFile(_tempPath, sampleRate: 44100, is16Bit: true, isStereo: true, loop: loop);
+    }
+
+    private static void StepTicks(SoundFile sf, int ticks) {
+        uint framesPerTick = (sf.Rate * 5) / (sf.MusicTempo * 2);
+        int sampleSize = (sf.Is16Bit ? 2 : 1) * (sf.IsStereo ? 2 : 1);
+        sf.Read(new byte[ticks * framesPerTick * sampleSize], (uint)(ticks * framesPerTick * sampleSize));
+    }
+
+    // XMSample header fields + raw on-disk sample bytes (delta-encoded for regular samples,
+    // step-table + nibble payload for ADPCM).
+    private readonly record struct SampleSpec(
+        uint length, uint loopStart, uint loopLength,
+        byte vol, sbyte finetune, byte flags, byte pan, sbyte relnote, byte reserved,
+        byte[] data);
+
+    // Build a packed pattern payload from a sparse set of (row, channel, raw fields) entries.
+    private static byte[] BuildPackedPattern(params (int row, int ch, byte rawNote, byte rawInst, byte rawVol, byte rawCmd, byte rawParam)[] cells) {
+        var byCell = cells.ToDictionary(c => (c.row, c.ch), c => c);
+        var buf = new List<byte>();
+        for(int row = 0; row < 64; row++) {
+            for(int ch = 0; ch < 4; ch++) {
+                if(!byCell.TryGetValue((row, ch), out var c)) { buf.Add(0x80); continue; }
+                byte info = 0x80;
+                var follow = new List<byte>();
+                if(c.rawNote  != 0) { info |= 0x01; follow.Add(c.rawNote); }
+                if(c.rawInst  != 0) { info |= 0x02; follow.Add(c.rawInst); }
+                if(c.rawVol   != 0) { info |= 0x04; follow.Add(c.rawVol); }
+                if(c.rawCmd   != 0) { info |= 0x08; follow.Add(c.rawCmd); }
+                if(c.rawParam != 0) { info |= 0x10; follow.Add(c.rawParam); }
+                buf.Add(info);
+                buf.AddRange(follow);
+            }
+        }
+        return buf.ToArray();
     }
 
     private static byte[] ReadCell(SoundFile sf, int row = 0, int ch = 0) {
@@ -183,6 +347,18 @@ public class XMLoaderTests : IDisposable {
     }
 
     private static byte[] BuildXm(string trackerName, ushort restartPos, ushort orders, byte[] patternPayload) {
+        byte[] orderTable = new byte[orders];               // every slot -> pattern 0
+        return BuildXmFull(trackerName, restartPos, orderTable, new[] { patternPayload }, Array.Empty<SampleSpec[]>());
+    }
+
+    private static byte[] BuildXmFull(
+        string trackerName = "test", ushort restartPos = 0,
+        byte[]? orderTable = null, byte[][]? patternPayloads = null,
+        SampleSpec[][]? instruments = null) {
+        orderTable ??= new byte[] { 0 };
+        patternPayloads ??= new[] { EmptyPatternPayload() };
+        instruments ??= Array.Empty<SampleSpec[]>();
+
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
 
@@ -193,23 +369,43 @@ public class XMLoaderTests : IDisposable {
         bw.Write((ushort)0x0104);                           // version
         // size covers the rest of the variable header (20 bytes of fields + the order table)
         // because the loader uses (size + 60) as the pattern-data start offset.
-        bw.Write((uint)(20 + (uint)orders));
-        bw.Write(orders); bw.Write(restartPos);
+        bw.Write((uint)(20 + (uint)orderTable.Length));
+        bw.Write((ushort)orderTable.Length);
+        bw.Write(restartPos);
         bw.Write((ushort)4);                                // channels
-        bw.Write((ushort)1);                                // patterns
-        bw.Write((ushort)0);                                // instruments
+        bw.Write((ushort)patternPayloads.Length);
+        bw.Write((ushort)instruments.Length);
         bw.Write((ushort)0);                                // flags
         bw.Write((ushort)6); bw.Write((ushort)125);         // speed / tempo
 
-        for(int i = 0; i < orders; i++) bw.Write((byte)0);  // every order slot -> pattern 0
+        bw.Write(orderTable);
 
-        bw.Write((uint)9);                                  // pattern header size
-        bw.Write((byte)0);                                  // packing type
-        bw.Write((ushort)64);                               // rows
-        bw.Write((ushort)patternPayload.Length);
-        bw.Write(patternPayload);
+        foreach(byte[] payload in patternPayloads) {
+            bw.Write((uint)9);                              // pattern header size
+            bw.Write((byte)0);                              // packing type
+            bw.Write((ushort)64);                           // rows
+            bw.Write((ushort)payload.Length);
+            bw.Write(payload);
+        }
+
+        foreach(SampleSpec[] samples in instruments) WriteInstrument(bw, samples);
 
         return ms.ToArray();
+    }
+
+    private static void WriteInstrument(BinaryWriter bw, SampleSpec[] samples) {
+        bw.Write((uint)29);                                 // instSize: minimum 29 bytes, no padding
+        bw.Write(new byte[22]);                             // name
+        bw.Write((byte)0);                                  // type
+        bw.Write((ushort)samples.Length);                   // numSamples (at offset 27..28)
+
+        foreach(SampleSpec s in samples) {
+            bw.Write(s.length); bw.Write(s.loopStart); bw.Write(s.loopLength);
+            bw.Write(s.vol); bw.Write((byte)s.finetune); bw.Write(s.flags);
+            bw.Write(s.pan); bw.Write((byte)s.relnote); bw.Write(s.reserved);
+            bw.Write(new byte[22]);                         // sample name
+        }
+        foreach(SampleSpec s in samples) bw.Write(s.data);
     }
 
     private static void WriteFixed(BinaryWriter bw, string s, int len) {
