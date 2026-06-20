@@ -373,6 +373,8 @@ namespace SharpMod {
             int i;
 
             title = xm.Name;
+            trackerName = xm.Tracker;
+            RestartPos = xm.restartPos;
 
             ActiveChannels = xm.channels;
             ActiveSamples = xm.instruments;
@@ -389,6 +391,9 @@ namespace SharpMod {
             int orderCount = Math.Min((int)xm.orders, 256);
             if(orderCount > 0) file.Read(order, 0, orderCount);
 
+            // Clamp RestartPos to a valid order slot - some files store it past the order count.
+            if(RestartPos >= orderCount) RestartPos = 0;
+
             file.Position = xm.size + 60;
 
             int rowSize = 6 * (int)xm.channels;
@@ -401,14 +406,17 @@ namespace SharpMod {
                 long headerStart = file.Position - 4;
                 file.Position += 1; // packing type, always 0
 
-                int numRows;
+                int fileRows;
                 if(xm.version == 0x0102) {
-                    numRows = file.ReadByte() + 1;
+                    fileRows = file.ReadByte() + 1;
                 } else {
-                    numRows = file.ReadUInt16();
+                    fileRows = file.ReadUInt16();
                 }
-                if(numRows < 1) numRows = 1;
-                if(numRows > 64) numRows = 64; // FIXME: basic implementation only, XM can have up to 256 rows
+                if(fileRows < 1) fileRows = 1;
+                // Engine is locked to 64-row patterns (Row mask is 0x3F); rows beyond that are
+                // decoded but silently dropped. We still iterate through the full packed payload
+                // so the file position lands exactly at the next pattern/instrument header.
+                int storedRows = Math.Min(fileRows, 64);
 
                 UInt16 packedSize = file.ReadUInt16();
                 // Always advance to the declared header end before reading data
@@ -419,7 +427,7 @@ namespace SharpMod {
                 if(packedSize > 0) {
                     long dataStart = file.Position;
                     long dataEnd = dataStart + packedSize;
-                    for(int row = 0; row < numRows && file.Position < dataEnd; row++) {
+                    for(int row = 0; row < fileRows && file.Position < dataEnd; row++) {
                         for(int ch = 0; ch < xm.channels && file.Position < dataEnd; ch++) {
                             int info = file.ReadByte();
                             if(info < 0) break;
@@ -445,7 +453,9 @@ namespace SharpMod {
                             if(hasCmd)   rawCmd   = (byte)file.ReadByte();
                             if(hasParam) rawParam = (byte)file.ReadByte();
 
-                            EncodeXMCell(patBuf, row * rowSize + ch * 6, rawNote, rawInst, rawVol, rawCmd, rawParam);
+                            if(row < storedRows) {
+                                EncodeXMCell(patBuf, row * rowSize + ch * 6, (byte)ch, rawNote, rawInst, rawVol, rawCmd, rawParam);
+                            }
                         }
                     }
                     file.Position = dataEnd;
@@ -486,43 +496,65 @@ namespace SharpMod {
                 for(int s = 0; s < numSamples; s++) smpHdrs[s] = LoadStruct<XMTools.XMSample>(file);
 
                 for(int s = 0; s < numSamples; s++) {
-                    int sampleBytes = (int)smpHdrs[s].length;
-                    if(sampleBytes <= 0) continue;
+                    int rawBytes = (int)smpHdrs[s].length;
+                    if(rawBytes <= 0) continue;
 
-                    byte[] data = new byte[sampleBytes];
-                    file.Read(data, 0, sampleBytes);
+                    // ADPCM (MODPlugin extension, signalled by reserved == 0xAD): block layout is
+                    // 16-byte step table + nibble-packed sample data. Skip the block size so
+                    // subsequent samples line up; we don't decode it.
+                    bool isADPCM = smpHdrs[s].reserved == (byte)XMTools.XMSample.XMSampleFlags.sampleADPCM;
+                    int diskBytes = isADPCM ? 16 + ((rawBytes + 1) / 2) : rawBytes;
 
-                    if(s != 0) continue; // basic implementation: keep only the first sample per instrument
+                    byte[] data = new byte[diskBytes];
+                    file.Read(data, 0, diskBytes);
+
+                    if(s != 0 || isADPCM) continue; // basic implementation: keep only the first sample per instrument
 
                     bool is16 = (smpHdrs[s].flags & (byte)XMTools.XMSample.XMSampleFlags.sample16Bit) != 0;
+                    bool isStereo = (smpHdrs[s].flags & (byte)XMTools.XMSample.XMSampleFlags.sampleStereo) != 0;
                     int bytesPerSample = is16 ? 2 : 1;
-                    int sampleCount = sampleBytes / bytesPerSample;
+                    int chanCount = isStereo ? 2 : 1;
+                    int frameBytes = bytesPerSample * chanCount;
+                    if(frameBytes <= 0) continue;
+                    int sampleCount = rawBytes / frameBytes; // frames-per-channel
 
-                    // XM samples are delta-encoded
-                    if(is16) {
-                        short prev = 0;
-                        for(int n = 0; n + 1 < sampleBytes; n += 2) {
-                            short delta = (short)(data[n] | (data[n + 1] << 8));
-                            prev = (short)(prev + delta);
-                            data[n]     = (byte)(prev & 0xFF);
-                            data[n + 1] = (byte)((prev >> 8) & 0xFF);
-                        }
-                    } else {
-                        sbyte prev = 0;
-                        for(int n = 0; n < sampleBytes; n++) {
-                            prev = (sbyte)(prev + (sbyte)data[n]);
-                            data[n] = (byte)prev;
+                    // XM samples are delta-encoded. Stereo XMs store the left channel first, then
+                    // the right channel (each independently delta-encoded), which matches the
+                    // mixer's "L then R" layout in Read().
+                    int blockBytes = sampleCount * bytesPerSample;
+                    for(int ch = 0; ch < chanCount; ch++) {
+                        int blockStart = ch * blockBytes;
+                        if(is16) {
+                            short prev = 0;
+                            for(int n = 0; n + 1 < blockBytes; n += 2) {
+                                int o = blockStart + n;
+                                short delta = (short)(data[o] | (data[o + 1] << 8));
+                                prev = (short)(prev + delta);
+                                data[o]     = (byte)(prev & 0xFF);
+                                data[o + 1] = (byte)((prev >> 8) & 0xFF);
+                            }
+                        } else {
+                            sbyte prev = 0;
+                            for(int n = 0; n < blockBytes; n++) {
+                                prev = (sbyte)(prev + (sbyte)data[blockStart + n]);
+                                data[blockStart + n] = (byte)prev;
+                            }
                         }
                     }
 
                     instruments[i].Length = (uint)sampleCount;
                     instruments[i].Sample = data;
                     instruments[i].Is16Bit = is16;
-                    instruments[i].IsStereo = false;
+                    instruments[i].IsStereo = isStereo;
 
                     int vol = smpHdrs[s].vol;
                     if(vol > 0x40) vol = 0x40;
                     instruments[i].Volume = vol << 2;
+
+                    // XM pan is 0..255 with 128 = center. The engine's range is 0..256, so map
+                    // 0xFF to the right rail to avoid a 1-unit off-by-one bias.
+                    instruments[i].HasDefaultPan = true;
+                    instruments[i].DefaultPan = (short)(smpHdrs[s].pan == 0xFF ? 256 : smpHdrs[s].pan);
 
                     sbyte relnote = (sbyte)smpHdrs[s].relnote;
                     sbyte finetune = (sbyte)smpHdrs[s].finetune;
@@ -532,6 +564,7 @@ namespace SharpMod {
                     bool hasLoop = (smpHdrs[s].flags & ((byte)XMTools.XMSample.XMSampleFlags.sampleLoop
                                                      | (byte)XMTools.XMSample.XMSampleFlags.sampleBidiLoop)) != 0;
                     if(hasLoop && smpHdrs[s].loopLength > 0) {
+                        // loopStart/loopLength are in bytes per channel; divide to get frame indices.
                         instruments[i].LoopStart = smpHdrs[s].loopStart / (uint)bytesPerSample;
                         instruments[i].LoopEnd = (smpHdrs[s].loopStart + smpHdrs[s].loopLength) / (uint)bytesPerSample;
                     }
@@ -721,41 +754,129 @@ namespace SharpMod {
             buf[idx + 5] = param;
         }
 
-        private static void EncodeXMCell(byte[] buf, int idx, byte rawNote, byte rawInst, byte rawVol, byte rawCmd, byte rawParam) {
+        private static void EncodeXMCell(byte[] buf, int idx, byte chn, byte rawNote, byte rawInst, byte rawVol, byte rawCmd, byte rawParam) {
             byte mode = 0;
             byte note = 0;
             byte inst = rawInst;
             byte vol = 0;
             byte cmd = 0;
             byte param = rawParam;
+            bool noteSet = false;
 
             if(rawNote >= 1 && rawNote <= 96) {
                 int n = rawNote - 1;
                 note = (byte)(((n / 12) << 4) | (n % 12));
                 mode |= 0x20;
+                noteSet = true;
             } else if(rawNote == 97) {
                 note = 0xFF; // key off -> note cut in the engine
                 mode |= 0x20;
+                noteSet = true;
             }
 
-            // Volume column: only the set-volume range (0x10..0x50) is supported in the basic implementation
+            // Set-volume range (0x10..0x50) maps straight to the engine's vol column slot.
             if(rawVol >= 0x10 && rawVol <= 0x50) {
                 vol = (byte)(rawVol - 0x10);
                 mode |= 0x40;
             }
 
+            bool cmdSet = false;
             if(rawCmd == 0x0C) {
                 // XM Cxx Set Volume -> route into the volume column
                 vol = rawParam > 0x40 ? (byte)0x40 : rawParam;
                 mode |= 0x40;
+            } else if(rawCmd == 0x14) {
+                // Kxx - Key Off. The engine has no envelope/fadeout so this is realised as a
+                // note-cut event, but only when the cell isn't already triggering a fresh note
+                // (otherwise the retrigger would be silenced immediately).
+                if(!noteSet) {
+                    note = 0xFE;
+                    mode |= 0x20;
+                }
+            } else if(rawCmd == 0x21) {
+                // Xxy - Extra Fine Portamento (X1xy up, X2xy down). The engine has no
+                // distinct extra-fine slot, so this is folded into the E1x/E2x fine porta
+                // path via CMD_RETRIG. Real XM uses a 4x finer granularity; we accept the
+                // coarser step rather than dropping the effect entirely.
+                byte sub = (byte)((rawParam >> 4) & 0x0F);
+                byte sval = (byte)(rawParam & 0x0F);
+                if(sub == 1 || sub == 2) {
+                    cmd = 'Q' - 'A' + 1;
+                    param = (byte)((sub << 4) | sval);
+                    mode |= 0x80;
+                    cmdSet = true;
+                }
             } else if(rawCmd < XMTools.XMEffectTable.Length) {
                 byte mapped = XMTools.XMEffectTable[rawCmd];
-                if(mapped != 0) {
+                // XM effect 0x00 is Arpeggio. A 0/00 cell is "no effect" and must not be
+                // tagged as J00, otherwise every otherwise-empty cell would acquire the
+                // arpeggio command and consume the engine's single effect slot.
+                if(mapped != 0 && !(rawCmd == 0 && rawParam == 0)) {
                     cmd = mapped;
                     mode |= 0x80;
+                    cmdSet = true;
                 }
             }
 
+            // Extended volume column (0x60..0xFF). XM lets the volume column carry its own
+            // mini-effect alongside the effect column; the engine only has a single effect
+            // slot per cell, so the translation is only emitted when the effect column is
+            // empty. Ranges that have no engine counterpart (panning slides) are skipped.
+            if(!cmdSet && rawVol >= 0x60) {
+                byte vp = (byte)(rawVol & 0x0F);
+                switch(rawVol & 0xF0) {
+                    case 0x60: // -x vol slide down (Dxy, down nibble)
+                        cmd = 'D' - 'A' + 1;
+                        param = vp;
+                        mode |= 0x80;
+                        break;
+                    case 0x70: // +x vol slide up (Dxy, up nibble)
+                        cmd = 'D' - 'A' + 1;
+                        param = (byte)(vp << 4);
+                        mode |= 0x80;
+                        break;
+                    case 0x80: // Dx fine vol slide down -> EBx
+                        cmd = 'Q' - 'A' + 1;
+                        param = (byte)(0xB0 | vp);
+                        mode |= 0x80;
+                        break;
+                    case 0x90: // Ux fine vol slide up -> EAx
+                        cmd = 'Q' - 'A' + 1;
+                        param = (byte)(0xA0 | vp);
+                        mode |= 0x80;
+                        break;
+                    case 0xA0: // Sx set vibrato speed (depth carries over in FT2; approximated here)
+                        cmd = 'H' - 'A' + 1;
+                        param = (byte)(vp << 4);
+                        mode |= 0x80;
+                        break;
+                    case 0xB0: // Vx vibrato with depth (speed carries over in FT2; approximated here)
+                        cmd = 'H' - 'A' + 1;
+                        param = vp;
+                        mode |= 0x80;
+                        break;
+                    case 0xC0: // Px set panning. Nibble expands to the 0..255 range; Cx -> right rail.
+                        cmd = 'X' - 'A' + 1;
+                        param = vp == 0x0F ? (byte)0xFF : (byte)(vp << 4);
+                        mode |= 0x80;
+                        break;
+                    // 0xD0 / 0xE0 (pan slide left/right): no CMD_PANNINGSLIDE handler in the engine,
+                    // so dropped to avoid silently misrouting to an unrelated effect.
+                    case 0xF0: // Mx tone portamento (speed in upper nibble)
+                        cmd = 'G' - 'A' + 1;
+                        param = (byte)(vp << 4);
+                        mode |= 0x80;
+                        break;
+                }
+            }
+
+            // The engine extracts the destination channel from `mode & 0x1F` when reading
+            // S3M/XM cells. Omitting it routes every cell to channel 0, collapsing all
+            // channels onto one and silencing whichever cell isn't the last in the row.
+            // Empty cells (no flag bits set) are left zeroed so the engine's `mode == 0`
+            // skip still applies and per-channel effect memory survives empty rows.
+            if(mode == 0) return;
+            mode |= (byte)(chn & 0x1F);
             buf[idx + 0] = mode;
             buf[idx + 1] = note;
             buf[idx + 2] = inst;

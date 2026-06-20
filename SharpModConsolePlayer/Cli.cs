@@ -11,6 +11,7 @@ namespace SharpModConsolePlayer {
         internal int Channels { get; init; } = 2;
         internal bool Loop { get; init; } = false;
         internal bool ShowSampleProgress { get; init; } = true;
+        internal bool Randomize { get; init; } = false;
         internal string ExportPath { get; init; } = string.Empty;
 
         private static readonly int[] ValidSampleRates = [8000, 11025, 16000, 22050, 32000, 44100, 48000, 88200, 96000];
@@ -28,6 +29,7 @@ namespace SharpModConsolePlayer {
             bool loop = false;
             bool showSampleProgress = true;
             string exportPath = string.Empty;
+            bool randomize = false;
 
             for(int i = 0; i < args.Length; i++) {
                 string a = args[i];
@@ -57,6 +59,10 @@ namespace SharpModConsolePlayer {
                         if(i + 1 >= args.Length) { PrintError($"Option {a} requires a path."); return null; }
                         exportPath = args[++i];
                         break;
+                    case "-z":
+                    case "--randomize":
+                        randomize = true;
+                        break;
                     default:
                         if(a.StartsWith('-')) {
                             PrintError($"Unknown option: {a}");
@@ -82,6 +88,7 @@ namespace SharpModConsolePlayer {
                 Loop = loop,
                 ShowSampleProgress = showSampleProgress,
                 ExportPath = exportPath,
+                Randomize = randomize
             };
         }
 
@@ -134,12 +141,14 @@ namespace SharpModConsolePlayer {
             Console.WriteLineInterpolated($"  {Green}-l{Default}, {Green}--loop{Default}               Loop the track when it ends");
             Console.WriteLineInterpolated($"  {Green}-P{Default}, {Green}--no-sample-progress{Default} Disable the in-name playback progress bar in the samples view");
             Console.WriteLineInterpolated($"  {Green}-o{Default}, {Green}--export{Default} {DarkGray}<path>{Default}      Render the track to a WAV file at {DarkGray}<path>{Default} (no live playback)");
+            Console.WriteLineInterpolated($"  {Green}-z{Default}, {Green}--randomize{Default}          Randomize the order of files in the playlist");
             Console.WriteLineInterpolated($"  {Green}-h{Default}, {Green}--help{Default}               Show this help and exit");
             Console.NewLine();
 
             Console.WriteLineInterpolated($"{Yellow}KEYS{Default}");
             Console.WriteLineInterpolated($"  {Green}F1{Default}                       Show this help");
             Console.WriteLineInterpolated($"  {Green}Tab{Default}                      Toggle between patterns and samples view");
+            Console.WriteLineInterpolated($"  {Green}Space{Default}                    Toggle pause");
             Console.WriteLineInterpolated($"  {Green}Left{Default} / {Green}Right{Default}             Scroll channels horizontally");
             Console.WriteLineInterpolated($"  {Green}Up{Default} / {Green}Down{Default}                Scroll samples vertically");
             Console.WriteLineInterpolated($"  {Green}PageUp{Default} / {Green}PageDown{Default}        Seek track backward/forward");

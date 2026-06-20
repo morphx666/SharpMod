@@ -22,7 +22,11 @@ namespace SharpModConsolePlayer {
                         continue;
                     }
 
-                    string[] files = [..Directory.GetFiles(directory, pattern, SearchOption.AllDirectories).Where(f => supportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))];
+                    string[] files = [.. Directory.GetFiles(directory, pattern, SearchOption.AllDirectories).Where(f => supportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))];
+                    if(cli.Randomize) {
+                        Random rng = new();
+                        files = files.OrderBy(_ => rng.Next()).ToArray();
+                    }
                     if(files.Length == 0) {
                         Console.WriteLine($"No files found matching pattern '{pattern}' in directory: {directory}");
                         continue;
@@ -31,6 +35,10 @@ namespace SharpModConsolePlayer {
                     filesToPlay.AddRange(files);
                 } else if(Directory.Exists(input)) {
                     string[] files = [..Directory.GetFiles(input, "*.*", SearchOption.AllDirectories).Where(f => supportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))];
+                    if(cli.Randomize) {
+                        Random rng = new();
+                        files = files.OrderBy(_ => rng.Next()).ToArray();
+                    }
                     if(files.Length == 0) {
                         Console.WriteLine($"No files found in directory: {input}");
                         continue;
@@ -50,10 +58,10 @@ namespace SharpModConsolePlayer {
             ConsoleRenderer.InitializeConsole();
             _ = Task.Run(() => ConsoleRenderer.RenderLoop(() => currentSoundFile, cli.ShowSampleProgress));
 
-            OpenAlStreamPlayer.playlistCount = filesToPlay.Count;
+            OpenAlStreamPlayer.PlaylistCount = filesToPlay.Count;
             int idx = 0;
             while(idx >= 0 && idx < filesToPlay.Count) {
-                OpenAlStreamPlayer.playlistIndex = idx;
+                OpenAlStreamPlayer.PlaylistIndex = idx;
                 cli.ModFile = filesToPlay[idx];
                 await PlayFile(cli);
 

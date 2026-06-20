@@ -95,6 +95,19 @@ namespace SharpModConsolePlayer.Renderer {
         }
 
         private static bool HandleInput(SoundFile sf, ref int fromChannel, ref int fromSample, ref ViewMode mode, ref bool forceRedraw) {
+            var NextTrack = () => {
+                if(OpenAlStreamPlayer.PlaylistIndex < OpenAlStreamPlayer.PlaylistCount - 1) {
+                    OpenAlStreamPlayer.request = PlaybackRequest.Next;
+                    OpenAlStreamPlayer.IsPlaying = false;
+                }
+            };
+            var PreviousTrack = () => {
+                if(OpenAlStreamPlayer.PlaylistIndex > 0) {
+                    OpenAlStreamPlayer.request = PlaybackRequest.Previous;
+                    OpenAlStreamPlayer.IsPlaying = false;
+                }
+            };
+
             while(Console.KeyAvailable) {
                 ConsoleKeyInfo info = Console.ReadKey(intercept: true);
                 ConsoleKey key = info.Key;
@@ -111,6 +124,9 @@ namespace SharpModConsolePlayer.Renderer {
                 }
 
                 switch(key) {
+                    case ConsoleKey.Spacebar:
+                        OpenAlStreamPlayer.IsPaused = !OpenAlStreamPlayer.IsPaused;
+                        break;
                     case ConsoleKey.LeftArrow:
                         fromChannel = Math.Max(0, fromChannel - 1);
                         break;
@@ -142,21 +158,25 @@ namespace SharpModConsolePlayer.Renderer {
                         sf.Position = Math.Min(sf.Position + 10, sf.PositionCount - 1);
                         break;
                     case ConsoleKey.Home:
-                        if(OpenAlStreamPlayer.playlistIndex > 0) {
-                            OpenAlStreamPlayer.request = PlaybackRequest.Previous;
-                            OpenAlStreamPlayer.isPlaying = false;
-                        }
+                        NextTrack();
                         break;
                     case ConsoleKey.End:
-                        if(OpenAlStreamPlayer.playlistIndex < OpenAlStreamPlayer.playlistCount - 1) {
-                            OpenAlStreamPlayer.request = PlaybackRequest.Next;
-                            OpenAlStreamPlayer.isPlaying = false;
-                        }
+                        PreviousTrack();
                         break;
                     case ConsoleKey.Escape:
+                        if(Dialog.IsOpen) {
+                            Dialog.Close();
+                            Console.Clear();
+                            forceRedraw = true;
+                            break;
+                        } else {
+                            OpenAlStreamPlayer.request = PlaybackRequest.Quit;
+                            OpenAlStreamPlayer.IsPlaying = false;
+                            return false;
+                        }
                     case ConsoleKey.Q:
                         OpenAlStreamPlayer.request = PlaybackRequest.Quit;
-                        OpenAlStreamPlayer.isPlaying = false;
+                        OpenAlStreamPlayer.IsPlaying = false;
                         return false;
                     case ConsoleKey.F1:
                         if(Dialog.IsOpen) {
@@ -165,9 +185,11 @@ namespace SharpModConsolePlayer.Renderer {
                             forceRedraw = true;
                             break;
                         }
-                        Dialog.SetMessage([
+                        Dialog.SetMessage("Controls",
+                        [
                             $"{Green}F1{Default}                       Toggle this help",
                             $"{Green}Tab{Default}                      Toggle between patterns and samples view",
+                            $"{Green}Space{Default}                    Toggle pause",
                             $"{Green}Left{Default} / {Green}Right{Default}           Scroll channels horizontally",
                             $"{Green}Up{Default} / {Green}Down{Default}              Scroll samples vertically",
                             $"{Green}PageUp{Default} / {Green}PageDown{Default}      Seek track backward/forward",
@@ -178,6 +200,18 @@ namespace SharpModConsolePlayer.Renderer {
                             $"{Green}Esc {Default}| {Green}Q{Default}                Stop playback and exit"
                         ]);
                         Dialog.ShowMessage();
+                        break;
+                    default:
+                        if(info.Modifiers.HasFlag(ConsoleModifiers.Control)) {
+                            switch(info.KeyChar) {
+                                case '\u0001':
+                                    PreviousTrack();
+                                    break;
+                                case '\u0005':
+                                    NextTrack();
+                                    break;
+                            }
+                        }
                         break;
                 }
             }

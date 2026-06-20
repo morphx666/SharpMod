@@ -120,6 +120,11 @@ namespace SharpMod {
             public bool Is16Bit;
             public bool IsStereo;
             internal byte[] name;
+            // Optional per-sample default panning (FT2/XM). HasDefaultPan stays false for
+            // formats that don't supply one so the channel pan from the format header / loader
+            // is left untouched on note trigger.
+            public bool HasDefaultPan;
+            public short DefaultPan;        // engine range 0..256 (0 = full left, 128 = center, 256 = full right)
             public string Name { get { return Helpers.LegacyEncoding.Cp437.GetString(name).TrimEnd('\0', ' '); } }
         }
 
@@ -148,6 +153,7 @@ namespace SharpMod {
 
         private readonly FileStream file;
         private string title;
+        private string trackerName = "";
         private ModInstrument[] instruments;
         private readonly ModChannel[] channels = new ModChannel[32];
         private byte[] order = new byte[256];

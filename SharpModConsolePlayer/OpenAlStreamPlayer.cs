@@ -5,11 +5,18 @@ using SharpMod;
 namespace SharpModConsolePlayer {
     internal enum PlaybackRequest { None, Previous, Next, Quit }
 
+    // macOS note: OpenTK.dll.config maps openal32.dll to /System/Library/Frameworks/OpenAL.framework,
+    // which is deprecated since macOS 10.15 and crashes (SIGSEGV inside alGetSourcei) under the rapid
+    // SourceQueueBuffer/SourceUnqueueBuffer/SourceStop churn produced by spamming track switches with
+    // Home/End. The issue is inside Apple's framework, not in this code; OpenAL Soft (used on Windows
+    // and Linux) does not have the bug. Fix on macOS is `brew install openal-soft` and repointing the
+    // osx openal32.dll dllmap in OpenTK.dll.config at the resulting libopenal.dylib.
     internal static class OpenAlStreamPlayer {
-        internal static bool isPlaying = false;
+        internal static bool IsPlaying = false;
+        internal static bool IsPaused = false;
         internal static PlaybackRequest request = PlaybackRequest.None;
-        internal static int playlistIndex = 0;
-        internal static int playlistCount = 0;
+        internal static int PlaylistIndex = 0;
+        internal static int PlaylistCount = 0;
         private const int BufferLength = 6000;
         private const int TargetQueueDepth = 3;
 
@@ -23,11 +30,15 @@ namespace SharpModConsolePlayer {
         private static GCHandle pinnedBufferHandle;
         private static IntPtr bufferPtr;
 
-        internal static SoundFile LoadSoundFile(Cli cli)
-            => new(cli.ModFile, (uint)cli.SampleRate, cli.BitDepth == 16, cli.Channels == 2, cli.Loop);
+        internal static SoundFile LoadSoundFile(Cli cli) {
+            IsPaused = false;
+            IsPlaying = false;
+
+            return new(cli.ModFile, (uint)cli.SampleRate, cli.BitDepth == 16, cli.Channels == 2, cli.Loop);
+        }
 
         internal static async Task Play(SoundFile sndFile, int sampleRate, int bitDepth, int channels) {
-            isPlaying = true;
+            IsPlaying = true;
 
             ALFormat alf = GetAlFormat(bitDepth, channels);
 
@@ -48,7 +59,11 @@ namespace SharpModConsolePlayer {
             bool bufferIsClear = false;
             uint totalPositions = sndFile.PositionCount;
 
-            while(isPlaying) {
+            while(IsPlaying) {
+                if(IsPaused) {
+                    await Task.Delay(100);
+                    continue;
+                }
                 DrainProcessedBuffers(alSrc);
 
                 AL.GetSource(alSrc, ALGetSourcei.BuffersQueued, out int queued);
@@ -65,7 +80,7 @@ namespace SharpModConsolePlayer {
 
                 EnsurePlaying(alSrc);
 
-                if(sndFile.Position >= totalPositions) isPlaying = false;
+                if(sndFile.Position >= totalPositions) IsPlaying = false;
             }
         }
 
