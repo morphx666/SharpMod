@@ -50,10 +50,10 @@ namespace SharpModConsolePlayer {
             ConsoleRenderer.InitializeConsole();
             _ = Task.Run(() => ConsoleRenderer.RenderLoop(() => currentSoundFile, cli.ShowSampleProgress));
 
-            OpenAlStreamPlayer.playlistCount = filesToPlay.Count;
+            OpenAlStreamPlayer.PlaylistCount = filesToPlay.Count;
             int idx = 0;
             while(idx >= 0 && idx < filesToPlay.Count) {
-                OpenAlStreamPlayer.playlistIndex = idx;
+                OpenAlStreamPlayer.PlaylistIndex = idx;
                 cli.ModFile = filesToPlay[idx];
                 await PlayFile(cli);
 

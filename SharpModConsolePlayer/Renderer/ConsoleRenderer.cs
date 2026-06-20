@@ -96,15 +96,15 @@ namespace SharpModConsolePlayer.Renderer {
 
         private static bool HandleInput(SoundFile sf, ref int fromChannel, ref int fromSample, ref ViewMode mode, ref bool forceRedraw) {
             var NextTrack = () => {
-                if(OpenAlStreamPlayer.playlistIndex < OpenAlStreamPlayer.playlistCount - 1) {
+                if(OpenAlStreamPlayer.PlaylistIndex < OpenAlStreamPlayer.PlaylistCount - 1) {
                     OpenAlStreamPlayer.request = PlaybackRequest.Next;
-                    OpenAlStreamPlayer.isPlaying = false;
+                    OpenAlStreamPlayer.IsPlaying = false;
                 }
             };
             var PreviousTrack = () => {
-                if(OpenAlStreamPlayer.playlistIndex > 0) {
+                if(OpenAlStreamPlayer.PlaylistIndex > 0) {
                     OpenAlStreamPlayer.request = PlaybackRequest.Previous;
-                    OpenAlStreamPlayer.isPlaying = false;
+                    OpenAlStreamPlayer.IsPlaying = false;
                 }
             };
 
@@ -124,6 +124,9 @@ namespace SharpModConsolePlayer.Renderer {
                 }
 
                 switch(key) {
+                    case ConsoleKey.Spacebar:
+                        OpenAlStreamPlayer.IsPaused = !OpenAlStreamPlayer.IsPaused;
+                        break;
                     case ConsoleKey.LeftArrow:
                         fromChannel = Math.Max(0, fromChannel - 1);
                         break;
@@ -161,9 +164,19 @@ namespace SharpModConsolePlayer.Renderer {
                         PreviousTrack();
                         break;
                     case ConsoleKey.Escape:
+                        if(Dialog.IsOpen) {
+                            Dialog.Close();
+                            Console.Clear();
+                            forceRedraw = true;
+                            break;
+                        } else {
+                            OpenAlStreamPlayer.request = PlaybackRequest.Quit;
+                            OpenAlStreamPlayer.IsPlaying = false;
+                            return false;
+                        }
                     case ConsoleKey.Q:
                         OpenAlStreamPlayer.request = PlaybackRequest.Quit;
-                        OpenAlStreamPlayer.isPlaying = false;
+                        OpenAlStreamPlayer.IsPlaying = false;
                         return false;
                     case ConsoleKey.F1:
                         if(Dialog.IsOpen) {
@@ -176,6 +189,7 @@ namespace SharpModConsolePlayer.Renderer {
                         [
                             $"{Green}F1{Default}                       Toggle this help",
                             $"{Green}Tab{Default}                      Toggle between patterns and samples view",
+                            $"{Green}Space{Default}                    Toggle pause",
                             $"{Green}Left{Default} / {Green}Right{Default}           Scroll channels horizontally",
                             $"{Green}Up{Default} / {Green}Down{Default}              Scroll samples vertically",
                             $"{Green}PageUp{Default} / {Green}PageDown{Default}      Seek track backward/forward",
