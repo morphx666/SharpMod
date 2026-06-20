@@ -198,20 +198,7 @@ namespace SharpModConsolePlayer.Renderer {
                             forceRedraw = true;
                             break;
                         }
-                        Dialog.SetMessage("Controls",
-                        [
-                            $"{Green}F1{Default}                       Toggle this help",
-                            $"{Green}Tab{Default}                      Toggle between patterns and samples view",
-                            $"{Green}Space{Default}                    Toggle pause",
-                            $"{Green}Left{Default} / {Green}Right{Default}           Scroll channels horizontally",
-                            $"{Green}Up{Default} / {Green}Down{Default}              Scroll samples vertically",
-                            $"{Green}PageUp{Default} / {Green}PageDown{Default}      Jump to previous/next pattern in the order",
-                            $"{Green}Home{Default} / {Green}End{Default}             Jump to previous/next file in the playlist",
-                            $"{Green}1{Default} - {Green}9{Default}                  Toggle mute on channels 1-9",
-                            $"{Green}Shift{Default} + {Green}1{Default} - {Green}9{Default}        Toggle mute on channels 10-18",
-                            $"{Green}Ctrl{Default} + {Green}1{Default} - {Green}9{Default}         Toggle mute on channels 19-27",
-                            $"{Green}Esc {Default}| {Green}Q{Default}                Stop playback and exit"
-                        ]);
+                        Dialog.SetMessage(" Shortcuts ", 74, 12, () => Cli.PrintKeyBindings("│ ", " │"));
                         Dialog.ShowMessage();
                         break;
                     default:

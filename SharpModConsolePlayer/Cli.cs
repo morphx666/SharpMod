@@ -17,6 +17,24 @@ namespace SharpModConsolePlayer {
         private static readonly int[] ValidSampleRates = [8000, 11025, 16000, 22050, 32000, 44100, 48000, 88200, 96000];
         private static readonly int[] ValidBitDepths = [8, 16];
 
+        private const int KeyColumnWidth = 25;
+        private const int DescColumnWidth = 45;
+
+        // KeyVisibleWidth must be kept in sync by hand with the visible character count of each row's WriteKey lambda.
+        private static readonly (int KeyVisibleWidth, string Description, Action WriteKey)[] keyBindings = [
+            (2,  "Show this help",                             () => Console.WriteInterpolated($"{Green}F1{Default}")),
+            (3,  "Toggle between patterns and samples view.",  () => Console.WriteInterpolated($"{Green}Tab{Default}")),
+            (5,  "Toggle pause",                               () => Console.WriteInterpolated($"{Green}Space{Default}")),
+            (12, "Scroll channels horizontally",               () => Console.WriteInterpolated($"{Green}Left{Default} / {Green}Right{Default}")),
+            (9,  "Scroll samples vertically",                  () => Console.WriteInterpolated($"{Green}Up{Default} / {Green}Down{Default}")),
+            (17, "Seek track backward/forward",                () => Console.WriteInterpolated($"{Green}PageUp{Default} / {Green}PageDown{Default}")),
+            (10, "Jump to previous/next file in the playlist", () => Console.WriteInterpolated($"{Green}Home{Default} / {Green}End{Default}")),
+            (5,  "Toggle mute on channels 1-9",                () => Console.WriteInterpolated($"{Green}1{Default} - {Green}9{Default}")),
+            (13, "Toggle mute on channels 10-18",              () => Console.WriteInterpolated($"{Green}Shift{Default} + {Green}1{Default} - {Green}9{Default}")),
+            (12, "Toggle mute on channels 19-27",              () => Console.WriteInterpolated($"{Green}Ctrl{Default} + {Green}1{Default} - {Green}9{Default}")),
+            (7,  "Stop playback and exit",                     () => Console.WriteInterpolated($"{Green}Esc {Default}| {Green}Q{Default}")),
+        ];
+
         internal static Cli? Parse(string[] args) {
             if(args.Length == 0) {
                 PrintUsage();
@@ -146,17 +164,19 @@ namespace SharpModConsolePlayer {
             Console.NewLine();
 
             Console.WriteLineInterpolated($"{Yellow}KEYS{Default}");
-            Console.WriteLineInterpolated($"  {Green}F1{Default}                       Show this help");
-            Console.WriteLineInterpolated($"  {Green}Tab{Default}                      Toggle between patterns and samples view");
-            Console.WriteLineInterpolated($"  {Green}Space{Default}                    Toggle pause");
-            Console.WriteLineInterpolated($"  {Green}Left{Default} / {Green}Right{Default}             Scroll channels horizontally");
-            Console.WriteLineInterpolated($"  {Green}Up{Default} / {Green}Down{Default}                Scroll samples vertically");
-            Console.WriteLineInterpolated($"  {Green}PageUp{Default} / {Green}PageDown{Default}        Seek track backward/forward");
-            Console.WriteLineInterpolated($"  {Green}Home{Default} / {Green}End{Default}               Jump to previous/next file in the playlist");
-            Console.WriteLineInterpolated($"  {Green}1{Default} - {Green}9{Default}                    Toggle mute on channels 1-9");
-            Console.WriteLineInterpolated($"  {Green}Shift{Default} + {Green}1{Default} - {Green}9{Default}            Toggle mute on channels 10-18");
-            Console.WriteLineInterpolated($"  {Green}Ctrl{Default} + {Green}1{Default} - {Green}9{Default}             Toggle mute on channels 19-27");
-            Console.WriteLineInterpolated($"  {Green}Esc {Default}| {Green}Q{Default}                  Stop playback and exit");
+            PrintKeyBindings("  ");
+        }
+
+        internal static void PrintKeyBindings(string prefix = "", string suffix = "") {
+            int col = Console.CursorLeft;
+            int row = Console.CursorTop;
+            for(int i = 0; i < keyBindings.Length; i++) {
+                var (keyWidth, description, writeKey) = keyBindings[i];
+                Console.SetCursorPosition(col, row + i);
+                Console.WriteInterpolated($"{prefix}");
+                writeKey();
+                Console.WriteLineInterpolated($"{new WhiteSpace(KeyColumnWidth - keyWidth)}{description}{new WhiteSpace(DescColumnWidth - description.Length)}{suffix}");
+            }
         }
     }
 }
