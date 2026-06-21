@@ -6,14 +6,16 @@ namespace SharpMod {
         private const int MOD_FRACMASK = 1023;
         private const int MOD_AMIGAC2 = 0x1AB;
 
+        // Ordered by format complexity, simplest first. The numeric values are not persisted
+        // anywhere, so this ordering is purely for readability.
         public enum Types {
             INVALID = 0,
-            WAV = 1, // ???
-            MOD = 2,
-            S3M = 3,
-            XM = 4,
-            STM = 5,
-            C669 = 6
+            WAV  = 1, // Raw PCM passthrough (no patterns/effects)
+            STM  = 2, // ScreamTracker 2 - 4 channels, minimal effects
+            C669 = 3, // Composer 669 / UNIS 669 - 8 channels, 8 effects, per-pattern speed/break
+            MOD  = 4, // ProTracker / NoiseTracker - Amiga periods, fine-tune, ~32 effects
+            S3M  = 5, // ScreamTracker 3 - parapointers, C5Speed, full S3M effect set
+            XM   = 6  // FastTracker 2 - multi-sample instruments, envelopes, ~36 effects
         }
 
         private static readonly uint[] FineTuneTable = {
