@@ -40,7 +40,7 @@ namespace SharpModConsolePlayer.Renderer {
             Dialog.messageBuilder();
             top = Console.CursorTop;
             Console.SetCursorPosition(left, top);
-            Console.WriteInterpolated($"{Cyan}└{rule}┘{Default}");
+            Console.WriteLineInterpolated($"{Cyan}└{rule}┘{Default}");
 
             IsOpen = true;
         }

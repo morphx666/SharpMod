@@ -198,7 +198,7 @@ namespace SharpModConsolePlayer.Renderer {
                             forceRedraw = true;
                             break;
                         }
-                        Dialog.SetMessage(" Shortcuts ", 74, 12, () => Cli.PrintKeyBindings("│ ", " │"));
+                        Dialog.SetMessage(" Shortcuts ", 74, 12, () => Cli.PrintKeyBindings($"│ ", $" │"));
                         Dialog.ShowMessage();
                         break;
                     default:

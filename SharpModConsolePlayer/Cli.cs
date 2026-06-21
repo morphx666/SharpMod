@@ -173,9 +173,9 @@ namespace SharpModConsolePlayer {
             for(int i = 0; i < keyBindings.Length; i++) {
                 var (keyWidth, description, writeKey) = keyBindings[i];
                 Console.SetCursorPosition(col, row + i);
-                Console.WriteInterpolated($"{prefix}");
+                Console.WriteInterpolated($"{Cyan}{prefix}{Default}");
                 writeKey();
-                Console.WriteLineInterpolated($"{new WhiteSpace(KeyColumnWidth - keyWidth)}{description}{new WhiteSpace(DescColumnWidth - description.Length)}{suffix}");
+                Console.WriteLineInterpolated($"{new WhiteSpace(KeyColumnWidth - keyWidth)}{description}{new WhiteSpace(DescColumnWidth - description.Length)}{Cyan}{suffix}{Default}");
             }
         }
     }
