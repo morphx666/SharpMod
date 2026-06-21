@@ -9,6 +9,12 @@ namespace SharpModConsolePlayer.Renderer {
         private static Action messageBuilder = null!;
         private static int width = 0;
         private static int height = 0;
+        private const char glyphHorizontal = '─';
+        private const char glyphVertical = '│';
+        private const char glyphTopLeft = '┌';
+        private const char glyphTopRight = '┐';
+        private const char glyphBottomLeft = '└';
+        private const char glyphBottomRight = '┘';
 
         public static void SetMessage(string title, int width, int height, Action messageBuilder) {
             Dialog.title = title;
@@ -24,23 +30,22 @@ namespace SharpModConsolePlayer.Renderer {
             int left = (width - Dialog.width) / 2;
             int top = (height - Dialog.height) / 2;
             int innerWidth = Dialog.width - 2;
-            string rule = new('─', innerWidth);
+            string rule = new(glyphHorizontal, innerWidth);
 
             Console.SetCursorPosition(left, top);
 
             if(!string.IsNullOrEmpty(title)) {
                 int titleLength = title.Length;
                 int padding = (innerWidth - titleLength) / 2;
-                string paddedTitle = new string('─', padding) + title + new string('─', innerWidth - titleLength - padding);
-                Console.WriteInterpolated($"{Default}{Cyan}┌{paddedTitle}┐{Default}");
+                string paddedTitle = new string(glyphHorizontal, padding) + title + new string(glyphHorizontal, innerWidth - titleLength - padding);
+                Console.WriteInterpolated($"{Default}{Cyan}{glyphTopLeft}{paddedTitle}{glyphTopRight}{Default}");
             } else {
-                Console.WriteInterpolated($"{Default}{Cyan}┌{rule}┐{Default}");
+                Console.WriteInterpolated($"{Default}{Cyan}{glyphTopLeft}{rule}{glyphTopRight}{Default}");
             }
             Console.SetCursorPosition(left, ++top);
+
             Dialog.messageBuilder();
-            top = Console.CursorTop;
-            Console.SetCursorPosition(left, top);
-            Console.WriteLineInterpolated($"{Cyan}└{rule}┘{Default}");
+            Console.WriteInterpolated($"{new WhiteSpace(left)}{Cyan}{glyphBottomLeft}{rule}{glyphBottomRight}{Default}");
 
             IsOpen = true;
         }
