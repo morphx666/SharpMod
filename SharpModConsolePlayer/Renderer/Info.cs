@@ -5,7 +5,7 @@ using static PrettyConsole.Color;
 namespace SharpModConsolePlayer.Renderer {
     internal static class Info {
         internal const int InfoRow = 0;
-        private const int TitleWidth = 24;
+        internal const int TitleWidth = 24;
 
         internal static void Render(SoundFile sf) {
             int width = Console.WindowWidth;
@@ -16,32 +16,24 @@ namespace SharpModConsolePlayer.Renderer {
             else title = title.PadRight(TitleWidth);
 
             int remaining = width;
-            string s0 = ClipSegment(" ", ref remaining);
-            string s1 = ClipSegment(string.Concat(title, " "), ref remaining);
-            string s2 = ClipSegment("| ", ref remaining);
-            string s3 = ClipSegment("Type:", ref remaining);
+            string s0 = Channel.ClipSegment(" ", ref remaining);
+            string s1 = Channel.ClipSegment(string.Concat(title, " "), ref remaining);
+            string s2 = Channel.ClipSegment("| ", ref remaining);
+            string s3 = Channel.ClipSegment("Type:", ref remaining);
             string typeStr = sf.Type.ToString();
             if(typeStr.Length > 3) typeStr = typeStr[..3];
-            string s4 = ClipSegment($" {typeStr,-3}  ", ref remaining);
-            string s5 = ClipSegment("Channels:", ref remaining);
-            string s6 = ClipSegment($" {sf.ActiveChannels,2}  ", ref remaining);
-            string s7 = ClipSegment("Pattern:", ref remaining);
-            string s8 = ClipSegment($" {sf.CurrentPattern,3}  ", ref remaining);
-            string s9 = ClipSegment("Row:", ref remaining);
-            string s10 = ClipSegment($" {sf.Row,2}  ", ref remaining);
-            string s11 = ClipSegment("Tempo/Speed:", ref remaining);
-            string s12 = ClipSegment($" {sf.MusicTempo,3}/{sf.MusicSpeed,3}", ref remaining);
+            string s4 = Channel.ClipSegment($" {typeStr,-3}  ", ref remaining);
+            string s5 = Channel.ClipSegment("Channels:", ref remaining);
+            string s6 = Channel.ClipSegment($" {sf.ActiveChannels,2}  ", ref remaining);
+            string s7 = Channel.ClipSegment("Pattern:", ref remaining);
+            string s8 = Channel.ClipSegment($" {sf.CurrentPattern,3}  ", ref remaining);
+            string s9 = Channel.ClipSegment("Row:", ref remaining);
+            string s10 = Channel.ClipSegment($" {sf.Row,2}  ", ref remaining);
+            string s11 = Channel.ClipSegment("Tempo/Speed:", ref remaining);
+            string s12 = Channel.ClipSegment($" {sf.MusicTempo,3}/{sf.MusicSpeed,3}", ref remaining);
 
             Console.SetCursorPosition(0, InfoRow);
             Console.WriteInterpolated($"{Default}{s0}{Magenta}{s1}{DarkGray}{s2}{Cyan}{s3}{White}{s4}{Cyan}{s5}{White}{s6}{Cyan}{s7}{White}{s8}{Cyan}{s9}{White}{s10}{Cyan}{s11}{White}{s12}{Default}");
-        }
-
-        private static string ClipSegment(string s, ref int remaining) {
-            if(remaining <= 0) return string.Empty;
-            if(remaining >= s.Length) { remaining -= s.Length; return s; }
-            string clipped = s[..remaining];
-            remaining = 0;
-            return clipped;
         }
     }
 }

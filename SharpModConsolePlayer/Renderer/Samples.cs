@@ -29,6 +29,7 @@ namespace SharpModConsolePlayer.Renderer {
 
         private static void RenderHeader(SoundFile sf, int width) {
             Console.SetCursorPosition(0, HeaderRow);
+            Console.WriteLineInterpolated($"{Default}{Magenta} │{DarkMagenta}{new WhiteSpace(Info.TitleWidth)}{DarkGray}|{Default}");
             Console.WriteInterpolated($"{Default}{Magenta} └{DarkMagenta}{sf.FileName}{Default}");
 
             Console.SetCursorPosition(0, HeaderRow + 2);

@@ -195,7 +195,7 @@ namespace SharpModConsolePlayer.Renderer {
             }
         }
 
-        private static string ClipSegment(string s, ref int remaining) {
+        internal static string ClipSegment(string s, ref int remaining) {
             if(remaining <= 0) return string.Empty;
             if(remaining >= s.Length) { remaining -= s.Length; return s; }
             string clipped = s[..remaining];

@@ -20,7 +20,7 @@ namespace SharpModConsolePlayer.Renderer {
             if(total == 0) total = 1;
             if(pos > total) pos = total;
 
-            int filled = (int)((long)pos * width / total);
+            int filled = (int)(pos * width / total);
             if(filled < 0) filled = 0;
             if(filled > width) filled = width;
             int empty = width - filled;
