@@ -5,7 +5,11 @@ namespace SharpModConsolePlayer.Renderer {
     internal static class ConsoleRenderer {
         private const int ChannelWidth = 20;
         private const uint PreviousPatternRowThreshold = 1;
-        private enum ViewMode { Patterns, Samples }
+        internal enum ViewMode {
+            Any,
+            Patterns,
+            Samples
+        }
 
         internal static void InitializeConsole() {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -18,7 +22,7 @@ namespace SharpModConsolePlayer.Renderer {
             Console.CursorVisible = true;
         }
 
-        internal static async Task RenderLoop(Func<SoundFile?> getSoundFile, bool showSampleProgress) {
+        internal static async Task RenderLoop(Func<SoundFile?> getSoundFile) {
             int fromChannel = 0;
             int fromSample = 0;
             uint lastRow = uint.MaxValue;
@@ -30,7 +34,7 @@ namespace SharpModConsolePlayer.Renderer {
             SoundFile? lastSoundFile = null;
 
             while(true) {
-                await Task.Delay(30);
+                await Task.Delay(16);
 
                 SoundFile? sf = getSoundFile();
                 if(sf == null) continue;
@@ -62,10 +66,8 @@ namespace SharpModConsolePlayer.Renderer {
                 try {
                     if(mode == ViewMode.Samples) {
                         Info.Render(sf);
-                        if(forceRedraw || showSampleProgress) {
-                            Samples.Render(sf, showSampleProgress, fromSample);
-                            forceRedraw = false;
-                        }
+                        Samples.Render(sf, fromSample, forceRedraw);
+                        forceRedraw = false;
                     } else {
                         RenderHeaderAndVuMeters(sf, fromChannel);
 
@@ -135,6 +137,7 @@ namespace SharpModConsolePlayer.Renderer {
                         fromChannel = Math.Min(MaxFromChannel(sf), fromChannel + 1);
                         break;
                     case ConsoleKey.Tab:
+                        if(Dialog.IsOpen) Dialog.Close();
                         mode = mode == ViewMode.Patterns ? ViewMode.Samples : ViewMode.Patterns;
                         Console.Clear();
                         forceRedraw = true;
@@ -146,10 +149,10 @@ namespace SharpModConsolePlayer.Renderer {
                         break;
                     case ConsoleKey.DownArrow:
                         if(mode == ViewMode.Samples) {
-                            fromSample = Math.Min(sf.Instruments.Length - 1, fromSample + 1);
-                            if(fromSample + Console.WindowHeight - Samples.FirstSampleRow >= sf.Instruments.Length - 1) {
-                                fromSample = Math.Max(0, sf.Instruments.Length - Console.WindowHeight + Samples.FirstSampleRow);
-                            }
+                            int rps = Math.Max(1, Math.Clamp(Samples.RowsPerSample, 0, 3));
+                            int visibleSamples = Math.Max(1, (Console.WindowHeight - 1 - Samples.FirstSampleRow) / rps);
+                            int maxFromSample = Math.Max(0, sf.Instruments.Length - 1 - visibleSamples);
+                            fromSample = Math.Min(maxFromSample, fromSample + 1);
                         }
                         break;
                     case ConsoleKey.PageUp: {
@@ -198,8 +201,15 @@ namespace SharpModConsolePlayer.Renderer {
                             forceRedraw = true;
                             break;
                         }
-                        Dialog.SetMessage(" Shortcuts ", 74, 12, () => Cli.PrintKeyBindings($"│ ", $" │"));
+                        ViewMode dialogMode = mode;
+                        Dialog.SetMessage(" Shortcuts ", 74, 12, () => Cli.PrintKeyBindings($"│ ", $" │", dialogMode));
                         Dialog.ShowMessage();
+                        break;
+                    case ConsoleKey.H:
+                        Samples.RowsPerSample = (Samples.RowsPerSample + 1) % 4;
+                        break;
+                    case ConsoleKey.M:
+                        Samples.ShowMetadata = !Samples.ShowMetadata;
                         break;
                     default:
                         if(info.Modifiers.HasFlag(ConsoleModifiers.Control)) {

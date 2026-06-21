@@ -1,6 +1,8 @@
 using System.Reflection;
 using PrettyConsole;
+using SharpModConsolePlayer.Renderer;
 using static PrettyConsole.Color;
+using static SharpModConsolePlayer.Renderer.ConsoleRenderer;
 
 namespace SharpModConsolePlayer {
     internal class Cli {
@@ -10,29 +12,35 @@ namespace SharpModConsolePlayer {
         internal int BitDepth { get; init; } = 16;
         internal int Channels { get; init; } = 2;
         internal bool Loop { get; init; } = false;
-        internal bool ShowSampleProgress { get; init; } = true;
         internal bool Randomize { get; init; } = false;
         internal string ExportPath { get; init; } = string.Empty;
+        internal int SampleHeight { get; init; } = 0;
+        internal bool ShowMetadata { get; init; } = true;
 
         private static readonly int[] ValidSampleRates = [8000, 11025, 16000, 22050, 32000, 44100, 48000, 88200, 96000];
         private static readonly int[] ValidBitDepths = [8, 16];
+        private static readonly int[] ValidSampleHeights = [0, 1, 2, 3];
 
         private const int KeyColumnWidth = 25;
         private const int DescColumnWidth = 45;
 
         // KeyVisibleWidth must be kept in sync by hand with the visible character count of each row's WriteKey lambda.
-        private static readonly (int KeyVisibleWidth, string Description, Action WriteKey)[] keyBindings = [
-            (2,  "Show this help",                             () => Console.WriteInterpolated($"{Green}F1{Default}")),
-            (3,  "Toggle between patterns and samples view.",  () => Console.WriteInterpolated($"{Green}Tab{Default}")),
-            (5,  "Toggle pause",                               () => Console.WriteInterpolated($"{Green}Space{Default}")),
-            (12, "Scroll channels horizontally",               () => Console.WriteInterpolated($"{Green}Left{Default} / {Green}Right{Default}")),
-            (9,  "Scroll samples vertically",                  () => Console.WriteInterpolated($"{Green}Up{Default} / {Green}Down{Default}")),
-            (17, "Seek track backward/forward",                () => Console.WriteInterpolated($"{Green}PageUp{Default} / {Green}PageDown{Default}")),
-            (10, "Jump to previous/next file in the playlist", () => Console.WriteInterpolated($"{Green}Home{Default} / {Green}End{Default}")),
-            (5,  "Toggle mute on channels 1-9",                () => Console.WriteInterpolated($"{Green}1{Default} - {Green}9{Default}")),
-            (13, "Toggle mute on channels 10-18",              () => Console.WriteInterpolated($"{Green}Shift{Default} + {Green}1{Default} - {Green}9{Default}")),
-            (12, "Toggle mute on channels 19-27",              () => Console.WriteInterpolated($"{Green}Ctrl{Default} + {Green}1{Default} - {Green}9{Default}")),
-            (7,  "Stop playback and exit",                     () => Console.WriteInterpolated($"{Green}Esc {Default}| {Green}Q{Default}")),
+        private static readonly (ViewMode Mode, int KeyVisibleWidth, string Description, Action WriteKey)[] keyBindings = [
+            (ViewMode.Any, 3,  "Toggle between patterns and samples view.",  () => Console.WriteInterpolated($"{Green}Tab{Default}")),
+            (ViewMode.Any, 2,  "Show this help",                             () => Console.WriteInterpolated($"{Green}F1{Default}")),
+            (ViewMode.Any, 5,  "Toggle pause",                               () => Console.WriteInterpolated($"{Green}Space{Default}")),
+            (ViewMode.Any, 12, "Scroll channels horizontally",               () => Console.WriteInterpolated($"{Green}Left{Default} / {Green}Right{Default}")),
+            (ViewMode.Any, 9,  "Scroll samples vertically",                  () => Console.WriteInterpolated($"{Green}Up{Default} / {Green}Down{Default}")),
+            (ViewMode.Any, 17, "Seek track backward/forward",                () => Console.WriteInterpolated($"{Green}PageUp{Default} / {Green}PageDown{Default}")),
+            (ViewMode.Any, 10, "Jump to previous/next file in the playlist", () => Console.WriteInterpolated($"{Green}Home{Default} / {Green}End{Default}")),
+            (ViewMode.Any, 5,  "Toggle mute on channels 1-9",                () => Console.WriteInterpolated($"{Green}1{Default} - {Green}9{Default}")),
+            (ViewMode.Any, 13, "Toggle mute on channels 10-18",              () => Console.WriteInterpolated($"{Green}Shift{Default} + {Green}1{Default} - {Green}9{Default}")),
+            (ViewMode.Any, 12, "Toggle mute on channels 19-27",              () => Console.WriteInterpolated($"{Green}Ctrl{Default} + {Green}1{Default} - {Green}9{Default}")),
+            (ViewMode.Any, 7,  "Stop playback and exit",                     () => Console.WriteInterpolated($"{Green}Esc{Default} | {Green}Q{Default}")),
+
+            (ViewMode.Samples, 0,  "--------------------------------------", () => { }),
+            (ViewMode.Samples, 1,  "Cycle waveform display modes",           () => Console.WriteInterpolated($"{Green}H{Default}")),
+            (ViewMode.Samples, 1,  "Toggle sample metadata",                 () => Console.WriteInterpolated($"{Green}M{Default}")),
         ];
 
         internal static Cli? Parse(string[] args) {
@@ -45,9 +53,10 @@ namespace SharpModConsolePlayer {
             int sampleRate = 44100;
             int bitDepth = 16;
             bool loop = false;
-            bool showSampleProgress = true;
             string exportPath = string.Empty;
             bool randomize = false;
+            int sampleHeight = 0;
+            bool showMetadata = true;
 
             for(int i = 0; i < args.Length; i++) {
                 string a = args[i];
@@ -68,11 +77,7 @@ namespace SharpModConsolePlayer {
                     case "--loop":
                         loop = true;
                         break;
-                    case "-P":
-                    case "--no-sample-progress":
-                        showSampleProgress = false;
-                        break;
-                    case "-o":
+                    case "-x":
                     case "--export":
                         if(i + 1 >= args.Length) { PrintError($"Option {a} requires a path."); return null; }
                         exportPath = args[++i];
@@ -80,6 +85,14 @@ namespace SharpModConsolePlayer {
                     case "-z":
                     case "--randomize":
                         randomize = true;
+                        break;
+                    case "-H":
+                    case "--sample-height":
+                        if(!TryReadIntOption(args, ref i, a, ValidSampleHeights, out sampleHeight)) return null;
+                        break;
+                    case "-m":
+                    case "--no-metadata":
+                        showMetadata = false;
                         break;
                     default:
                         if(a.StartsWith('-')) {
@@ -104,9 +117,10 @@ namespace SharpModConsolePlayer {
                 SampleRate = sampleRate,
                 BitDepth = bitDepth,
                 Loop = loop,
-                ShowSampleProgress = showSampleProgress,
                 ExportPath = exportPath,
-                Randomize = randomize
+                Randomize = randomize,
+                SampleHeight = sampleHeight,
+                ShowMetadata = showMetadata
             };
         }
 
@@ -157,9 +171,11 @@ namespace SharpModConsolePlayer {
             Console.WriteLineInterpolated($"  {Green}-b{Default}, {Green}--bit-depth{Default} {DarkGray}<n>{Default}      Output bit depth. Default: {White}16{Default}");
             Console.WriteLineInterpolated($"                              Valid: {DarkGray}8, 16{Default}");
             Console.WriteLineInterpolated($"  {Green}-l{Default}, {Green}--loop{Default}               Loop the track when it ends");
-            Console.WriteLineInterpolated($"  {Green}-P{Default}, {Green}--no-sample-progress{Default} Disable the in-name playback progress bar in the samples view");
-            Console.WriteLineInterpolated($"  {Green}-o{Default}, {Green}--export{Default} {DarkGray}<path>{Default}      Render the track to a WAV file at {DarkGray}<path>{Default} (no live playback)");
+            Console.WriteLineInterpolated($"  {Green}-x{Default}, {Green}--export{Default} {DarkGray}<path>{Default}      Render the track to a WAV file at {DarkGray}<path>{Default} (no live playback)");
             Console.WriteLineInterpolated($"  {Green}-z{Default}, {Green}--randomize{Default}          Randomize the order of files in the playlist");
+            Console.WriteLineInterpolated($"  {Green}-H{Default}, {Green}--sample-height{Default} {DarkGray}<n>{Default}  Console rows per sample waveform. Default: {White}0{Default} ({DarkGray}0 hides the waveform{Default})");
+            Console.WriteLineInterpolated($"                              Valid: {DarkGray}0, 1, 2, 3{Default}");
+            Console.WriteLineInterpolated($"  {Green}-m{Default}, {Green}--no-metadata{Default}        Hide sample metadata columns (Length, Vol, Fmt, LoopStart, LoopEnd)");
             Console.WriteLineInterpolated($"  {Green}-h{Default}, {Green}--help{Default}               Show this help and exit");
             Console.NewLine();
 
@@ -173,18 +189,19 @@ namespace SharpModConsolePlayer {
             Console.NewLine();
 
             Console.WriteLineInterpolated($"{Yellow}KEYS{Default}");
-            PrintKeyBindings("  ");
+            PrintKeyBindings(prefix: "  ", mode: ViewMode.Patterns);
         }
 
-        internal static void PrintKeyBindings(string prefix = "", string suffix = "") {
+        internal static void PrintKeyBindings(string prefix = "", string suffix = "", ViewMode mode = ViewMode.Any) {
             int col = Console.CursorLeft;
             int row = Console.CursorTop;
             for(int i = 0; i < keyBindings.Length; i++) {
-                var (keyWidth, description, writeKey) = keyBindings[i];
+                var (viewMode, vkeyWidth, description, writeKey) = keyBindings[i];
+                if(viewMode != ViewMode.Any && viewMode != mode) continue;
                 Console.SetCursorPosition(col, row + i);
                 Console.WriteInterpolated($"{Cyan}{prefix}{Default}");
                 writeKey();
-                Console.WriteLineInterpolated($"{new WhiteSpace(KeyColumnWidth - keyWidth)}{description}{new WhiteSpace(DescColumnWidth - description.Length)}{Cyan}{suffix}{Default}");
+                Console.WriteLineInterpolated($"{new WhiteSpace(KeyColumnWidth - vkeyWidth)}{description}{new WhiteSpace(DescColumnWidth - description.Length)}{Cyan}{suffix}{Default}");
             }
         }
     }

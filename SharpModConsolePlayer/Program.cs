@@ -56,7 +56,9 @@ namespace SharpModConsolePlayer {
             }
 
             ConsoleRenderer.InitializeConsole();
-            _ = Task.Run(() => ConsoleRenderer.RenderLoop(() => currentSoundFile, cli.ShowSampleProgress));
+            Samples.RowsPerSample = cli.SampleHeight;
+            Samples.ShowMetadata = cli.ShowMetadata;
+            _ = Task.Run(() => ConsoleRenderer.RenderLoop(() => currentSoundFile));
 
             OpenAlStreamPlayer.PlaylistCount = filesToPlay.Count;
             int idx = 0;
