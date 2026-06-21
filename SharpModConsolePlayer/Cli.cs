@@ -71,7 +71,7 @@ namespace SharpModConsolePlayer {
                     case "--loop":
                         loop = true;
                         break;
-                    case "-o":
+                    case "-x":
                     case "--export":
                         if(i + 1 >= args.Length) { PrintError($"Option {a} requires a path."); return null; }
                         exportPath = args[++i];
@@ -165,7 +165,7 @@ namespace SharpModConsolePlayer {
             Console.WriteLineInterpolated($"  {Green}-b{Default}, {Green}--bit-depth{Default} {DarkGray}<n>{Default}      Output bit depth. Default: {White}16{Default}");
             Console.WriteLineInterpolated($"                              Valid: {DarkGray}8, 16{Default}");
             Console.WriteLineInterpolated($"  {Green}-l{Default}, {Green}--loop{Default}               Loop the track when it ends");
-            Console.WriteLineInterpolated($"  {Green}-o{Default}, {Green}--export{Default} {DarkGray}<path>{Default}      Render the track to a WAV file at {DarkGray}<path>{Default} (no live playback)");
+            Console.WriteLineInterpolated($"  {Green}-x{Default}, {Green}--export{Default} {DarkGray}<path>{Default}      Render the track to a WAV file at {DarkGray}<path>{Default} (no live playback)");
             Console.WriteLineInterpolated($"  {Green}-z{Default}, {Green}--randomize{Default}          Randomize the order of files in the playlist");
             Console.WriteLineInterpolated($"  {Green}-H{Default}, {Green}--sample-height{Default} {DarkGray}<n>{Default}  Console rows per sample waveform. Default: {White}2{Default} ({DarkGray}0 hides the waveform{Default})");
             Console.WriteLineInterpolated($"                              Valid: {DarkGray}0, 1, 2, 3{Default}");

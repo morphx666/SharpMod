@@ -26,27 +26,65 @@ namespace SharpModConsolePlayer.Renderer {
         // Length/Vol/Fmt/LoopStart/LoopEnd column block for additional waveform real estate.
         internal static bool ShowMetadata { get; set; } = false;
 
-        internal static void Render(SoundFile sf, int fromSample = 0) {
+        // Per-instrument cached braille rows. The waveform itself never changes while a track
+        // plays, so we render each sample at most once and reuse the strings across frames.
+        // Invalidated whenever the song, terminal width, row count, or metadata-visibility
+        // changes (the layout would shift and existing entries would no longer line up).
+        private static SoundFile? cachedSoundFile;
+        private static int cachedWidth;
+        private static int cachedWaveformRowCount;
+        private static bool cachedShowMetadata;
+        private static int cachedFromSample;
+        private static string[]?[] waveformCache = [];
+        // Per visible-slot list of cursor character columns drawn on the previous frame.
+        // Diffing against the current frame's cursor columns lets us only touch the cells
+        // that actually changed, keeping high-FPS frames cheap on the terminal.
+        private static int[]?[] cursorCache = [];
+
+        internal static void Render(SoundFile sf, int fromSample, bool forceRedraw) {
             int width = Console.WindowWidth;
             int height = Console.WindowHeight - 1; // reserve last row for the song progress bar
             if(width <= 0) return;
             int waveformRowCount = Math.Clamp(RowsPerSample, 0, 3);
             int rowsPerSample = Math.Max(1, waveformRowCount);
 
-            RenderHeader(sf, width);
+            bool waveformCacheStale = !ReferenceEquals(sf, cachedSoundFile)
+                || width != cachedWidth
+                || waveformRowCount != cachedWaveformRowCount
+                || ShowMetadata != cachedShowMetadata;
+            bool fullRedraw = forceRedraw || waveformCacheStale || fromSample != cachedFromSample;
+
+            if(waveformCacheStale) {
+                int n = sf.Instruments?.Length ?? 0;
+                waveformCache = new string[n][];
+            }
+            cachedSoundFile = sf;
+            cachedWidth = width;
+            cachedWaveformRowCount = waveformRowCount;
+            cachedShowMetadata = ShowMetadata;
+            cachedFromSample = fromSample;
 
             int total = sf.Instruments != null ? sf.Instruments.Length - 1 : 0;
             int maxConsoleRows = Math.Max(0, height - FirstSampleRow);
             int maxSamples = maxConsoleRows / rowsPerSample;
             int rendered = Math.Max(0, Math.Min(total - fromSample, maxSamples));
 
-            for(int i = 0; i < rendered; i++) {
-                RenderSample(sf, i + 1 + fromSample, FirstSampleRow + i * rowsPerSample, width, waveformRowCount);
+            if(cursorCache.Length != rendered) {
+                cursorCache = new int[rendered][];
+                fullRedraw = true;
             }
-            int firstClearRow = FirstSampleRow + rendered * rowsPerSample;
-            int lastRow = FirstSampleRow + maxConsoleRows;
-            for(int r = firstClearRow; r < lastRow; r++) {
-                ClearRow(r, width);
+
+            if(fullRedraw) RenderHeader(sf, width);
+
+            for(int i = 0; i < rendered; i++) {
+                RenderSample(sf, i, i + 1 + fromSample, FirstSampleRow + i * rowsPerSample, width, waveformRowCount, fullRedraw);
+            }
+            if(fullRedraw) {
+                int firstClearRow = FirstSampleRow + rendered * rowsPerSample;
+                int lastRow = FirstSampleRow + maxConsoleRows;
+                for(int r = firstClearRow; r < lastRow; r++) {
+                    ClearRow(r, width);
+                }
             }
         }
 
@@ -79,37 +117,54 @@ namespace SharpModConsolePlayer.Renderer {
             Console.WriteInterpolated($"{Default}{Yellow}{text}{new WhiteSpace(pad)}{Default}");
         }
 
-        private static void RenderSample(SoundFile sf, int index, int row, int width, int waveformRowCount) {
+        private static void RenderSample(SoundFile sf, int slot, int index, int row, int width, int waveformRowCount, bool fullRedraw) {
             var ins = sf.Instruments[index];
-            string name = SanitizeName(ins.Name ?? string.Empty);
-            if(name.Length > NameWidth) name = name[..NameWidth];
-            else name = name.PadRight(NameWidth);
-
             bool empty = ins.Length == 0 || ins.Sample == null;
-            AnsiToken nameColor = empty ? DarkGray : White;
-            AnsiToken numColor = empty ? DarkGray : Cyan;
-            AnsiToken fmtColor = empty ? DarkGray : Blue;
-
-            string fmt = empty ? "    " : $"{(ins.Is16Bit ? "16" : " 8")}/{(ins.IsStereo ? "S" : "M")}";
-
-            // Metadata sits on the top sub-row in 0/1/2-row modes and the middle sub-row in 3-row mode.
             int rowsPerSample = Math.Max(1, waveformRowCount);
             int metadataSubRow = waveformRowCount == 3 ? 1 : 0;
             int prefixWidth = ShowMetadata ? FullMetadataWidth : BasePrefixWidth;
             int waveformCharWidth = waveformRowCount == 0 ? 0 : Math.Max(0, width - prefixWidth - WaveformLeftMargin);
             int waveformPxWidth = waveformCharWidth * 2;
 
-            string[] waveformRows;
-            int[] cursorCols;
-            if(empty || waveformCharWidth == 0 || waveformRowCount == 0) {
-                waveformRows = new string[waveformRowCount];
-                string blank = new(' ', waveformCharWidth);
-                for(int i = 0; i < waveformRowCount; i++) waveformRows[i] = blank;
-                cursorCols = [];
+            string[] waveformRows = GetOrRenderWaveformRows(ins, index, empty, waveformCharWidth, waveformRowCount);
+            int[] cursorPixels = (empty || waveformCharWidth == 0 || waveformRowCount == 0)
+                ? []
+                : ComputeCursorPixels(sf, index, waveformPxWidth);
+
+            if(fullRedraw) {
+                PaintSampleFull(ins, index, row, width, waveformRowCount, rowsPerSample, metadataSubRow, prefixWidth, waveformCharWidth, empty, waveformRows, cursorPixels);
             } else {
-                waveformRows = RenderWaveform(ins, waveformCharWidth, waveformRowCount);
-                cursorCols = ComputeCursorColumns(sf, index, waveformPxWidth);
+                int[] prev = cursorCache[slot] ?? [];
+                PaintCursorDelta(row, width, rowsPerSample, prefixWidth, waveformRows, prev, cursorPixels);
             }
+            cursorCache[slot] = cursorPixels;
+        }
+
+        // Look up or lazily render the braille rows for the given sample under the current
+        // layout. Empty/no-data instruments and the 0-row layout share a fast blank path that
+        // doesn't allocate per-frame strings.
+        private static string[] GetOrRenderWaveformRows(SoundFile.ModInstrument ins, int index, bool empty, int waveformCharWidth, int waveformRowCount) {
+            if(empty || waveformCharWidth == 0 || waveformRowCount == 0) {
+                string[] blanks = new string[waveformRowCount];
+                string blank = new(' ', waveformCharWidth);
+                for(int i = 0; i < waveformRowCount; i++) blanks[i] = blank;
+                return blanks;
+            }
+            if(index < waveformCache.Length && waveformCache[index] is { } cached) return cached;
+            string[] rows = RenderWaveform(ins, waveformCharWidth, waveformRowCount);
+            if(index < waveformCache.Length) waveformCache[index] = rows;
+            return rows;
+        }
+
+        private static void PaintSampleFull(SoundFile.ModInstrument ins, int index, int row, int width, int waveformRowCount, int rowsPerSample, int metadataSubRow, int prefixWidth, int waveformCharWidth, bool empty, string[] waveformRows, int[] cursorPixels) {
+            string name = SanitizeName(ins.Name ?? string.Empty);
+            if(name.Length > NameWidth) name = name[..NameWidth];
+            else name = name.PadRight(NameWidth);
+
+            AnsiToken nameColor = empty ? DarkGray : White;
+            AnsiToken numColor = empty ? DarkGray : Cyan;
+            AnsiToken fmtColor = empty ? DarkGray : Blue;
+            string fmt = empty ? "    " : $"{(ins.Is16Bit ? "16" : " 8")}/{(ins.IsStereo ? "S" : "M")}";
 
             for(int r = 0; r < rowsPerSample; r++) {
                 Console.SetCursorPosition(0, row + r);
@@ -138,14 +193,99 @@ namespace SharpModConsolePlayer.Renderer {
                         Console.WriteInterpolated($"{Default}{new WhiteSpace(width)}");
                     }
                 }
-                // Overlay channel play-position cursors over the waveform area.
-                for(int k = 0; k < cursorCols.Length; k++) {
-                    int absCol = prefixWidth + WaveformLeftMargin + cursorCols[k];
-                    if(absCol < width) {
-                        Console.SetCursorPosition(absCol, row + r);
-                        Console.WriteInterpolated($"{Yellow}┃{Default}");
-                    }
+            }
+            Span<int> cellCols = stackalloc int[32];
+            Span<byte> cellMasks = stackalloc byte[32];
+            int cellCount = GroupCursorsByCell(cursorPixels, cellCols, cellMasks);
+            for(int k = 0; k < cellCount; k++) {
+                int col = cellCols[k];
+                int absCol = prefixWidth + WaveformLeftMargin + col;
+                if(absCol >= width) continue;
+                PaintCursorCell(absCol, row, rowsPerSample, cellMasks[k], waveformRows, col);
+            }
+        }
+
+        // Repaint only the cells whose cursor state changed since the previous frame. Cursors
+        // are tracked at pixel resolution (2 pixels per braille cell), grouped per cell into a
+        // (col, sideMask) pair where sideMask bit 0 = cursor on the left dot column and bit 1
+        // = cursor on the right dot column. Cells whose mask changes get the composite glyph
+        // repainted; cells removed entirely get the cached waveform glyph (in cyan) written
+        // back; cells with identical state are left untouched so the terminal sees the minimum
+        // possible write volume.
+        private static void PaintCursorDelta(int row, int width, int rowsPerSample, int prefixWidth, string[] waveformRows, int[] prev, int[] curr) {
+            if(waveformRows.Length == 0) return;
+            Span<int> prevCols = stackalloc int[32];
+            Span<byte> prevMasks = stackalloc byte[32];
+            int prevN = GroupCursorsByCell(prev, prevCols, prevMasks);
+            Span<int> currCols = stackalloc int[32];
+            Span<byte> currMasks = stackalloc byte[32];
+            int currN = GroupCursorsByCell(curr, currCols, currMasks);
+
+            for(int i = 0; i < prevN; i++) {
+                int col = prevCols[i];
+                int absCol = prefixWidth + WaveformLeftMargin + col;
+                if(absCol >= width) continue;
+                int j = -1;
+                for(int k = 0; k < currN; k++) if(currCols[k] == col) { j = k; break; }
+                if(j < 0) {
+                    RestoreWaveformCell(absCol, row, rowsPerSample, waveformRows, col);
+                } else if(currMasks[j] != prevMasks[i]) {
+                    PaintCursorCell(absCol, row, rowsPerSample, currMasks[j], waveformRows, col);
                 }
+            }
+            for(int j = 0; j < currN; j++) {
+                int col = currCols[j];
+                int absCol = prefixWidth + WaveformLeftMargin + col;
+                if(absCol >= width) continue;
+                bool inPrev = false;
+                for(int k = 0; k < prevN; k++) if(prevCols[k] == col) { inPrev = true; break; }
+                if(!inPrev) PaintCursorCell(absCol, row, rowsPerSample, currMasks[j], waveformRows, col);
+            }
+        }
+
+        // Collapse a deduped list of cursor pixel columns into per-cell (charCol, sideMask)
+        // entries. sideMask bit 0 = left-of-cell pixel, bit 1 = right-of-cell pixel; two
+        // cursors landing on opposite halves of the same cell merge into mask 3 (full block).
+        private static int GroupCursorsByCell(int[] pixels, Span<int> cols, Span<byte> masks) {
+            int n = 0;
+            for(int i = 0; i < pixels.Length && n < cols.Length; i++) {
+                int px = pixels[i];
+                int col = px >> 1;
+                byte sideBit = (byte)(1 << (px & 1));
+                int existing = -1;
+                for(int k = 0; k < n; k++) if(cols[k] == col) { existing = k; break; }
+                if(existing >= 0) masks[existing] |= sideBit;
+                else { cols[n] = col; masks[n] = sideBit; n++; }
+            }
+            return n;
+        }
+
+        // Paint a single character cell whose dot column(s) are occupied by play-head cursors.
+        // The cursor's side fills all four vertical dots in that column (the 0x47 / 0xB8 masks
+        // for left / right), while the *other* side keeps the underlying waveform dots so the
+        // shape remains visible. The whole cell renders in yellow since terminals only support
+        // one foreground colour per character.
+        private static void PaintCursorCell(int absCol, int row, int rowsPerSample, byte sideMask, string[] waveformRows, int col) {
+            byte cursorDots = sideMask switch { 1 => 0x47, 2 => 0xB8, _ => 0xFF };
+            for(int r = 0; r < rowsPerSample; r++) {
+                Console.SetCursorPosition(absCol, row + r);
+                char composite;
+                if(r < waveformRows.Length && col < waveformRows[r].Length) {
+                    byte underlying = (byte)(waveformRows[r][col] - 0x2800);
+                    composite = (char)(0x2800 | (underlying & ~cursorDots) | cursorDots);
+                } else {
+                    composite = (char)(0x2800 | cursorDots);
+                }
+                Console.WriteInterpolated($"{Yellow}{composite}{Default}");
+            }
+        }
+
+        // Restore a cell to its cached waveform glyph (no cursor overlay).
+        private static void RestoreWaveformCell(int absCol, int row, int rowsPerSample, string[] waveformRows, int col) {
+            for(int r = 0; r < rowsPerSample; r++) {
+                Console.SetCursorPosition(absCol, row + r);
+                char glyph = waveformRows[r][col];
+                Console.WriteInterpolated($"{Cyan}{glyph}{Default}");
             }
         }
 
@@ -242,10 +382,12 @@ namespace SharpModConsolePlayer.Renderer {
             return l8;
         }
 
-        // Returns the distinct character columns (within the waveform area) where channel
-        // play-heads should be drawn. Cursors track the raw sample position over the full
-        // sample length so they sweep the whole waveform rather than just the loop region.
-        private static int[] ComputeCursorColumns(SoundFile sf, int instrumentIndex, int pxWidth) {
+        // Returns the distinct pixel columns (within the waveform area, 2 pixels per braille
+        // cell) where channel play-heads should be drawn. Cursors track the raw sample position
+        // over the full sample length so they sweep the whole waveform rather than just the
+        // loop region. Pixel resolution lets the cursor advance half-cell at a time, doubling
+        // the perceived smoothness compared to a character-aligned overlay.
+        private static int[] ComputeCursorPixels(SoundFile sf, int instrumentIndex, int pxWidth) {
             if(pxWidth <= 0) return [];
             var channels = sf.Channels;
             Span<int> tmp = stackalloc int[32];
@@ -257,10 +399,9 @@ namespace SharpModConsolePlayer.Renderer {
                 int px = (int)(ch.Pos * pxWidth / ch.Length);
                 if(px < 0) px = 0;
                 if(px >= pxWidth) px = pxWidth - 1;
-                int col = px / 2;
                 bool dup = false;
-                for(int k = 0; k < n; k++) if(tmp[k] == col) { dup = true; break; }
-                if(!dup) tmp[n++] = col;
+                for(int k = 0; k < n; k++) if(tmp[k] == px) { dup = true; break; }
+                if(!dup) tmp[n++] = px;
             }
             int[] result = new int[n];
             for(int i = 0; i < n; i++) result[i] = tmp[i];

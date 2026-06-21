@@ -30,7 +30,7 @@ namespace SharpModConsolePlayer.Renderer {
             SoundFile? lastSoundFile = null;
 
             while(true) {
-                await Task.Delay(30);
+                await Task.Delay(16);
 
                 SoundFile? sf = getSoundFile();
                 if(sf == null) continue;
@@ -62,7 +62,7 @@ namespace SharpModConsolePlayer.Renderer {
                 try {
                     if(mode == ViewMode.Samples) {
                         Info.Render(sf);
-                        Samples.Render(sf, fromSample);
+                        Samples.Render(sf, fromSample, forceRedraw);
                         forceRedraw = false;
                     } else {
                         RenderHeaderAndVuMeters(sf, fromChannel);
