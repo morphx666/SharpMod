@@ -45,10 +45,10 @@ namespace SharpModConsolePlayer.Renderer {
             string s5 = Channel.ClipSegment(bpmValue, ref remaining);
 
             Console.WriteLineInterpolated($"{Default}{Magenta} │{new WhiteSpace(Info.TitleWidth)}{DarkGray}|{Cyan}{s0}{DarkGray}{s1}{White}{s2}{Cyan}{s3}{DarkGray}{s4}{White}{s5}{Default}");
-            Console.WriteInterpolated($"{Default}{Magenta} └{sf.FileName}{Default}");
+            Console.WriteInterpolated($"{Default}{Magenta} └─{sf.FileName}{Default}");
 
             Console.SetCursorPosition(0, HeaderRow + 2);
-            string text = $"  #  {"Name",-NameWidth}    {"Length",6}   {"Vol",3}   {"Fmt",4}  {"LoopStart",9}  {"LoopEnd",7}";
+            string text = $"   #  {"Name",-NameWidth}    {"Length",6}   {"Vol",3}   {"Fmt",4}  {"LoopStart",9}  {"LoopEnd",7}";
             if(text.Length > width) text = text[..width];
             int pad = Math.Max(0, width - text.Length);
             Console.WriteInterpolated($"{Default}{Yellow}{text}{new WhiteSpace(pad)}{Default}");
@@ -71,11 +71,11 @@ namespace SharpModConsolePlayer.Renderer {
             string nameFilled = name[..filled];
             string nameRest = name[filled..];
 
-            string line = $" {index,2}  {name}    {ins.Length,6}   {ins.Volume,3}   {fmt,4}  {ins.LoopStart,9}  {ins.LoopEnd,7}";
+            string line = $" {index,3}  {name}    {ins.Length,6}   {ins.Volume,3}   {fmt,4}  {ins.LoopStart,9}  {ins.LoopEnd,7}";
             int pad = Math.Max(0, width - line.Length);
 
             Console.SetCursorPosition(0, row);
-            Console.WriteInterpolated($"{Default}{DarkGray} {index,2}  {nameColor}{DarkBlueBackground}{nameFilled}{DefaultBackground}{nameRest}    {numColor}{ins.Length,6}   {Green}{ins.Volume,3}   {fmtColor}{fmt,4}  {Magenta}{ins.LoopStart,9}  {ins.LoopEnd,7}{Default}{new WhiteSpace(pad)}");
+            Console.WriteInterpolated($"{Default}{DarkGray} {index,3}  {nameColor}{DarkBlueBackground}{nameFilled}{DefaultBackground}{nameRest}    {numColor}{ins.Length,6}   {Green}{ins.Volume,3}   {fmtColor}{fmt,4}  {Magenta}{ins.LoopStart,9}  {ins.LoopEnd,7}{Default}{new WhiteSpace(pad)}");
         }
 
         private static int ComputeProgressChars(SoundFile sf, int instrumentIndex) {
