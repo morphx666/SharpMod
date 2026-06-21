@@ -16,15 +16,16 @@ namespace SharpModConsolePlayer.Renderer {
         private const int WaveformLeftMargin = 2;
 
         // Number of waveform rows drawn per sample entry; supported values are 0 (hide the
-        // waveform entirely, one compact row per sample), 1 (waveform shares the row with the
-        // metadata), 2 (name top-aligned with the 2 waveform rows) and 3 (name centered on the
-        // middle of the 3 waveform rows). Settable by the host so a CLI flag can override the
-        // default.
-        internal static int RowsPerSample { get; set; } = 2;
+        // waveform entirely, one compact row per sample with a DarkBlue progress overlay
+        // behind the name), 1 (waveform shares the row with the metadata), 2 (name top-aligned
+        // with the 2 waveform rows) and 3 (name centered on the middle of the 3 waveform
+        // rows). Settable by the host so a CLI flag can override the default.
+        internal static int RowsPerSample { get; set; } = 0;
 
-        // When false (the default) only the index and name precede the waveform, freeing the
-        // Length/Vol/Fmt/LoopStart/LoopEnd column block for additional waveform real estate.
-        internal static bool ShowMetadata { get; set; } = false;
+        // When true (the default) the row prefix carries the full metadata block
+        // (Length/Vol/Fmt/LoopStart/LoopEnd); when false only the index and name precede the
+        // waveform, freeing those columns for additional waveform real estate.
+        internal static bool ShowMetadata { get; set; } = true;
 
         // Per-instrument cached braille rows. The waveform itself never changes while a track
         // plays, so we render each sample at most once and reuse the strings across frames.
@@ -126,8 +127,16 @@ namespace SharpModConsolePlayer.Renderer {
             int waveformCharWidth = waveformRowCount == 0 ? 0 : Math.Max(0, width - prefixWidth - WaveformLeftMargin);
             int waveformPxWidth = waveformCharWidth * 2;
 
+            if(waveformRowCount == 0) {
+                // -H 0: dense one-row layout with no waveform. Overlay a DarkBlue progress fill
+                // behind the name field so playback still has a visible motion indicator. Repaint
+                // every frame since the fill width tracks per-channel sample position.
+                PaintProgressRow(sf, ins, index, row, width, empty);
+                return;
+            }
+
             string[] waveformRows = GetOrRenderWaveformRows(ins, index, empty, waveformCharWidth, waveformRowCount);
-            int[] cursorPixels = (empty || waveformCharWidth == 0 || waveformRowCount == 0)
+            int[] cursorPixels = (empty || waveformCharWidth == 0)
                 ? []
                 : ComputeCursorPixels(sf, index, waveformPxWidth);
 
@@ -138,6 +147,57 @@ namespace SharpModConsolePlayer.Renderer {
                 PaintCursorDelta(row, width, rowsPerSample, prefixWidth, waveformRows, prev, cursorPixels);
             }
             cursorCache[slot] = cursorPixels;
+        }
+
+        // Render a single-row sample line with a DarkBlue progress overlay behind the name
+        // field, used when waveforms are disabled (-H 0). The name column is split at the
+        // current playback position into a "filled" segment (blue background) and a "rest"
+        // segment (default background); a Default token between them resets the background
+        // while the foreground colour is re-applied for the trailing characters.
+        private static void PaintProgressRow(SoundFile sf, SoundFile.ModInstrument ins, int index, int row, int width, bool empty) {
+            string name = SanitizeName(ins.Name ?? string.Empty);
+            if(name.Length > NameWidth) name = name[..NameWidth];
+            else name = name.PadRight(NameWidth);
+
+            AnsiToken nameColor = empty ? DarkGray : White;
+            AnsiToken numColor = empty ? DarkGray : Cyan;
+            AnsiToken fmtColor = empty ? DarkGray : Blue;
+            string fmt = empty ? "    " : $"{(ins.Is16Bit ? "16" : " 8")}/{(ins.IsStereo ? "S" : "M")}";
+
+            int fillChars = empty ? 0 : ComputeProgressChars(sf, index, NameWidth);
+            string nameFilled = name[..fillChars];
+            string nameRest = name[fillChars..];
+
+            string baseLine = ShowMetadata
+                ? $" {index,2}  {name}    {ins.Length,6}   {ins.Volume,3}   {fmt,4}  {ins.LoopStart,9}  {ins.LoopEnd,7}"
+                : $" {index,2}  {name}";
+            int pad = Math.Max(0, width - baseLine.Length);
+
+            Console.SetCursorPosition(0, row);
+            if(ShowMetadata) {
+                Console.WriteInterpolated($"{Default}{DarkGray} {index,2}  {DarkBlueBackground}{nameColor}{nameFilled}{Default}{nameColor}{nameRest}    {numColor}{ins.Length,6}   {Green}{ins.Volume,3}   {fmtColor}{fmt,4}  {Magenta}{ins.LoopStart,9}  {ins.LoopEnd,7}{Default}{new WhiteSpace(pad)}");
+            } else {
+                Console.WriteInterpolated($"{Default}{DarkGray} {index,2}  {DarkBlueBackground}{nameColor}{nameFilled}{Default}{nameColor}{nameRest}{Default}{new WhiteSpace(pad)}");
+            }
+        }
+
+        // Number of name-field characters to highlight as "played". Uses the largest
+        // Pos/Length ratio across channels currently sourcing this instrument so the bar
+        // reflects whichever voice has advanced furthest into the sample.
+        private static int ComputeProgressChars(SoundFile sf, int instrumentIndex, int fillWidth) {
+            if(fillWidth <= 0) return 0;
+            var channels = sf.Channels;
+            float maxRatio = 0f;
+            for(int c = 0; c < channels.Length; c++) {
+                var ch = channels[c];
+                if(ch.Length == 0 || ch.InstrumentIndex != (uint)instrumentIndex) continue;
+                if(ch.Pos >= ch.Length) continue;
+                float r = (float)ch.Pos / ch.Length;
+                if(r > maxRatio) maxRatio = r;
+            }
+            int fill = (int)(maxRatio * fillWidth);
+            if(fill > fillWidth) fill = fillWidth;
+            return fill;
         }
 
         // Look up or lazily render the braille rows for the given sample under the current
