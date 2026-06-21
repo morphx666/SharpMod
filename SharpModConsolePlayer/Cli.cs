@@ -1,6 +1,8 @@
 using System.Reflection;
 using PrettyConsole;
+using SharpModConsolePlayer.Renderer;
 using static PrettyConsole.Color;
+using static SharpModConsolePlayer.Renderer.ConsoleRenderer;
 
 namespace SharpModConsolePlayer {
     internal class Cli {
@@ -23,18 +25,22 @@ namespace SharpModConsolePlayer {
         private const int DescColumnWidth = 45;
 
         // KeyVisibleWidth must be kept in sync by hand with the visible character count of each row's WriteKey lambda.
-        private static readonly (int KeyVisibleWidth, string Description, Action WriteKey)[] keyBindings = [
-            (2,  "Show this help",                             () => Console.WriteInterpolated($"{Green}F1{Default}")),
-            (3,  "Toggle between patterns and samples view.",  () => Console.WriteInterpolated($"{Green}Tab{Default}")),
-            (5,  "Toggle pause",                               () => Console.WriteInterpolated($"{Green}Space{Default}")),
-            (12, "Scroll channels horizontally",               () => Console.WriteInterpolated($"{Green}Left{Default} / {Green}Right{Default}")),
-            (9,  "Scroll samples vertically",                  () => Console.WriteInterpolated($"{Green}Up{Default} / {Green}Down{Default}")),
-            (17, "Seek track backward/forward",                () => Console.WriteInterpolated($"{Green}PageUp{Default} / {Green}PageDown{Default}")),
-            (10, "Jump to previous/next file in the playlist", () => Console.WriteInterpolated($"{Green}Home{Default} / {Green}End{Default}")),
-            (5,  "Toggle mute on channels 1-9",                () => Console.WriteInterpolated($"{Green}1{Default} - {Green}9{Default}")),
-            (13, "Toggle mute on channels 10-18",              () => Console.WriteInterpolated($"{Green}Shift{Default} + {Green}1{Default} - {Green}9{Default}")),
-            (12, "Toggle mute on channels 19-27",              () => Console.WriteInterpolated($"{Green}Ctrl{Default} + {Green}1{Default} - {Green}9{Default}")),
-            (7,  "Stop playback and exit",                     () => Console.WriteInterpolated($"{Green}Esc {Default}| {Green}Q{Default}")),
+        private static readonly (ViewMode Mode, int KeyVisibleWidth, string Description, Action WriteKey)[] keyBindings = [
+            (ViewMode.Any, 3,  "Toggle between patterns and samples view.",  () => Console.WriteInterpolated($"{Green}Tab{Default}")),
+            (ViewMode.Any, 2,  "Show this help",                             () => Console.WriteInterpolated($"{Green}F1{Default}")),
+            (ViewMode.Any, 5,  "Toggle pause",                               () => Console.WriteInterpolated($"{Green}Space{Default}")),
+            (ViewMode.Any, 12, "Scroll channels horizontally",               () => Console.WriteInterpolated($"{Green}Left{Default} / {Green}Right{Default}")),
+            (ViewMode.Any, 9,  "Scroll samples vertically",                  () => Console.WriteInterpolated($"{Green}Up{Default} / {Green}Down{Default}")),
+            (ViewMode.Any, 17, "Seek track backward/forward",                () => Console.WriteInterpolated($"{Green}PageUp{Default} / {Green}PageDown{Default}")),
+            (ViewMode.Any, 10, "Jump to previous/next file in the playlist", () => Console.WriteInterpolated($"{Green}Home{Default} / {Green}End{Default}")),
+            (ViewMode.Any, 5,  "Toggle mute on channels 1-9",                () => Console.WriteInterpolated($"{Green}1{Default} - {Green}9{Default}")),
+            (ViewMode.Any, 13, "Toggle mute on channels 10-18",              () => Console.WriteInterpolated($"{Green}Shift{Default} + {Green}1{Default} - {Green}9{Default}")),
+            (ViewMode.Any, 12, "Toggle mute on channels 19-27",              () => Console.WriteInterpolated($"{Green}Ctrl{Default} + {Green}1{Default} - {Green}9{Default}")),
+            (ViewMode.Any, 7,  "Stop playback and exit",                     () => Console.WriteInterpolated($"{Green}Esc{Default} | {Green}Q{Default}")),
+
+            (ViewMode.Samples, 0,  "--------------------------------------", () => { }),
+            (ViewMode.Samples, 1,  "Cycle waveform display modes",           () => Console.WriteInterpolated($"{Green}H{Default}")),
+            (ViewMode.Samples, 1,  "Toggle sample metadata",                 () => Console.WriteInterpolated($"{Green}M{Default}")),
         ];
 
         internal static Cli? Parse(string[] args) {
@@ -183,18 +189,19 @@ namespace SharpModConsolePlayer {
             Console.NewLine();
 
             Console.WriteLineInterpolated($"{Yellow}KEYS{Default}");
-            PrintKeyBindings("  ");
+            PrintKeyBindings(prefix: "  ", mode: ViewMode.Patterns);
         }
 
-        internal static void PrintKeyBindings(string prefix = "", string suffix = "") {
+        internal static void PrintKeyBindings(string prefix = "", string suffix = "", ViewMode mode = ViewMode.Any) {
             int col = Console.CursorLeft;
             int row = Console.CursorTop;
             for(int i = 0; i < keyBindings.Length; i++) {
-                var (keyWidth, description, writeKey) = keyBindings[i];
+                var (viewMode, vkeyWidth, description, writeKey) = keyBindings[i];
+                if(viewMode != ViewMode.Any && viewMode != mode) continue;
                 Console.SetCursorPosition(col, row + i);
                 Console.WriteInterpolated($"{Cyan}{prefix}{Default}");
                 writeKey();
-                Console.WriteLineInterpolated($"{new WhiteSpace(KeyColumnWidth - keyWidth)}{description}{new WhiteSpace(DescColumnWidth - description.Length)}{Cyan}{suffix}{Default}");
+                Console.WriteLineInterpolated($"{new WhiteSpace(KeyColumnWidth - vkeyWidth)}{description}{new WhiteSpace(DescColumnWidth - description.Length)}{Cyan}{suffix}{Default}");
             }
         }
     }

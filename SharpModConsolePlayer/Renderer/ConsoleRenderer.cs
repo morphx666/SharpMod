@@ -5,7 +5,11 @@ namespace SharpModConsolePlayer.Renderer {
     internal static class ConsoleRenderer {
         private const int ChannelWidth = 20;
         private const uint PreviousPatternRowThreshold = 1;
-        private enum ViewMode { Patterns, Samples }
+        internal enum ViewMode {
+            Any,
+            Patterns,
+            Samples
+        }
 
         internal static void InitializeConsole() {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -133,6 +137,7 @@ namespace SharpModConsolePlayer.Renderer {
                         fromChannel = Math.Min(MaxFromChannel(sf), fromChannel + 1);
                         break;
                     case ConsoleKey.Tab:
+                        if(Dialog.IsOpen) Dialog.Close();
                         mode = mode == ViewMode.Patterns ? ViewMode.Samples : ViewMode.Patterns;
                         Console.Clear();
                         forceRedraw = true;
@@ -196,8 +201,15 @@ namespace SharpModConsolePlayer.Renderer {
                             forceRedraw = true;
                             break;
                         }
-                        Dialog.SetMessage(" Shortcuts ", 74, 12, () => Cli.PrintKeyBindings($"│ ", $" │"));
+                        ViewMode dialogMode = mode;
+                        Dialog.SetMessage(" Shortcuts ", 74, 12, () => Cli.PrintKeyBindings($"│ ", $" │", dialogMode));
                         Dialog.ShowMessage();
+                        break;
+                    case ConsoleKey.H:
+                        Samples.RowsPerSample = (Samples.RowsPerSample + 1) % 4;
+                        break;
+                    case ConsoleKey.M:
+                        Samples.ShowMetadata = !Samples.ShowMetadata;
                         break;
                     default:
                         if(info.Modifiers.HasFlag(ConsoleModifiers.Control)) {
