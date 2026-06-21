@@ -56,7 +56,7 @@ namespace SharpModConsolePlayer.Renderer {
 
         private static void RenderSample(SoundFile sf, int index, int row, int width, bool showProgress) {
             var ins = sf.Instruments[index];
-            string name = ins.Name ?? string.Empty;
+            string name = SanitizeName(ins.Name ?? string.Empty);
             if(name.Length > NameWidth) name = name[..NameWidth];
             else name = name.PadRight(NameWidth);
 
@@ -108,6 +108,23 @@ namespace SharpModConsolePlayer.Renderer {
         private static void ClearRow(int row, int width) {
             Console.SetCursorPosition(0, row);
             Console.WriteInterpolated($"{Default}{new WhiteSpace(width)}");
+        }
+
+        // Sample names are decoded from raw CP437 bytes and may contain embedded
+        // C0 control characters (NUL, BS, ESC, …) that render as zero columns or
+        // get swallowed by the terminal's ANSI parser, throwing every following
+        // row out of alignment. Replace them with spaces so visible width matches
+        // string length. Lazy allocation: clean names pass through unchanged.
+        private static string SanitizeName(string s) {
+            char[]? buf = null;
+            for(int i = 0; i < s.Length; i++) {
+                char c = s[i];
+                if(c < 0x20 || c == 0x7F) {
+                    buf ??= s.ToCharArray();
+                    buf[i] = ' ';
+                }
+            }
+            return buf == null ? s : new string(buf);
         }
     }
 }
