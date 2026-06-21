@@ -32,6 +32,7 @@ namespace SharpMod {
             S3MTools.S3MFileHeader s3mFH = new S3MTools.S3MFileHeader();
             XMTools.XMFileHeader xmFH = new XMTools.XMFileHeader();
             STMTools.STMFileHeader stmFH = new STMTools.STMFileHeader();
+            C669Tools.C669FileHeader c669FH = new C669Tools.C669FileHeader();
 
             Type = Types.INVALID;
             Rate = sampleRate;
@@ -87,6 +88,14 @@ namespace SharpMod {
                                     Type = Types.S3M;
                                     file.Seek(0, SeekOrigin.Begin);
                                     s3mFH = LoadStruct<S3MTools.S3MFileHeader>(file);
+                                } else if((s[0] == (byte)'i' && s[1] == (byte)'f') || (s[0] == (byte)'J' && s[1] == (byte)'N')) {
+                                    file.Seek(0, SeekOrigin.Begin);
+                                    c669FH = LoadStruct<C669Tools.C669FileHeader>(file);
+                                    if(C669Tools.IsValidHeader(c669FH)) {
+                                        Type = Types.C669;
+                                    } else {
+                                        ActiveSamples = 15;
+                                    }
                                 } else {
                                     ActiveSamples = 15;
                                 }
@@ -102,6 +111,7 @@ namespace SharpMod {
                 case Types.S3M: ParseS3MFile(96, s3mFH); break;
                 case Types.XM: ParseXMFile(80, xmFH); break;
                 case Types.STM: ParseSTMFile(stmFH); break;
+                case Types.C669: ParseC669File(c669FH); break;
             }
 
             CloseFile(true);
@@ -694,6 +704,246 @@ namespace SharpMod {
                 file.Read(instruments[s].Sample, 0, sampleBytes);
                 instruments[s].Is16Bit = false;
                 instruments[s].IsStereo = false;
+            }
+        }
+
+        private void ParseC669File(C669Tools.C669FileHeader hdr) {
+            int i;
+
+            title = hdr.SongName;
+            trackerName = hdr.IsExtended ? "UNIS 669" : "Composer 669";
+
+            ActiveChannels = 8;
+            ActiveSamples = hdr.samples;
+
+            // OpenMPT defaults: 4 ticks/row, 78 BPM. The per-pattern tempo override is
+            // emitted as a CMD_SPEED cell on row 0 of every pattern below.
+            MusicSpeed = 4;
+            MusicTempo = 78;
+
+            // 669's restart slot points back into the order list; honored by the engine's
+            // looping path the same way XM's restartPos is.
+            uint restart = hdr.restartPos;
+            if(restart < 128 && hdr.orders[restart] < hdr.patterns) RestartPos = restart;
+            else RestartPos = 0;
+
+            // OpenMPT default panning: even = 0x30, odd = 0xD0 (engine pan range 0..256).
+            for(i = 0; i < 8; i++) channels[i].Pan = (short)((i & 1) != 0 ? 0xD0 : 0x30);
+
+            instruments = new ModInstrument[ActiveSamples + 1];
+            for(i = 0; i < instruments.Length; i++) instruments[i].name = new byte[32];
+
+            // The constructor rewinds to offset 0 before dispatching to format parsers; jump
+            // back past the header struct so the sample-header reader picks up at the right spot.
+            file.Position = Marshal.SizeOf(typeof(C669Tools.C669FileHeader));
+
+            // 25-byte sample headers
+            for(int s = 1; s <= (int)ActiveSamples; s++) {
+                C669Tools.C669Sample sh = LoadStruct<C669Tools.C669Sample>(file);
+
+                // 669's two-byte magic is weak; reject pathological sample lengths the same
+                // way OpenMPT does so a misidentified file doesn't allocate gigabytes.
+                if(sh.length >= 0x4000000) {
+                    Type = Types.INVALID;
+                    return;
+                }
+
+                Array.Copy(sh.filename, instruments[s].name, Math.Min(sh.filename.Length, instruments[s].name.Length));
+                instruments[s].Length = sh.length;
+                instruments[s].FineTune = 8363;
+                instruments[s].Volume = 0x40 << 2;          // 669 samples have no per-sample volume
+
+                // Loop conversion mirrors OpenMPT's ConvertToMPT: drop the loop entirely when
+                // loopEnd overshoots length and loopStart is zero; otherwise enable & clamp.
+                if(sh.loopEnd > sh.length && sh.loopStart == 0) {
+                    instruments[s].LoopStart = 0;
+                    instruments[s].LoopEnd = 0;
+                } else if(sh.loopEnd != 0) {
+                    uint ls = sh.loopStart;
+                    uint le = sh.loopEnd > sh.length ? sh.length : sh.loopEnd;
+                    if(ls < le) {
+                        instruments[s].LoopStart = ls;
+                        instruments[s].LoopEnd = le;
+                    }
+                }
+            }
+
+            // Orders: pad to 256 with 0xFF. 0xFE marks a skipped order (treated as 0xFF here
+            // since the engine has no "skip" concept beyond the end-of-song sentinel).
+            order = new byte[256];
+            for(int k = 0; k < 256; k++) order[k] = 0xFF;
+            for(int k = 0; k < 128; k++) {
+                byte v = hdr.orders[k];
+                if(v < hdr.patterns) order[k] = v;
+                else if(v >= 0xFE) order[k] = 0xFF;
+            }
+
+            // Patterns: 64 rows x 8 channels x 3 bytes raw -> re-encoded as 6-byte engine cells.
+            int rowSize = 8 * 6;
+            int patternBytes = 64 * rowSize;
+            patterns = new byte[hdr.patterns][];
+
+            byte[] cellBuf = new byte[3];
+            // OpenMPT's `effTrans` mapping. Index = 669 high-nibble command; value = S3M letter
+            // index ('A'=1) consumed by the engine via S3MTools.ConvertEffect. 0 = drop effect.
+            // Our engine lacks CMD_AUTO_PORTAxxx, so slides 0/1/2 are re-emitted each row via
+            // the activeEff carry-forward to approximate continuous behavior.
+            byte[] effLetter = new byte[8] {
+                (byte)('F' - 'A' + 1),  // 0 Slide up           -> PortamentoUp
+                (byte)('E' - 'A' + 1),  // 1 Slide down         -> PortamentoDown
+                (byte)('G' - 'A' + 1),  // 2 Slide to note      -> TonePortamento
+                (byte)('F' - 'A' + 1),  // 3 Frequency adjust   -> PortamentoUp (fine, param |= 0xF0)
+                (byte)('J' - 'A' + 1),  // 4 Frequency vibrato  -> Arpeggio (OpenMPT tracker-mode mapping)
+                (byte)('A' - 'A' + 1),  // 5 Set Speed
+                (byte)('P' - 'A' + 1),  // 6 UNIS panning slide -> PanningSlide (param 0->4F, 1->F4)
+                (byte)('Q' - 'A' + 1)   // 7 UNIS slot retrig   -> Retrig
+            };
+
+            for(int pat = 0; pat < hdr.patterns; pat++) {
+                byte[] patBuf = new byte[patternBytes];
+
+                // Per-channel carry-forward of the last 669 effect byte. 0xFF = no active effect.
+                // Mirrors OpenMPT's `effect[8]` state; a new note triggers a reset on that channel.
+                byte[] activeEff = new byte[8];
+                for(i = 0; i < 8; i++) activeEff[i] = 0xFF;
+
+                for(int row = 0; row < 64; row++) {
+                    for(int ch = 0; ch < 8; ch++) {
+                        file.Read(cellBuf, 0, 3);
+                        byte noteInstr = cellBuf[0];
+                        byte instrVol = cellBuf[1];
+                        byte effParam = cellBuf[2];
+
+                        byte mode = 0;
+                        byte encNote = 0, encInstr = 0, encVol = 0, encCmd = 0, encParam = 0;
+
+                        if(noteInstr < 0xFE) {
+                            // Fresh note: data[0]>>2 is the linear semitone index above C-2.
+                            // C-2 (MIDI 36) corresponds to engine encoded byte 0x20 (octave=2),
+                            // so adding 24 semitones aligns 669's reference octave with the engine's.
+                            int lin = (noteInstr >> 2) + 24;
+                            encNote = (byte)(((lin / 12) << 4) | (lin % 12));
+                            // 669 packs a 6-bit zero-based sample index across noteInstr[1:0] and
+                            // instrVol[7:4]; the engine indexes instruments[] one-based (slot 0 is
+                            // the "no instrument" sentinel), so add one and cap at ActiveSamples.
+                            int rawInstr = ((noteInstr & 0x03) << 4) | (instrVol >> 4);
+                            encInstr = (byte)(rawInstr + 1);
+                            if(encInstr > ActiveSamples) encInstr = 0;
+                            mode |= 0x20;
+                            activeEff[ch] = 0xFF;
+                        }
+                        if(noteInstr <= 0xFE) {
+                            // Volume nibble (0..15) scaled to 0..64; same rounding as OpenMPT.
+                            int v = ((instrVol & 0x0F) * 64 + 8) / 15;
+                            if(v > 0x40) v = 0x40;
+                            encVol = (byte)v;
+                            mode |= 0x40;
+                        }
+
+                        if(effParam != 0xFF) activeEff[ch] = effParam;
+
+                        if(activeEff[ch] != 0xFF) {
+                            byte command = (byte)(activeEff[ch] >> 4);
+                            byte cparam = (byte)(activeEff[ch] & 0x0F);
+                            bool drop = false;
+                            if(command < effLetter.Length && effLetter[command] != 0) {
+                                encCmd = effLetter[command];
+                                encParam = cparam;
+                                switch(command) {
+                                    case 3:
+                                        // 669 "frequency adjust": OpenMPT approximates as S3M fine
+                                        // portamento up (Fxy where x=0xF means "fine slide"). The
+                                        // engine's PORTAMENTOUP honors that nibble convention.
+                                        encParam = (byte)(cparam | 0xF0);
+                                        break;
+                                    case 4:
+                                        // Replicate param into both nibbles so the engine reads
+                                        // arpeggio as semitone1=p, semitone2=p (OpenMPT does the
+                                        // same `param |= param << 4` before emitting).
+                                        encParam = (byte)((cparam << 4) | cparam);
+                                        break;
+                                    case 6:
+                                        // UNIS pan slide: only params 0 (fine left) and 1 (fine
+                                        // right) are valid; everything else is silently dropped.
+                                        if(cparam == 0) encParam = 0x4F;
+                                        else if(cparam == 1) encParam = 0xF4;
+                                        else drop = true;
+                                        break;
+                                    case 7:
+                                        // UNIS slot retrig is only meaningful on a fresh note in
+                                        // extended files; drop otherwise so the standard 669
+                                        // doesn't pick up an effect Composer never emitted.
+                                        if((mode & 0x20) == 0 || !hdr.IsExtended) drop = true;
+                                        break;
+                                }
+                                if(!drop) mode |= 0x80;
+                            } else {
+                                drop = true;
+                            }
+                            // One-shots (speed, retrig, dropped) don't carry forward; continuous
+                            // slides, arpeggio-vibrato, and pan slide are re-emitted each row.
+                            if(command == 3 || command == 5 || command == 7 || drop) activeEff[ch] = 0xFF;
+                        }
+
+                        if(mode == 0) continue;
+                        int idx = row * rowSize + ch * 6;
+                        patBuf[idx + 0] = (byte)(mode | (ch & 0x1F));
+                        patBuf[idx + 1] = encNote;
+                        patBuf[idx + 2] = encInstr;
+                        patBuf[idx + 3] = encVol;
+                        patBuf[idx + 4] = encCmd;
+                        patBuf[idx + 5] = encParam;
+                    }
+                }
+
+                // Inject per-pattern speed (CMD_SPEED) starting at row 0; retry on subsequent
+                // rows if the chosen cell already carries an effect. Mirrors OpenMPT's
+                // EffectWriter(...).RetryNextRow() pattern-writer fallback.
+                InjectPatternEffect(patBuf, rowSize, 0, (byte)('A' - 'A' + 1), hdr.tempos[pat]);
+
+                // Optional pattern break at the per-pattern break row (only when < 63 since 63
+                // is already the natural end-of-pattern boundary).
+                if(hdr.breaks[pat] < 63) {
+                    InjectPatternEffect(patBuf, rowSize, hdr.breaks[pat], (byte)('C' - 'A' + 1), 0);
+                }
+
+                patterns[pat] = patBuf;
+            }
+
+            // Sample data: 8-bit unsigned mono PCM, packed back-to-back. The engine treats
+            // 8-bit samples as signed, so XOR with 0x80 to flip into signed range.
+            long fileLen = file.Length;
+            for(int s = 1; s <= (int)ActiveSamples; s++) {
+                int len = (int)instruments[s].Length;
+                if(len <= 0) continue;
+                if(file.Position + len > fileLen) len = (int)(fileLen - file.Position);
+                if(len <= 0) {
+                    instruments[s].Length = 0;
+                    continue;
+                }
+                instruments[s].Sample = new byte[len + 1];
+                file.Read(instruments[s].Sample, 0, len);
+                for(int n = 0; n < len; n++) instruments[s].Sample[n] ^= 0x80;
+                instruments[s].Sample[len] = instruments[s].Sample[len - 1];
+                instruments[s].Length = (uint)len;
+                if(instruments[s].LoopEnd > instruments[s].Length) instruments[s].LoopEnd = instruments[s].Length;
+            }
+        }
+
+        // Places (cmd, param) on the first cell at row >= startRow whose command slot is empty.
+        // Used by the 669 loader to inject per-pattern speed/break events that aren't expressed
+        // as in-band pattern cells.
+        private static void InjectPatternEffect(byte[] patBuf, int rowSize, int startRow, byte cmd, byte param) {
+            for(int row = startRow; row < 64; row++) {
+                for(int ch = 0; ch < 8; ch++) {
+                    int idx = row * rowSize + ch * 6;
+                    if((patBuf[idx] & 0x80) != 0) continue;
+                    if(patBuf[idx] == 0) patBuf[idx] = (byte)(ch & 0x1F);
+                    patBuf[idx] |= 0x80;
+                    patBuf[idx + 4] = cmd;
+                    patBuf[idx + 5] = param;
+                    return;
+                }
             }
         }
 

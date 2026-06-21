@@ -38,6 +38,7 @@ namespace SharpMod {
                             case Types.S3M:
                             case Types.XM:
                             case Types.STM:
+                            case Types.C669:
                                 param = p[pIndex + 5];
                                 command = (uint)S3MTools.ConvertEffect((Effects)p[pIndex + 4], (int)param);
                                 break;
