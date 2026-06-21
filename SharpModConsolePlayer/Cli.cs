@@ -10,12 +10,14 @@ namespace SharpModConsolePlayer {
         internal int BitDepth { get; init; } = 16;
         internal int Channels { get; init; } = 2;
         internal bool Loop { get; init; } = false;
-        internal bool ShowSampleProgress { get; init; } = true;
         internal bool Randomize { get; init; } = false;
         internal string ExportPath { get; init; } = string.Empty;
+        internal int SampleHeight { get; init; } = 2;
+        internal bool ShowMetadata { get; init; } = false;
 
         private static readonly int[] ValidSampleRates = [8000, 11025, 16000, 22050, 32000, 44100, 48000, 88200, 96000];
         private static readonly int[] ValidBitDepths = [8, 16];
+        private static readonly int[] ValidSampleHeights = [0, 1, 2, 3];
 
         private const int KeyColumnWidth = 25;
         private const int DescColumnWidth = 45;
@@ -45,9 +47,10 @@ namespace SharpModConsolePlayer {
             int sampleRate = 44100;
             int bitDepth = 16;
             bool loop = false;
-            bool showSampleProgress = true;
             string exportPath = string.Empty;
             bool randomize = false;
+            int sampleHeight = 2;
+            bool showMetadata = false;
 
             for(int i = 0; i < args.Length; i++) {
                 string a = args[i];
@@ -68,10 +71,6 @@ namespace SharpModConsolePlayer {
                     case "--loop":
                         loop = true;
                         break;
-                    case "-P":
-                    case "--no-sample-progress":
-                        showSampleProgress = false;
-                        break;
                     case "-o":
                     case "--export":
                         if(i + 1 >= args.Length) { PrintError($"Option {a} requires a path."); return null; }
@@ -80,6 +79,14 @@ namespace SharpModConsolePlayer {
                     case "-z":
                     case "--randomize":
                         randomize = true;
+                        break;
+                    case "-H":
+                    case "--sample-height":
+                        if(!TryReadIntOption(args, ref i, a, ValidSampleHeights, out sampleHeight)) return null;
+                        break;
+                    case "-m":
+                    case "--metadata":
+                        showMetadata = true;
                         break;
                     default:
                         if(a.StartsWith('-')) {
@@ -104,9 +111,10 @@ namespace SharpModConsolePlayer {
                 SampleRate = sampleRate,
                 BitDepth = bitDepth,
                 Loop = loop,
-                ShowSampleProgress = showSampleProgress,
                 ExportPath = exportPath,
-                Randomize = randomize
+                Randomize = randomize,
+                SampleHeight = sampleHeight,
+                ShowMetadata = showMetadata
             };
         }
 
@@ -157,9 +165,11 @@ namespace SharpModConsolePlayer {
             Console.WriteLineInterpolated($"  {Green}-b{Default}, {Green}--bit-depth{Default} {DarkGray}<n>{Default}      Output bit depth. Default: {White}16{Default}");
             Console.WriteLineInterpolated($"                              Valid: {DarkGray}8, 16{Default}");
             Console.WriteLineInterpolated($"  {Green}-l{Default}, {Green}--loop{Default}               Loop the track when it ends");
-            Console.WriteLineInterpolated($"  {Green}-P{Default}, {Green}--no-sample-progress{Default} Disable the in-name playback progress bar in the samples view");
             Console.WriteLineInterpolated($"  {Green}-o{Default}, {Green}--export{Default} {DarkGray}<path>{Default}      Render the track to a WAV file at {DarkGray}<path>{Default} (no live playback)");
             Console.WriteLineInterpolated($"  {Green}-z{Default}, {Green}--randomize{Default}          Randomize the order of files in the playlist");
+            Console.WriteLineInterpolated($"  {Green}-H{Default}, {Green}--sample-height{Default} {DarkGray}<n>{Default}  Console rows per sample waveform. Default: {White}2{Default} ({DarkGray}0 hides the waveform{Default})");
+            Console.WriteLineInterpolated($"                              Valid: {DarkGray}0, 1, 2, 3{Default}");
+            Console.WriteLineInterpolated($"  {Green}-m{Default}, {Green}--metadata{Default}           Show sample metadata columns (Length, Vol, Fmt, LoopStart, LoopEnd)");
             Console.WriteLineInterpolated($"  {Green}-h{Default}, {Green}--help{Default}               Show this help and exit");
             Console.NewLine();
 

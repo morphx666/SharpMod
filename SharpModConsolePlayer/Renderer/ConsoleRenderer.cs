@@ -18,7 +18,7 @@ namespace SharpModConsolePlayer.Renderer {
             Console.CursorVisible = true;
         }
 
-        internal static async Task RenderLoop(Func<SoundFile?> getSoundFile, bool showSampleProgress) {
+        internal static async Task RenderLoop(Func<SoundFile?> getSoundFile) {
             int fromChannel = 0;
             int fromSample = 0;
             uint lastRow = uint.MaxValue;
@@ -62,10 +62,8 @@ namespace SharpModConsolePlayer.Renderer {
                 try {
                     if(mode == ViewMode.Samples) {
                         Info.Render(sf);
-                        if(forceRedraw || showSampleProgress) {
-                            Samples.Render(sf, showSampleProgress, fromSample);
-                            forceRedraw = false;
-                        }
+                        Samples.Render(sf, fromSample);
+                        forceRedraw = false;
                     } else {
                         RenderHeaderAndVuMeters(sf, fromChannel);
 
@@ -146,10 +144,10 @@ namespace SharpModConsolePlayer.Renderer {
                         break;
                     case ConsoleKey.DownArrow:
                         if(mode == ViewMode.Samples) {
-                            fromSample = Math.Min(sf.Instruments.Length - 1, fromSample + 1);
-                            if(fromSample + Console.WindowHeight - Samples.FirstSampleRow >= sf.Instruments.Length - 1) {
-                                fromSample = Math.Max(0, sf.Instruments.Length - Console.WindowHeight + Samples.FirstSampleRow);
-                            }
+                            int rps = Math.Max(1, Math.Clamp(Samples.RowsPerSample, 0, 3));
+                            int visibleSamples = Math.Max(1, (Console.WindowHeight - 1 - Samples.FirstSampleRow) / rps);
+                            int maxFromSample = Math.Max(0, sf.Instruments.Length - 1 - visibleSamples);
+                            fromSample = Math.Min(maxFromSample, fromSample + 1);
                         }
                         break;
                     case ConsoleKey.PageUp: {
