@@ -38,9 +38,21 @@ namespace SharpModConsolePlayer {
             (ViewMode.Any, 12, "Toggle mute on channels 19-27",              () => Console.WriteInterpolated($"{Green}Ctrl{Default} + {Green}1{Default} - {Green}9{Default}")),
             (ViewMode.Any, 7,  "Stop playback and exit",                     () => Console.WriteInterpolated($"{Green}Esc{Default} | {Green}Q{Default}")),
 
-            (ViewMode.Samples, 0,  "--------------------------------------", () => { }),
-            (ViewMode.Samples, 1,  "Cycle waveform display modes",           () => Console.WriteInterpolated($"{Green}H{Default}")),
-            (ViewMode.Samples, 1,  "Toggle sample metadata",                 () => Console.WriteInterpolated($"{Green}M{Default}")),
+            (ViewMode.Samples, 0,  "───────────────────────────────────────────", () => { }),
+            (ViewMode.Samples, 7,  "Cycle waveform display modes", () => {
+                string state = Samples.RowsPerSample switch {
+                    0 => " ○ ",
+                    1 => " ─ ",
+                    2 => " ═ ",
+                    3 => " ≡ ",
+                    _ => throw new InvalidOperationException()
+                };
+                Console.WriteInterpolated($"{Green}H {Yellow}[{state}]{Default}");
+            }),
+            (ViewMode.Samples, 7,  "Toggle sample metadata", () => {
+                string state = Samples.ShowMetadata ? " ● " : " ○ ";
+                Console.WriteInterpolated($"{Green}M {Yellow}[{state}]{Default}");
+            }),
         ];
 
         internal static Cli? Parse(string[] args) {
