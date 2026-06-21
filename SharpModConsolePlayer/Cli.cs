@@ -163,6 +163,15 @@ namespace SharpModConsolePlayer {
             Console.WriteLineInterpolated($"  {Green}-h{Default}, {Green}--help{Default}               Show this help and exit");
             Console.NewLine();
 
+            Console.WriteLineInterpolated($"{Yellow}EXAMPLES{Default}");
+            Console.WriteLineInterpolated($"  {DarkGray}# Play a single file{Default}");
+            Console.WriteLineInterpolated($"  {White}{name}{Default} {Cyan}\"mods/Future Crew - Second Reality.S3M\"{Default}");
+            Console.WriteLineInterpolated($"  {DarkGray}# Play every supported file in a directory (recursively){Default}");
+            Console.WriteLineInterpolated($"  {White}{name}{Default} {Cyan}mods{Default}");
+            Console.WriteLineInterpolated($"  {DarkGray}# Play every .XM file matched by a glob pattern{Default}");
+            Console.WriteLineInterpolated($"  {White}{name}{Default} {Cyan}mods/*.XM{Default}");
+            Console.NewLine();
+
             Console.WriteLineInterpolated($"{Yellow}KEYS{Default}");
             PrintKeyBindings("  ");
         }

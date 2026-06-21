@@ -44,8 +44,8 @@ namespace SharpModConsolePlayer.Renderer {
             string s4 = Channel.ClipSegment("~", ref remaining);
             string s5 = Channel.ClipSegment(bpmValue, ref remaining);
 
-            Console.WriteLineInterpolated($"{Default}{Magenta} │{DarkMagenta}{new WhiteSpace(Info.TitleWidth)}{DarkGray}|{Cyan}{s0}{DarkGray}{s1}{White}{s2}{Cyan}{s3}{DarkGray}{s4}{White}{s5}{Default}");
-            Console.WriteInterpolated($"{Default}{Magenta} └{DarkMagenta}{sf.FileName}{Default}");
+            Console.WriteLineInterpolated($"{Default}{Magenta} │{new WhiteSpace(Info.TitleWidth)}{DarkGray}|{Cyan}{s0}{DarkGray}{s1}{White}{s2}{Cyan}{s3}{DarkGray}{s4}{White}{s5}{Default}");
+            Console.WriteInterpolated($"{Default}{Magenta} └{sf.FileName}{Default}");
 
             Console.SetCursorPosition(0, HeaderRow + 2);
             string text = $"  #  {"Name",-NameWidth}    {"Length",6}   {"Vol",3}   {"Fmt",4}  {"LoopStart",9}  {"LoopEnd",7}";
