@@ -26,7 +26,7 @@ namespace SharpModConsolePlayer.Renderer {
             int empty = width - filled;
 
             Console.SetCursorPosition(0, row);
-            Console.WriteInterpolated($"{Default}{Cyan}{new string('\u2588', filled)}{DarkGray}{new string('\u2588', empty)}{Default}");
+            Console.WriteInterpolated($"{Default}{Green}{DarkGrayBackground}{new string('\u2588', filled)}{new WhiteSpace(empty)}{Default}");
 
             // Not using it b/c lack of customization options as well as considerable flickering
             // progress.Update((int)(pos * 100.0 / total), $"Playing {pos}/{total} rows");
