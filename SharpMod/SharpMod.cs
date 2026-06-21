@@ -105,6 +105,7 @@ namespace SharpMod {
             }
 
             CloseFile(true);
+            PrecomputeStats();
         }
 
         private void ParseModFile(int offset) {

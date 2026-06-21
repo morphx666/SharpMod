@@ -29,7 +29,22 @@ namespace SharpModConsolePlayer.Renderer {
 
         private static void RenderHeader(SoundFile sf, int width) {
             Console.SetCursorPosition(0, HeaderRow);
-            Console.WriteLineInterpolated($"{Default}{Magenta} │{DarkMagenta}{new WhiteSpace(Info.TitleWidth)}{DarkGray}|{Default}");
+            uint seconds = sf.Length;
+            string lengthValue = seconds >= 3600
+                ? $"{seconds / 3600}:{seconds / 60 % 60:D2}:{seconds % 60:D2}"
+                : $"{seconds / 60}:{seconds % 60:D2}";
+            string bpmValue = $"{sf.AverageTempo}";
+
+            int prefixWidth = 2 + Info.TitleWidth + 1; // " │" + title spaces + "|"
+            int remaining = Math.Max(0, width - prefixWidth);
+            string s0 = Channel.ClipSegment(" Length: ", ref remaining);
+            string s1 = Channel.ClipSegment("~", ref remaining);
+            string s2 = Channel.ClipSegment(lengthValue, ref remaining);
+            string s3 = Channel.ClipSegment("  BPM: ", ref remaining);
+            string s4 = Channel.ClipSegment("~", ref remaining);
+            string s5 = Channel.ClipSegment(bpmValue, ref remaining);
+
+            Console.WriteLineInterpolated($"{Default}{Magenta} │{DarkMagenta}{new WhiteSpace(Info.TitleWidth)}{DarkGray}|{Cyan}{s0}{DarkGray}{s1}{White}{s2}{Cyan}{s3}{DarkGray}{s4}{White}{s5}{Default}");
             Console.WriteInterpolated($"{Default}{Magenta} └{DarkMagenta}{sf.FileName}{Default}");
 
             Console.SetCursorPosition(0, HeaderRow + 2);

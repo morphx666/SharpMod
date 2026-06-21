@@ -7,8 +7,10 @@ namespace SharpMod {
             return 128;
         }
 
-        private uint GetLength() {
-            uint dwElapsedTime = 0, nRow = 0, nSpeedCount = 0, nCurrentPattern = 0, nNextPattern = 0, nPattern = 0;
+        private void SimulateSong(out uint elapsedMs, out uint tickCount) {
+            elapsedMs = 0;
+            tickCount = 0;
+            uint nRow = 0, nSpeedCount = 0, nCurrentPattern = 0, nNextPattern = 0, nPattern = 0;
             uint nMusicSpeed = 6, nMusicTempo = 125;
 
             for(; ;) {
@@ -30,14 +32,14 @@ namespace SharpMod {
 
                         switch(Type) {
                             case Types.MOD:
-                                command = (uint)(p[2] & 0x0F);
-                                param = p[3];
+                                command = (uint)(p[pIndex + 2] & 0x0F);
+                                param = p[pIndex + 3];
                                 break;
                             case Types.S3M:
                             case Types.XM:
                             case Types.STM:
-                                param = p[5];
-                                command = (uint)S3MTools.ConvertEffect((Effects)p[4], (int)param);
+                                param = p[pIndex + 5];
+                                command = (uint)S3MTools.ConvertEffect((Effects)p[pIndex + 4], (int)param);
                                 break;
                         }
 
@@ -63,11 +65,23 @@ namespace SharpMod {
                     nSpeedCount = nMusicSpeed;
                 }
                 if(nPattern >= patterns.Length) goto EndMod;
-                dwElapsedTime += 5000 / (nMusicTempo * 2);
+                elapsedMs += 5000 / (nMusicTempo * 2);
+                tickCount++;
                 nSpeedCount--;
             }
-        EndMod:
-            return (dwElapsedTime + 500) / 1000;
+        EndMod:;
+        }
+
+        // Both Length and AverageTempo derive from the same playback simulation and
+        // depend only on immutable parse-time state, so we compute them once after
+        // the file is parsed and cache them. The time-weighted mean reduces to
+        // (N · 2500) / totalMs because each tick at tempo T lasts 2500/T ms, so
+        // Σ(T_i · 2500/T_i) = N · 2500. Mirrors how OpenMPT derives song duration
+        // from its playback simulation (Snd_fx.cpp / GetLength).
+        private void PrecomputeStats() {
+            SimulateSong(out uint elapsedMs, out uint tickCount);
+            Length = (elapsedMs + 500) / 1000;
+            AverageTempo = elapsedMs == 0 ? MusicTempo : (tickCount * 2500 + elapsedMs / 2) / elapsedMs;
         }
 
         private uint GetTotalPos() {

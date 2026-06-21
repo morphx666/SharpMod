@@ -18,7 +18,8 @@
         public bool Is16Bit { get; }
         public bool IsStereo { get; }
         public bool Loop { get; }
-        public uint Length => GetLength();
+        public uint Length { get; private set; }
+        public uint AverageTempo { get; private set; }
         public bool IsValid { get; private set; }
         public ModInstrument[] Instruments => instruments;
         public ModChannel[] Channels => channels;
