@@ -5,7 +5,7 @@ using static PrettyConsole.Color;
 namespace SharpModConsolePlayer.Renderer {
     internal static class Samples {
         private const int HeaderRow = Info.InfoRow + 1;
-        internal const int FirstSampleRow = HeaderRow + 1;
+        internal const int FirstSampleRow = HeaderRow + 3;
         private const int NameWidth = 28;
 
         internal static void Render(SoundFile sf, bool showProgress, int fromSample = 0) {
@@ -13,7 +13,7 @@ namespace SharpModConsolePlayer.Renderer {
             int height = Console.WindowHeight - 1; // reserve last row for the song progress bar
             if(width <= 0) return;
 
-            RenderHeader(width);
+            RenderHeader(sf, width);
 
             int total = sf.Instruments != null ? sf.Instruments.Length - 1 : 0;
             int maxRows = Math.Max(0, height - FirstSampleRow);
@@ -27,8 +27,11 @@ namespace SharpModConsolePlayer.Renderer {
             }
         }
 
-        private static void RenderHeader(int width) {
+        private static void RenderHeader(SoundFile sf, int width) {
             Console.SetCursorPosition(0, HeaderRow);
+            Console.WriteInterpolated($"{Default}{Magenta} └{DarkMagenta}{sf.FileName}{Default}");
+
+            Console.SetCursorPosition(0, HeaderRow + 2);
             string text = $"  #  {"Name",-NameWidth}    {"Length",6}   {"Vol",3}   {"Fmt",4}  {"LoopStart",9}  {"LoopEnd",7}";
             if(text.Length > width) text = text[..width];
             int pad = Math.Max(0, width - text.Length);
