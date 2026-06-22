@@ -9,6 +9,10 @@ For more information, visit https://openmpt.org/legacy_software
 
 Cross-platform terminal-based player added in 2026/ 6/16
 <img width="1259" height="780" alt="image" src="https://github.com/user-attachments/assets/0d1d8a4f-85c4-4ad7-9643-2000350fb603" />
+
+SharpMod on the browser running as wasm assembly:
+<img width="1588" height="1102" alt="image" src="https://github.com/user-attachments/assets/2fd44e92-6a7c-41f0-ae69-127062245e6f" />
+
 ## Using SharpMod
 
 Instantiating a new `SoundFile`:
