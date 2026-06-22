@@ -6,11 +6,14 @@
 // the currently-playing row sits on `--play-line`.
 
 const ROWS_PER_PATTERN = 64;
-const ROW_HEIGHT_PX = 18;     // must match .pat-row height in styles.css
+// Pattern row height is defined in styles.css as --row-h (single source of truth).
+const ROW_HEIGHT_PX = parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue('--row-h')
+) || 18;
 const VU_MAX = 256;
 const VU_DECAY_PER_FRAME = 16;
 
-const BLOCK_HEIGHT_PX = ROWS_PER_PATTERN * ROW_HEIGHT_PX; // 1152
+const BLOCK_HEIGHT_PX = ROWS_PER_PATTERN * ROW_HEIGHT_PX;
 
 let channelsRoot = null;
 let patternsRoot = null;
