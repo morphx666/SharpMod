@@ -12,7 +12,7 @@
   </PropertyGroup>
 	
   <ItemGroup>
-    <ProjectReference Include="..\SharpModPlayerGUI\SharpModPlayerGUI.csproj" />
+    <ProjectReference Include="..\SharpMod.PlayerGUI\SharpMod.PlayerGUI.csproj" />
   </ItemGroup>
 	
   <ItemGroup>

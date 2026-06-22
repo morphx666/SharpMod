@@ -353,6 +353,7 @@ healthchecksdb
 
 **/openmpt-master
 **/scripts
+.DS_Store
 
 *.wav
 *.json
