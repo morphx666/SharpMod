@@ -237,7 +237,7 @@ button:disabled {
 /* ─── Patterns view ───────────────────────────────────────────────────── */
 .channels-row {
     display: flex;
-    gap: 6px;
+    gap: 1ch;
     padding: 0.3em 0 0.4em;
     overflow-x: auto;
     border-bottom: 1px solid var(--border);
@@ -245,7 +245,7 @@ button:disabled {
 
 .channel {
     flex: 0 0 auto;
-    width: 13ch;
+    width: 14ch;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -265,7 +265,7 @@ button:disabled {
 
 .channel canvas {
     display: block;
-    width: 13ch;
+    width: 14ch;
     height: 10px;
 }
 
@@ -296,7 +296,7 @@ button:disabled {
 
 .patterns {
     display: flex;
-    gap: 6px;
+    gap: 1ch;
     height: 100%;
     align-items: flex-start;
     overflow-x: auto;
@@ -307,7 +307,7 @@ button:disabled {
 
 .pat-col {
     flex: 0 0 auto;
-    width: 13ch;
+    width: 14ch;
     position: relative;
     height: var(--pat-col-h);
     /* 3 blocks × 64 rows × --row-h */
@@ -332,7 +332,7 @@ button:disabled {
 }
 
 .pat-row {
-    padding: 2px 1px;
+    padding: 2px 0;
     line-height: var(--row-h);
     height: var(--row-h);
 }

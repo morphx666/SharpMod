@@ -151,7 +151,6 @@ function buildRowSpans(r) {
     const vo = mkSpan('ph');
     const fx = mkSpan('ph');
     ins.textContent = '..';
-    r.appendChild(document.createTextNode(' '));
     r.appendChild(nt);
     r.appendChild(document.createTextNode(' '));
     r.appendChild(ins);
@@ -159,7 +158,6 @@ function buildRowSpans(r) {
     r.appendChild(vo);
     r.appendChild(document.createTextNode(' '));
     r.appendChild(fx);
-    r.appendChild(document.createTextNode(' '));
     return [nt, ins, vo, fx];
 }
 
