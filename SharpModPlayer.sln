@@ -5,19 +5,19 @@ VisualStudioVersion = 18.6.11828.311
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharpMod", "SharpMod\SharpMod.csproj", "{9CDC64C9-A77B-414B-881D-F868DB559C18}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpModConsolePlayer", "SharpModConsolePlayer\SharpModConsolePlayer.csproj", "{9ADC64C9-A77B-414B-881D-F868DB559C18}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMod.ConsolePlayer", "SharpMod.ConsolePlayer\SharpMod.ConsolePlayer.csproj", "{9ADC64C9-A77B-414B-881D-F868DB559C18}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpModConsolePlayer.Tests", "SharpModConsolePlayer.Tests\SharpModConsolePlayer.Tests.csproj", "{584ACDBB-3E9C-4813-B0C3-AD886C294371}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMod.ConsolePlayer.Tests", "SharpMod.ConsolePlayer.Tests\SharpMod.ConsolePlayer.Tests.csproj", "{584ACDBB-3E9C-4813-B0C3-AD886C294371}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "GUI", "GUI", "{EF6DD0FD-E73E-48FF-97A0-5A7B35D48252}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpModPlayerGUI", "SharpModPlayerGUI\SharpModPlayerGUI\SharpModPlayerGUI.csproj", "{79A6C48C-13AD-50BC-2461-9B14026B75B5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMod.PlayerGUI", "SharpMod.PlayerGUI\SharpMod.PlayerGUI\SharpMo.dPlayerGUI.csproj", "{79A6C48C-13AD-50BC-2461-9B14026B75B5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpModPlayerGUI.Gtk", "SharpModPlayerGUI\SharpModPlayerGUI.Gtk\SharpModPlayerGUI.Gtk.csproj", "{6341D564-FAB3-06DF-99F3-B3BB62F491F7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMod.PlayerGUI.Gtk", "SharpMod.PlayerGUI\SharpMod.PlayerGUI.Gtk\SharpMod.PlayerGUI.Gtk.csproj", "{6341D564-FAB3-06DF-99F3-B3BB62F491F7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpModPlayerGUI.Mac", "SharpModPlayerGUI\SharpModPlayerGUI.Mac\SharpModPlayerGUI.Mac.csproj", "{55632D40-9D8F-5CE9-B336-6C41D2581A26}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMod.PlayerGUI.Mac", "SharpMod.PlayerGUI\SharpMod.PlayerGUI.Mac\SharpMod.PlayerGUI.Mac.csproj", "{55632D40-9D8F-5CE9-B336-6C41D2581A26}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpModPlayerGUI.Wpf", "SharpModPlayerGUI\SharpModPlayerGUI.Wpf\SharpModPlayerGUI.Wpf.csproj", "{F4F90C1A-7C1F-FB11-33F4-330A9858E427}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMod.PlayerGUI.Wpf", "SharpMod.PlayerGUI\SharpMod.PlayerGUI.Wpf\SharpMod.PlayerGUI.Wpf.csproj", "{F4F90C1A-7C1F-FB11-33F4-330A9858E427}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TUI", "TUI", "{B16494C2-20E7-4B08-97C5-0CF4153559B9}"
 EndProject
