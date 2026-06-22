@@ -27,7 +27,18 @@ namespace SharpMod {
     public partial class SoundFile {
         public readonly string FileName;
 
-        public SoundFile(string fileName, uint sampleRate, bool is16Bit, bool isStereo, bool loop) {
+        public SoundFile(string fileName, uint sampleRate, bool is16Bit, bool isStereo, bool loop)
+            : this(new FileInfo(fileName).Open(FileMode.Open, FileAccess.Read, FileShare.Read), true, sampleRate, is16Bit, isStereo, loop) {
+            FileName = fileName;
+        }
+
+        public SoundFile(byte[] data, uint sampleRate, bool is16Bit, bool isStereo, bool loop)
+            : this(new MemoryStream(data, writable: false), true, sampleRate, is16Bit, isStereo, loop) { }
+
+        public SoundFile(Stream stream, uint sampleRate, bool is16Bit, bool isStereo, bool loop)
+            : this(stream, false, sampleRate, is16Bit, isStereo, loop) { }
+
+        private SoundFile(Stream stream, bool ownsStream, uint sampleRate, bool is16Bit, bool isStereo, bool loop) {
             byte[] s = new byte[1024];
             S3MTools.S3MFileHeader s3mFH = new S3MTools.S3MFileHeader();
             XMTools.XMFileHeader xmFH = new XMTools.XMFileHeader();
@@ -41,8 +52,9 @@ namespace SharpMod {
             Loop = loop;
             ActiveChannels = 0;
 
-            FileName = fileName;
-            file = new FileInfo(fileName).Open(FileMode.Open, FileAccess.Read, FileShare.Read);
+            FileName = "";
+            file = stream;
+            this.ownsStream = ownsStream;
 
             Type = Types.MOD;
             file.Seek(0x438, SeekOrigin.Begin);
@@ -1145,9 +1157,9 @@ namespace SharpMod {
         }
 
         private void CloseFile(bool isValid) {
-            file.Close();
+            if(ownsStream) file.Close();
 
-            // Default settings	
+            // Default settings
             Pattern = 0;
             CurrentPattern = 0;
             NextPattern = 0;
@@ -1157,7 +1169,7 @@ namespace SharpMod {
             IsValid = isValid;
         }
 
-        private static T LoadStruct<T>(FileStream fs) {
+        private static T LoadStruct<T>(Stream fs) {
             byte[] sb = new byte[Marshal.SizeOf(typeof(T))];
             fs.Read(sb, 0, sb.Length);
             GCHandle pb = GCHandle.Alloc(sb, GCHandleType.Pinned);
