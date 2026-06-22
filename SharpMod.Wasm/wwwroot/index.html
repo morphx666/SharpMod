@@ -41,12 +41,6 @@
         </div>
     </header>
 
-    <nav class="tabs">
-        <button class="tab active" data-view="patterns">Patterns</button>
-        <button class="tab" data-view="samples">Samples</button>
-        <span class="status" id="status">Loading .NET runtime…</span>
-    </nav>
-
     <section class="infobar" id="infobar">
         <span class="title" id="m-title">—</span>
         <span class="sep">│</span>
@@ -56,6 +50,12 @@
         <span class="kv"><span class="label">Row:</span><span class="val" id="m-row">—</span></span>
         <span class="kv"><span class="label">Tempo/Speed:</span><span class="val" id="m-tempo">—</span></span>
     </section>
+
+    <nav class="tabs">
+        <button class="tab active" data-view="patterns">Patterns</button>
+        <button class="tab" data-view="samples">Samples</button>
+        <span class="status" id="status">Loading .NET runtime…</span>
+    </nav>
 
     <main class="view" id="view-patterns">
         <div class="channels-row" id="channels-row"></div>
