@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SharpModConsolePlayer\SharpModConsolePlayer.csproj" />
+    <ProjectReference Include="..\SharpMod.ConsolePlayer\SharpMod.ConsolePlayer.csproj" />
   </ItemGroup>
 
 </Project>
