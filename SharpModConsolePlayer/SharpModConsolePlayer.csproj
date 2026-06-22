@@ -5,8 +5,8 @@
 		<TargetFramework>net10.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<AssemblyVersion>2026.6.19.80</AssemblyVersion>
-		<FileVersion>2026.6.19.80</FileVersion>
+		<AssemblyVersion>2026.6.22.84</AssemblyVersion>
+		<FileVersion>2026.6.22.84</FileVersion>
 		<OutputPath>..\Release\</OutputPath>
 		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
 		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>

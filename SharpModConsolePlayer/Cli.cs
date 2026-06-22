@@ -193,11 +193,11 @@ namespace SharpModConsolePlayer {
 
             Console.WriteLineInterpolated($"{Yellow}EXAMPLES{Default}");
             Console.WriteLineInterpolated($"  {DarkGray}# Play a single file{Default}");
-            Console.WriteLineInterpolated($"  {White}{name}{Default} {Cyan}\"mods/Future Crew - Second Reality.S3M\"{Default}");
+            Console.WriteLineInterpolated($"  {White}{name}{Default} {Cyan}\"mods{Path.DirectorySeparatorChar}Future Crew - Second Reality.S3M\"{Default}");
             Console.WriteLineInterpolated($"  {DarkGray}# Play every supported file in a directory (recursively){Default}");
-            Console.WriteLineInterpolated($"  {White}{name}{Default} {Cyan}mods{Default}");
+            Console.WriteLineInterpolated($"  {White}{name}{Default} {Cyan}mods{Path.DirectorySeparatorChar}{Default}");
             Console.WriteLineInterpolated($"  {DarkGray}# Play every .XM file matched by a glob pattern{Default}");
-            Console.WriteLineInterpolated($"  {White}{name}{Default} {Cyan}mods/*.XM{Default}");
+            Console.WriteLineInterpolated($"  {White}{name}{Default} {Cyan}mods{Path.DirectorySeparatorChar}*.XM{Default}");
             Console.NewLine();
 
             Console.WriteLineInterpolated($"{Yellow}KEYS{Default}");
@@ -205,8 +205,24 @@ namespace SharpModConsolePlayer {
         }
 
         internal static void PrintKeyBindings(string prefix = "", string suffix = "", ViewMode mode = ViewMode.Any) {
+            int rowsNeeded = 0;
+            for(int i = 0; i < keyBindings.Length; i++) {
+                var viewMode = keyBindings[i].Mode;
+                if(viewMode == ViewMode.Any || viewMode == mode) rowsNeeded++;
+            }
+
             int col = Console.CursorLeft;
             int row = Console.CursorTop;
+
+            // On Windows, SetCursorPosition throws when y >= BufferHeight, which happens when
+            // output has reached the bottom of the buffer (typical when BufferHeight == WindowHeight).
+            // Emit blank lines to force the buffer to scroll, then pull `row` up by the same amount.
+            int overflow = (row + rowsNeeded) - Console.BufferHeight;
+            if(overflow > 0) {
+                for(int i = 0; i < overflow; i++) Console.NewLine();
+                row -= overflow;
+            }
+
             for(int i = 0; i < keyBindings.Length; i++) {
                 var (viewMode, vkeyWidth, description, writeKey) = keyBindings[i];
                 if(viewMode != ViewMode.Any && viewMode != mode) continue;

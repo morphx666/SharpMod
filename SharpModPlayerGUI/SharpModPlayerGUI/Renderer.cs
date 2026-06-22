@@ -1,16 +1,16 @@
-﻿using System;
-using System.Drawing;
+﻿using Eto.Drawing;
+using System;
 
-namespace SharpModPlayer {
-    public static class Renderer {
-        public static void RenderWaveform(SharpMod.SoundFile sf, byte[] buffer, Graphics g, Pen colorL, Pen colorR, Rectangle r) {
+namespace SharpModPlayerGUI {
+    internal static class Renderer {
+        public static void RenderWaveform(SharpMod.SoundFile sf, byte[] buffer, Graphics g, Pen colorL, Pen colorR, RectangleF r) {
             float hh = r.Height / 2.0f;
             float hh2 = hh / 2.0f;
 
             int ds = sf.Is16Bit ? 2 : 1;
             int ss = (sf.IsStereo ? 2 : 1) * ds;
             int bl = buffer.Length / ss;
-            float xf = (float)r.Width / bl;
+            float xf = r.Width / bl;
 
             PointF[] pL = new PointF[bl];
             PointF[] pR = new PointF[bl];
@@ -48,12 +48,12 @@ namespace SharpModPlayer {
             }
         }
 
-        public static void RenderInstrument(SharpMod.SoundFile sf, int instrumentIndex, Graphics g, Pen color, Rectangle r, int resolution = 32) {
+        public static void RenderInstrument(SharpMod.SoundFile sf, int instrumentIndex, Graphics g, Pen color, RectangleF r, int resolution = 32) {
             SharpMod.SoundFile.ModInstrument instrument = sf.Instruments[instrumentIndex];
             if(instrument.Sample != null) {
                 float x;
                 int bl = instrument.Sample.Length / resolution;
-                float xf = (float)r.Width / bl;
+                float xf = r.Width / bl;
                 PointF[] pL = new PointF[bl];
 
                 // Render Instrument's sample
@@ -69,7 +69,7 @@ namespace SharpModPlayer {
                     SharpMod.SoundFile.ModChannel channel = sf.Channels[c];
                     if((channel.Length != 0) && (channel.InstrumentIndex == instrumentIndex)) {
                         x = r.Left + (float)channel.Pos / channel.Length * r.Width;
-                        g.DrawLine(Pens.LightGray, x, r.Y, x, r.Bottom);
+                        g.DrawLine(Pens.LightGrey, x, r.Y, x, r.Bottom);
                     }
                 }
             }

@@ -174,10 +174,10 @@ namespace SharpModConsolePlayer.Renderer {
                         break;
                     }
                     case ConsoleKey.Home:
-                        NextTrack();
+                        PreviousTrack();
                         break;
                     case ConsoleKey.End:
-                        PreviousTrack();
+                        NextTrack();
                         break;
                     case ConsoleKey.Escape:
                         if(Dialog.IsOpen) {
