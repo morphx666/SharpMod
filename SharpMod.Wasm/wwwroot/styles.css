@@ -14,7 +14,7 @@
     --c-red: #e06c75;
     --c-blue: #61afef;
     --border: #21262d;
-    --mono: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "Lucida Console", "Courier New", "DejaVu Sans Mono", monospace;
 }
 
 * { box-sizing: border-box; }
@@ -167,8 +167,9 @@ button:disabled { color: var(--fg-dim); cursor: not-allowed; }
     top: 50%;
     height: 18px;
     transform: translateY(-50%);
-    background: var(--bg-row);
-    opacity: 0.45;
+    background: rgba(97, 175, 239, 0.14);
+    box-shadow: inset 0 1px 0 rgba(97, 175, 239, 0.65),
+                inset 0 -1px 0 rgba(97, 175, 239, 0.65);
     pointer-events: none;
     z-index: 0;
 }
@@ -185,30 +186,37 @@ button:disabled { color: var(--fg-dim); cursor: not-allowed; }
 .pat-col {
     flex: 0 0 auto;
     width: 13ch;
-    display: flex;
-    flex-direction: column;
+    position: relative;
+    height: 3456px;            /* 3 blocks × 64 rows × 18px */
     color: var(--fg-dim);
     white-space: pre;
     will-change: transform;
 }
+/* Three pattern blocks (prev/cur/next) stacked via absolute top offsets so the
+   rotation fast path can re-label them with a single style write rather than
+   re-painting their contents. */
+.pat-block {
+    position: absolute;
+    left: 0; right: 0;
+    height: 1152px;            /* 64 rows × 18px */
+}
+.pat-block.dim { opacity: 0.55; }
 .pat-row {
     padding: 0 1px;
     line-height: 18px;
     height: 18px;
-    flex: 0 0 18px;
 }
 .pat-row.active {
     color: var(--fg-strong);
 }
-.pat-row.dim { color: var(--fg-dim); opacity: 0.55; }
 .pat-row .nt { color: var(--fg-strong); }
 .pat-row .in { color: var(--c-green); }
 .pat-row .vo { color: var(--c-cyan); }
 .pat-row .fx { color: var(--c-yellow); }
-.pat-row.dim .nt,
-.pat-row.dim .in,
-.pat-row.dim .vo,
-.pat-row.dim .fx { color: var(--fg-dim); }
+.pat-block.dim .nt,
+.pat-block.dim .in,
+.pat-block.dim .vo,
+.pat-block.dim .fx { color: var(--fg-dim); }
 .pat-row .ph { color: var(--fg-dim); }
 
 /* ─── Samples view ────────────────────────────────────────────────────── */
@@ -244,7 +252,15 @@ button:disabled { color: var(--fg-dim); cursor: not-allowed; }
 }
 .samples-row { padding-top: 1px; padding-bottom: 1px; }
 .samples-row .col-i { color: var(--c-cyan); text-align: right; }
-.samples-row .col-n { color: var(--fg-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; }
+.samples-row .col-n {
+    color: var(--fg-strong);
+    white-space: pre;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    position: relative;
+    font-family: var(--mono);
+    font-variant-ligatures: none;
+}
 .samples-row.empty .col-n,
 .samples-row.empty .col-i,
 .samples-row.empty .col-l,

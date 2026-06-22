@@ -10,16 +10,22 @@ const ROW_HEIGHT_PX = 18;     // must match .pat-row height in styles.css
 const VU_MAX = 256;
 const VU_DECAY_PER_FRAME = 16;
 
+const BLOCK_HEIGHT_PX = ROWS_PER_PATTERN * ROW_HEIGHT_PX; // 1152
+
 let channelsRoot = null;
 let patternsRoot = null;
 let liveSm = null;            // refreshed each renderPatternsView() call for click handlers
 let channelCells = [];        // per channel: { wrap, name, canvas, ctx, levelL, levelR }
-let columnEls = [];           // per channel: { col, rows: HTMLElement[64*3] }
+let columnEls = [];           // per channel: { col, blocks: HTMLElement[3], rowsByBlock: HTMLElement[3][64] }
 let lastChannelCount = -1;
 let lastRow = -1, lastPattern = -1, lastNextPattern = -1, lastDisplayPat = -1;
 let lastToken = -1;
 let lastMuted = [];
 let cachedPatternRows = new Map(); // patternIndex -> string[64] (raw 14*nch char rows)
+// Maps physical block index → logical position (0=prev, 1=cur, 2=next). The
+// rotation fast path mutates this array in place; full paints reset it.
+let blockLogicalPos = [0, 1, 2];
+let lastActiveBlockIdx = -1, lastActiveRowInBlock = -1;
 
 export function initPatternsView(opts) {
     channelsRoot = opts.root;
@@ -31,6 +37,8 @@ export function resetPatternsView() {
     columnEls = [];
     lastChannelCount = -1;
     lastRow = lastPattern = lastNextPattern = lastDisplayPat = -1;
+    lastActiveBlockIdx = lastActiveRowInBlock = -1;
+    blockLogicalPos = [0, 1, 2];
     lastMuted = [];
     cachedPatternRows.clear();
     channelsRoot.innerHTML = '';
@@ -49,16 +57,28 @@ export function renderPatternsView(sm, token) {
 
     const muteChanged = updateMuteHeaders(states, nch);
 
-    const row = sm.GetRow();
     const cur = sm.GetCurrentPattern();
     const display = sm.GetDisplayPattern();
     const next = sm.GetNextPattern();
+    // Engine "loaded but never played" sentinel: Start() leaves Row=0x3F and
+    // NextPattern==CurrentPattern. Pretend row 0 of the current pattern is on
+    // the play-line so what the user sees matches what Play will start with.
+    const fresh = cur === next;
+    const row = fresh ? 0 : sm.GetRow();
     const prevDisplay = cur > 0 ? sm.GetOrderAt(cur - 1) : -1;
-    const nextDisplay = next !== 0xFF ? sm.GetOrderAt(next) : -1;
+    const effectiveNext = fresh ? cur + 1 : next;
+    const nextDisplay = effectiveNext !== 0xFF ? sm.GetOrderAt(effectiveNext) : -1;
 
     const patternsChanged = display !== lastDisplayPat || prevDisplay !== lastPattern || nextDisplay !== lastNextPattern;
-    if (patternsChanged || muteChanged) {
-        repaintPatternBlocks(sm, nch, [prevDisplay, display, nextDisplay]);
+    if (patternsChanged) {
+        // Forward-by-one is the common playback case (newPrev was old cur,
+        // newCur was old next); we can keep two blocks untouched and only
+        // repaint the obsolete one with the new "next" content.
+        const canRotate = lastDisplayPat >= 0
+            && prevDisplay === lastDisplayPat
+            && display === lastNextPattern;
+        if (canRotate) rotateForwardAndPaint(sm, nch, nextDisplay);
+        else paintAllBlocks(sm, nch, [prevDisplay, display, nextDisplay]);
         lastDisplayPat = display;
         lastPattern = prevDisplay;
         lastNextPattern = nextDisplay;
@@ -91,19 +111,53 @@ function buildLayout(nch) {
         const col = document.createElement('div');
         col.className = 'pat-col';
         col.style.transform = 'translateY(0px)';
-        // Pre-create 3 patterns worth of rows for fast vertical scroll.
-        const rows = [];
-        for (let i = 0; i < ROWS_PER_PATTERN * 3; i++) {
-            const r = document.createElement('div');
-            r.className = 'pat-row dim';
-            col.appendChild(r);
-            rows.push(r);
+        // Three absolute-positioned blocks (prev/cur/next). The rotation fast
+        // path reassigns each block's top + dim class to shift logical roles
+        // without moving DOM nodes or re-painting their cell spans.
+        const blocks = new Array(3);
+        const rowsByBlock = new Array(3);
+        for (let p = 0; p < 3; p++) {
+            const blk = document.createElement('div');
+            blk.className = p === 1 ? 'pat-block' : 'pat-block dim';
+            blk.style.top = (p * BLOCK_HEIGHT_PX) + 'px';
+            const rows = new Array(ROWS_PER_PATTERN);
+            for (let r = 0; r < ROWS_PER_PATTERN; r++) {
+                const rowEl = document.createElement('div');
+                rowEl.className = 'pat-row';
+                rowEl._spans = buildRowSpans(rowEl);
+                blk.appendChild(rowEl);
+                rows[r] = rowEl;
+            }
+            col.appendChild(blk);
+            blocks[p] = blk;
+            rowsByBlock[p] = rows;
         }
         patternsRoot.appendChild(col);
-        columnEls[c] = { col, rows };
+        columnEls[c] = { col, blocks, rowsByBlock };
     }
+    blockLogicalPos = [0, 1, 2];
+    lastActiveBlockIdx = lastActiveRowInBlock = -1;
     lastChannelCount = nch;
     lastMuted = new Array(nch).fill(0);
+}
+
+function buildRowSpans(r) {
+    const mkSpan = (cls) => { const s = document.createElement('span'); s.className = cls; s.textContent = '...'; return s; };
+    const nt = mkSpan('ph');
+    const ins = mkSpan('ph');
+    const vo = mkSpan('ph');
+    const fx = mkSpan('ph');
+    ins.textContent = '..';
+    r.appendChild(document.createTextNode(' '));
+    r.appendChild(nt);
+    r.appendChild(document.createTextNode(' '));
+    r.appendChild(ins);
+    r.appendChild(document.createTextNode(' '));
+    r.appendChild(vo);
+    r.appendChild(document.createTextNode(' '));
+    r.appendChild(fx);
+    r.appendChild(document.createTextNode(' '));
+    return [nt, ins, vo, fx];
 }
 
 function paintVuMeters(states, nch) {
@@ -162,20 +216,69 @@ function updateMuteHeaders(states, nch) {
     return changed;
 }
 
-function repaintPatternBlocks(sm, nch, patternIndices) {
+function paintAllBlocks(sm, nch, patternIndices) {
+    // Reset to canonical layout (block 0 = prev, 1 = cur, 2 = next) and paint
+    // every block. Used on first render and after non-rotation pattern jumps
+    // (position breaks, Bxx position-jump, manual scrubbing).
+    blockLogicalPos[0] = 0; blockLogicalPos[1] = 1; blockLogicalPos[2] = 2;
+    applyBlockPositions(nch);
+    for (let p = 0; p < 3; p++) paintBlock(sm, nch, p, patternIndices[p]);
+}
+
+function rotateForwardAndPaint(sm, nch, newNextIdx) {
+    // The physical block currently at logicalPos 0 (the obsolete "prev")
+    // becomes the new "next". All other blocks shift one role down: cur→prev,
+    // next→cur. We only need to repaint that one obsolete block.
+    const obsBlock = blockLogicalPos.indexOf(0);
+    for (let p = 0; p < 3; p++) blockLogicalPos[p] = (blockLogicalPos[p] + 2) % 3;
+    applyBlockPositions(nch);
+    paintBlock(sm, nch, obsBlock, newNextIdx);
+}
+
+function applyBlockPositions(nch) {
+    // Push each physical block to the pixel slot matching its new logical role
+    // and toggle .dim so cur (logicalPos == 1) renders at full intensity.
     for (let c = 0; c < nch; c++) {
-        const rows = columnEls[c].rows;
+        const blocks = columnEls[c].blocks;
         for (let p = 0; p < 3; p++) {
-            const pi = patternIndices[p];
-            const data = getPatternRows(sm, pi);
-            const dim = p !== 1; // only middle block (current pattern) is active
-            for (let r = 0; r < ROWS_PER_PATTERN; r++) {
-                const el = rows[p * ROWS_PER_PATTERN + r];
-                el.className = dim ? 'pat-row dim' : 'pat-row';
-                el.innerHTML = data ? cellHtml(data[r].substr(c * 14, 14), dim) : placeholderHtml(dim);
-            }
+            const logPos = blockLogicalPos[p];
+            const top = (logPos * BLOCK_HEIGHT_PX) + 'px';
+            if (blocks[p].style.top !== top) blocks[p].style.top = top;
+            blocks[p].classList.toggle('dim', logPos !== 1);
         }
     }
+}
+
+function paintBlock(sm, nch, blockIdx, patternIdx) {
+    const data = getPatternRows(sm, patternIdx);
+    for (let c = 0; c < nch; c++) {
+        const rows = columnEls[c].rowsByBlock[blockIdx];
+        const segOffset = c * 14;
+        for (let r = 0; r < ROWS_PER_PATTERN; r++) {
+            paintRowCell(rows[r]._spans, data ? data[r] : null, segOffset);
+        }
+    }
+}
+
+// Each 14-char command segment is: NNN II VVV FFF (with spaces at 3,6,10).
+function paintRowCell(spans, rowText, off) {
+    if (!rowText || rowText.length < off + 14) {
+        setSpan(spans[0], '...', 'nt');
+        setSpan(spans[1], '..',  'in');
+        setSpan(spans[2], '...', 'vo');
+        setSpan(spans[3], '...', 'fx');
+        return;
+    }
+    setSpan(spans[0], rowText.substr(off,      3), 'nt');
+    setSpan(spans[1], rowText.substr(off + 4,  2), 'in');
+    setSpan(spans[2], rowText.substr(off + 7,  3), 'vo');
+    setSpan(spans[3], rowText.substr(off + 11, 3), 'fx');
+}
+
+function setSpan(span, text, cls) {
+    const target = isPh(text) ? 'ph' : cls;
+    if (span.textContent !== text) span.textContent = text;
+    if (span.className !== target) span.className = target;
 }
 
 function getPatternRows(sm, patternIndex) {
@@ -188,40 +291,31 @@ function getPatternRows(sm, patternIndex) {
     return cached;
 }
 
-function placeholderHtml(dim) {
-    return `<span class="ph"> ... .. ... ... </span>`;
-}
-
-// Each 14-char command segment is: NNN II VVV FFF (with spaces at 3,6,10).
-function cellHtml(seg, dim) {
-    if (!seg || seg.length < 14) return placeholderHtml(dim);
-    const note = seg.substr(0, 3);
-    const inst = seg.substr(4, 2);
-    const vol  = seg.substr(7, 3);
-    const efx  = seg.substr(11, 3);
-    const cls = (s, c) => isPh(s) ? `<span class="ph">${s}</span>` : `<span class="${c}">${s}</span>`;
-    return ` ${cls(note, 'nt')} ${cls(inst, 'in')} ${cls(vol, 'vo')} ${cls(efx, 'fx')} `;
-}
-
 function isPh(s) {
     for (let i = 0; i < s.length; i++) { const c = s[i]; if (c !== '.' && c !== ' ') return false; }
     return true;
 }
 
 function scrollAndHighlight(row) {
-    // Translate each column vertically so the active row's center lands exactly on
-    // the play-line band at the viewport's vertical midpoint. Row heights are pinned
-    // by CSS to ROW_HEIGHT_PX, so we don't measure (avoids sub-pixel drift).
+    // Translate each column vertically so the active row's center lands on the
+    // play-line band at the viewport's vertical midpoint. The "cur" pattern
+    // always occupies logicalPos 1 → fixed pixel slot [BLOCK_HEIGHT_PX,
+    // 2·BLOCK_HEIGHT_PX], regardless of which physical block currently holds
+    // it, so the translate math doesn't change after a rotation.
     if (columnEls.length === 0) return;
     const containerH = patternsRoot.parentElement.getBoundingClientRect().height;
     const playLine = containerH / 2;
-    const activeIdx = ROWS_PER_PATTERN + row;
-    const offset = Math.round(playLine - activeIdx * ROW_HEIGHT_PX - ROW_HEIGHT_PX / 2);
-    const lastIdx = lastRow >= 0 ? ROWS_PER_PATTERN + lastRow : -1;
+    const activePixelY = BLOCK_HEIGHT_PX + row * ROW_HEIGHT_PX;
+    const offset = Math.round(playLine - activePixelY - ROW_HEIGHT_PX / 2);
+    const curBlock = blockLogicalPos.indexOf(1);
+    const prevBlock = lastActiveBlockIdx, prevRow = lastActiveRowInBlock;
+    const moved = prevBlock !== curBlock || prevRow !== row;
     for (let c = 0; c < columnEls.length; c++) {
-        const { col, rows } = columnEls[c];
+        const { col, rowsByBlock } = columnEls[c];
         col.style.transform = `translateY(${offset}px)`;
-        if (lastIdx >= 0 && lastIdx !== activeIdx) rows[lastIdx]?.classList.remove('active');
-        rows[activeIdx]?.classList.add('active');
+        if (moved && prevBlock >= 0) rowsByBlock[prevBlock][prevRow]?.classList.remove('active');
+        rowsByBlock[curBlock][row]?.classList.add('active');
     }
+    lastActiveBlockIdx = curBlock;
+    lastActiveRowInBlock = row;
 }
