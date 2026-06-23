@@ -85,6 +85,15 @@ body {
     font-size: 0.85em;
 }
 
+.brand a {
+    color: var(--fg-dim);
+    transition: color 250ms;
+}
+
+.brand a:hover {
+    color: var(--c-magenta);
+}
+
 .transport {
     display: flex;
     flex-wrap: wrap;
@@ -147,8 +156,10 @@ button:disabled {
     display: flex;
     flex-direction: row;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     padding: 0.3rem 1rem;
+    min-width: 12ch;
 }
 
 /* ─── Tabs ────────────────────────────────────────────────────────────── */

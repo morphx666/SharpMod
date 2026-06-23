@@ -5,8 +5,8 @@
     <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
     <InvariantGlobalization>true</InvariantGlobalization>
     <Nullable>enable</Nullable>
-    <AssemblyVersion>2026.6.22.1</AssemblyVersion>
-    <FileVersion>2026.6.22.1</FileVersion>
+    <AssemblyVersion>2026.6.22.4</AssemblyVersion>
+    <FileVersion>2026.6.22.4</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
