@@ -154,7 +154,8 @@ namespace SharpMod {
             public bool Muted;
         }
 
-        private readonly FileStream file;
+        private readonly Stream file;
+        private readonly bool ownsStream;
         private string title;
         private string trackerName = "";
         private ModInstrument[] instruments;

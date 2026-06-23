@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "SharpModConsolePlayer": {
-      "commandName": "Project",
-      "commandLineArgs": ""
-    }
-  }
-}

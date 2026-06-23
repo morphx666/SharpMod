@@ -1,0 +1,556 @@
+/* Palette mirrors the console renderer's PrettyConsole tokens. */
+:root {
+    --bg: #0d1117;
+    --bg-panel: #11141b;
+    --bg-row: #2a2d36;
+    /* DarkGrayBackground */
+    --bg-progress-name: #1f3a5f;
+    /* DarkBlueBackground */
+    --fg: #c9d1d9;
+    --fg-dim: #6e7681;
+    /* DarkGray */
+    --fg-strong: #ffffff;
+    /* White */
+    --c-cyan: #56b6c2;
+    --c-yellow: #e5c07b;
+    --c-green: #98c379;
+    --c-magenta: #c678dd;
+    --c-red: #e06c75;
+    --c-blue: #61afef;
+    --border: #21262d;
+    --mono: "Roboto Mono", ui-monospace, "Cascadia Mono", Consolas, "Lucida Console", "Courier New", "DejaVu Sans Mono", monospace;
+    /* Pattern row height — single source of truth. view-patterns.js reads --row-h
+       from computed styles, so changing this value here is enough. */
+    --row-h: 26px;
+    --rows-per-pattern: 64;
+    --pat-block-h: calc(var(--row-h) * var(--rows-per-pattern));
+    --pat-col-h: calc(var(--pat-block-h) * 3);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+}
+
+html,
+body {
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.35;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ─── Top bar ─────────────────────────────────────────────────────────── */
+.topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1em;
+    padding: 0.75em 1em;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel);
+}
+
+.brand h1 {
+    font-family: var(--mono);
+    font-size: 1.15em;
+    margin: 0;
+    color: var(--c-magenta);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.brand h1 .sub {
+    color: var(--fg-dim);
+    font-weight: 400;
+}
+
+.brand .tagline {
+    margin: 0.15em 0 0;
+    color: var(--fg-dim);
+    font-size: 0.85em;
+}
+
+.brand a {
+    color: var(--fg-dim);
+    transition: color 250ms;
+}
+
+.brand a:hover {
+    color: var(--c-magenta);
+}
+
+.transport {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75em;
+}
+
+.transport label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    color: var(--fg-dim);
+}
+
+.transport label .lbl {
+    color: var(--c-cyan);
+}
+
+.transport input[type="file"] {
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 0.25em;
+    font-family: inherit;
+}
+
+.transport select,
+.transport input[type="checkbox"] {
+    accent-color: var(--c-green);
+}
+
+.transport select {
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 0.2em 0.35em;
+    font-family: inherit;
+}
+
+button {
+    background: var(--bg);
+    color: var(--c-green);
+    border: 1px solid var(--border);
+    padding: 0.3em 0.8em;
+    font-family: inherit;
+    font-size: 1em;
+    cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+    border-color: var(--c-green);
+}
+
+button:disabled {
+    color: var(--fg-dim);
+    cursor: not-allowed;
+}
+
+#playPause {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.3rem 1rem;
+    min-width: 12ch;
+}
+
+/* ─── Tabs ────────────────────────────────────────────────────────────── */
+.tabs {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0 1em;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel);
+}
+
+.tab {
+    background: transparent;
+    color: var(--fg-dim);
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.55em 1em;
+    font-family: inherit;
+    font-size: 1em;
+    cursor: pointer;
+}
+
+.tab:hover {
+    color: var(--fg);
+}
+
+.tab.active {
+    color: var(--c-yellow);
+    border-bottom-color: var(--c-yellow);
+}
+
+.tabs .status {
+    margin-left: auto;
+    color: var(--fg-dim);
+    font-size: 0.9em;
+    padding: 0 0.5em;
+}
+
+/* ─── Info bar ────────────────────────────────────────────────────────── */
+.infobar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 0.75em;
+    padding: 0.4em 1em;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel);
+}
+
+.infobar .title {
+    color: var(--c-magenta);
+    min-width: 18ch;
+}
+
+.infobar .sep {
+    color: var(--fg-dim);
+}
+
+.infobar .kv {
+    display: inline-flex;
+    gap: 0.35em;
+}
+
+.infobar .label {
+    color: var(--c-cyan);
+}
+
+.infobar .val {
+    color: var(--fg-strong);
+}
+
+/* ─── Views ──────────────────────────────────────────────────────────── */
+.view {
+    flex: 1;
+    padding: 0.5em 1em 0;
+    overflow: hidden;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.view.hidden {
+    display: none;
+}
+
+
+/* ─── Patterns view ───────────────────────────────────────────────────── */
+.channels-row {
+    display: flex;
+    gap: 1ch;
+    padding: 0.3em 0 0.4em;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--border);
+}
+
+.channel {
+    flex: 0 0 auto;
+    width: 14ch;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.channel .ch-name {
+    color: var(--c-blue);
+    text-align: center;
+}
+
+.channel.muted .ch-name {
+    color: var(--c-red);
+}
+
+.channel canvas {
+    display: block;
+    width: 14ch;
+    height: 10px;
+}
+
+.patterns-scroll {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    min-height: 0;
+}
+
+/* Persistent play-line band: a horizontal stripe at the vertical center of
+   the scroll viewport so the cursor location is always visible, independent
+   of which row currently holds the .active highlight. */
+.patterns-scroll::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: var(--row-h);
+    transform: translateY(-50%);
+    background: rgba(97, 175, 239, 0.14);
+    box-shadow: inset 0 1px 0 rgba(97, 175, 239, 0.65),
+        inset 0 -1px 0 rgba(97, 175, 239, 0.65);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.patterns {
+    display: flex;
+    gap: 1ch;
+    height: 100%;
+    align-items: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
+    z-index: 1;
+}
+
+.pat-col {
+    flex: 0 0 auto;
+    width: 14ch;
+    position: relative;
+    height: var(--pat-col-h);
+    /* 3 blocks × 64 rows × --row-h */
+    color: var(--fg-dim);
+    white-space: pre;
+    will-change: transform;
+}
+
+/* Three pattern blocks (prev/cur/next) stacked via absolute top offsets so the
+   rotation fast path can re-label them with a single style write rather than
+   re-painting their contents. */
+.pat-block {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: var(--pat-block-h);
+    /* 64 rows × --row-h */
+}
+
+.pat-block.dim {
+    opacity: 0.55;
+}
+
+.pat-row {
+    padding: 2px 0;
+    line-height: var(--row-h);
+    height: var(--row-h);
+}
+
+.pat-row.active {
+    color: var(--fg-strong);
+}
+
+.pat-row .nt {
+    color: var(--fg-strong);
+}
+
+.pat-row .in {
+    color: var(--c-green);
+}
+
+.pat-row .vo {
+    color: var(--c-cyan);
+}
+
+.pat-row .fx {
+    color: var(--c-yellow);
+}
+
+.pat-block.dim .nt,
+.pat-block.dim .in,
+.pat-block.dim .vo,
+.pat-block.dim .fx {
+    color: var(--fg-dim);
+}
+
+.pat-row .ph {
+    color: var(--fg-dim);
+}
+
+/* ─── Samples view ────────────────────────────────────────────────────── */
+.samples-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.25em 0.5em;
+    color: var(--c-cyan);
+}
+
+.samples-summary .lbl {
+    color: var(--c-cyan);
+}
+
+.samples-summary .val {
+    color: var(--fg-strong);
+    margin-right: 1em;
+}
+
+.samples-summary .filename {
+    margin-left: auto;
+    color: var(--c-magenta);
+}
+
+.samples-header,
+.samples-row {
+    display: grid;
+    grid-template-columns: 3ch 28ch 7ch 5ch 5ch 10ch 8ch 1fr;
+    column-gap: 8px;
+    align-items: center;
+    padding: 0 0.5em;
+}
+
+.samples-header {
+    color: var(--c-yellow);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 2px;
+    margin-bottom: 2px;
+}
+
+.samples-list {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.samples-row {
+    padding-top: 1px;
+    padding-bottom: 1px;
+}
+
+.samples-row .col-i {
+    color: var(--c-cyan);
+    text-align: right;
+}
+
+.samples-row .col-n {
+    color: var(--fg-strong);
+    white-space: pre;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    position: relative;
+    font-family: var(--mono);
+    font-variant-ligatures: none;
+}
+
+.samples-row.empty .col-n,
+.samples-row.empty .col-i,
+.samples-row.empty .col-l,
+.samples-row.empty .col-v,
+.samples-row.empty .col-f,
+.samples-row.empty .col-ls,
+.samples-row.empty .col-le {
+    color: var(--fg-dim);
+}
+
+.samples-row .col-l {
+    color: var(--c-cyan);
+    text-align: right;
+}
+
+.samples-row .col-v {
+    color: var(--c-green);
+    text-align: right;
+}
+
+.samples-row .col-f {
+    color: var(--c-blue);
+    text-align: right;
+}
+
+.samples-row .col-ls {
+    color: var(--c-magenta);
+    text-align: right;
+}
+
+.samples-row .col-le {
+    color: var(--c-magenta);
+    text-align: right;
+}
+
+.samples-row .col-w {
+    position: relative;
+    height: 22px;
+}
+
+.samples-row canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.samples-row .col-n .progress-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    background: var(--bg-progress-name);
+    z-index: -1;
+}
+
+.samples-row .col-n {
+    z-index: 0;
+    isolation: isolate;
+}
+
+/* ─── Bottom bar / progress ──────────────────────────────────────────── */
+.bottombar {
+    padding: 0.5em 1em;
+    border-top: 1px solid var(--border);
+    background: var(--bg-panel);
+}
+
+#pos {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    background: var(--bg-row);
+    outline: none;
+    margin: 0 0 0.5em;
+}
+
+#pos::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 4px;
+    height: 14px;
+    background: var(--c-green);
+    border: 0;
+    border-radius: 0;
+}
+
+#pos::-moz-range-thumb {
+    width: 4px;
+    height: 14px;
+    background: var(--c-green);
+    border: 0;
+    border-radius: 0;
+}
+
+.shortcuts {
+    color: var(--fg-dim);
+    font-size: 0.85em;
+}
+
+.shortcuts kbd {
+    font-family: inherit;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    padding: 0 0.35em;
+    color: var(--c-green);
+}

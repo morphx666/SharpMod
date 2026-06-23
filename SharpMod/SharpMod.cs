@@ -27,7 +27,18 @@ namespace SharpMod {
     public partial class SoundFile {
         public readonly string FileName;
 
-        public SoundFile(string fileName, uint sampleRate, bool is16Bit, bool isStereo, bool loop) {
+        public SoundFile(string fileName, uint sampleRate, bool is16Bit, bool isStereo, bool loop)
+            : this(new FileInfo(fileName).Open(FileMode.Open, FileAccess.Read, FileShare.Read), true, sampleRate, is16Bit, isStereo, loop) {
+            FileName = fileName;
+        }
+
+        public SoundFile(byte[] data, uint sampleRate, bool is16Bit, bool isStereo, bool loop)
+            : this(new MemoryStream(data, writable: false), true, sampleRate, is16Bit, isStereo, loop) { }
+
+        public SoundFile(Stream stream, uint sampleRate, bool is16Bit, bool isStereo, bool loop)
+            : this(stream, false, sampleRate, is16Bit, isStereo, loop) { }
+
+        private SoundFile(Stream stream, bool ownsStream, uint sampleRate, bool is16Bit, bool isStereo, bool loop) {
             byte[] s = new byte[1024];
             S3MTools.S3MFileHeader s3mFH = new S3MTools.S3MFileHeader();
             XMTools.XMFileHeader xmFH = new XMTools.XMFileHeader();
@@ -41,12 +52,13 @@ namespace SharpMod {
             Loop = loop;
             ActiveChannels = 0;
 
-            FileName = fileName;
-            file = new FileInfo(fileName).Open(FileMode.Open, FileAccess.Read, FileShare.Read);
+            FileName = "";
+            file = stream;
+            this.ownsStream = ownsStream;
 
             Type = Types.MOD;
             file.Seek(0x438, SeekOrigin.Begin);
-            file.Read(s, 0, 4);
+            file.ReadExactly(s, 0, 4);
             s[4] = 0;
             ActiveSamples = 31;
             ActiveChannels = 4;
@@ -64,10 +76,10 @@ namespace SharpMod {
                             ActiveChannels = (uint)s[1] - 48 + 10;
                         } else {
                             file.Seek(0x2c, SeekOrigin.Begin);
-                            file.Read(s, 0, 4);
+                            file.ReadExactly(s, 0, 4);
                             string magic = Encoding.Default.GetString(s).TrimEnd((char)0);
                             file.Seek(0x00, SeekOrigin.Begin);
-                            file.Read(s, 0, 17);
+                            file.ReadExactly(s, 0, 17);
                             string xmTag = Encoding.Default.GetString(s).TrimEnd((char)0);
                             if(magic == "SCRM") {
                                 Type = Types.S3M;
@@ -130,11 +142,11 @@ namespace SharpMod {
             MusicSpeed = 6;
             MusicTempo = 125;
 
-            file.Read(instruments[0].name, 0, offset);
+            file.ReadExactly(instruments[0].name, 0, offset);
             title = instruments[0].Name;
 
             for(i = 1; i <= (int)ActiveSamples; i++) {
-                file.Read(bTab, 0, 30);
+                file.ReadExactly(bTab, 0, 30);
                 Array.Copy(bTab, instruments[i].name, 22);
 
                 if((j = (bTab[22] << 9) | (bTab[23] << 1)) < 4) j = 0;
@@ -170,7 +182,7 @@ namespace SharpMod {
                 }
             }
 
-            file.Read(bTab, 0, 2);
+            file.ReadExactly(bTab, 0, 2);
             k = bTab[0];
             if(file.Read(order, 0, 128) != 128) {
                 CloseFile(false);
@@ -195,13 +207,13 @@ namespace SharpMod {
             patterns = new byte[64][];
             for(i = 0; i < nbp; i++) {
                 patterns[i] = new byte[ActiveChannels * 256];
-                file.Read(patterns[i], 0, (int)ActiveChannels * 256);
+                file.ReadExactly(patterns[i], 0, (int)ActiveChannels * 256);
             }
 
             // Reading instruments
             for(i = 1; i <= (int)ActiveSamples; i++) if(instruments[i].Length != 0) {
                 instruments[i].Sample = new byte[instruments[i].Length + 1];
-                file.Read(instruments[i].Sample, 0, (int)instruments[i].Length);
+                file.ReadExactly(instruments[i].Sample, 0, (int)instruments[i].Length);
                 instruments[i].Sample[instruments[i].Length] = instruments[i].Sample[instruments[i].Length - 1];
             }
 
@@ -247,7 +259,7 @@ namespace SharpMod {
             file.Position = offset;
 
             order = new byte[s3m.ordNum];
-            file.Read(order, 0, s3m.ordNum);
+            file.ReadExactly(order, 0, s3m.ordNum);
 
             UInt16[] sampleHeaderOffsets = new UInt16[s3m.smpNum];
             for(i = 0; i < s3m.smpNum; i++) {
@@ -263,7 +275,7 @@ namespace SharpMod {
             byte[] panTable = null;
             if(s3m.usePanningTable == (byte)S3MTools.S3MFileHeader.S3MMagic.idPanning) {
                 panTable = new byte[32];
-                file.Read(panTable, 0, 32);
+                file.ReadExactly(panTable, 0, 32);
             }
 
             // Default per-channel pan from S3M header (low nibble of channels[i]) and pan table override.
@@ -325,7 +337,7 @@ namespace SharpMod {
                     instruments[i].Sample = new byte[sampleBytes];
                     p = file.Position;
                     file.Seek(sampleOffset, SeekOrigin.Begin);
-                    file.Read(instruments[i].Sample, 0, sampleBytes);
+                    file.ReadExactly(instruments[i].Sample, 0, sampleBytes);
                     file.Position = p;
 
                     // Only the "new" format (formatVersion == 2) stores unsigned samples
@@ -369,9 +381,9 @@ namespace SharpMod {
                     byte flagBits = (byte)(b & 0xE0);
                     Array.Clear(pattern, 0, pattern.Length);
 
-                    if((flagBits & 0x20) != 0 && file.Position + 2 <= dataEnd) file.Read(pattern, 1, 2);
-                    if((flagBits & 0x40) != 0 && file.Position + 1 <= dataEnd) file.Read(pattern, 3, 1);
-                    if((flagBits & 0x80) != 0 && file.Position + 2 <= dataEnd) file.Read(pattern, 4, 2);
+                    if((flagBits & 0x20) != 0 && file.Position + 2 <= dataEnd) file.ReadExactly(pattern, 1, 2);
+                    if((flagBits & 0x40) != 0 && file.Position + 1 <= dataEnd) file.ReadExactly(pattern, 3, 1);
+                    if((flagBits & 0x80) != 0 && file.Position + 2 <= dataEnd) file.ReadExactly(pattern, 4, 2);
 
                     int slot = chnMap[s3mChn];
                     if(slot < 0) continue;
@@ -408,7 +420,7 @@ namespace SharpMod {
             order = new byte[256];
             for(int k = 0; k < 256; k++) order[k] = 0xFF;
             int orderCount = Math.Min((int)xm.orders, 256);
-            if(orderCount > 0) file.Read(order, 0, orderCount);
+            if(orderCount > 0) file.ReadExactly(order, 0, orderCount);
 
             // Clamp RestartPos to a valid order slot - some files store it past the order count.
             if(RestartPos >= orderCount) RestartPos = 0;
@@ -502,7 +514,7 @@ namespace SharpMod {
                 instHdr[1] = (byte)((instSize >> 8) & 0xFF);
                 instHdr[2] = (byte)((instSize >> 16) & 0xFF);
                 instHdr[3] = (byte)((instSize >> 24) & 0xFF);
-                file.Read(instHdr, 4, rawLen - 4);
+                file.ReadExactly(instHdr, 4, rawLen - 4);
 
                 Array.Copy(instHdr, 4, instruments[i].name, 0, Math.Min(22, instruments[i].name.Length));
 
@@ -525,7 +537,7 @@ namespace SharpMod {
                     int diskBytes = isADPCM ? 16 + ((rawBytes + 1) / 2) : rawBytes;
 
                     byte[] data = new byte[diskBytes];
-                    file.Read(data, 0, diskBytes);
+                    file.ReadExactly(data, 0, diskBytes);
 
                     if(s != 0 || isADPCM) continue; // basic implementation: keep only the first sample per instrument
 
@@ -646,7 +658,7 @@ namespace SharpMod {
             order = new byte[256];
             for(int k = 0; k < 256; k++) order[k] = 0xFF;
             byte[] tmpOrder = new byte[orderCount];
-            file.Read(tmpOrder, 0, orderCount);
+            file.ReadExactly(tmpOrder, 0, orderCount);
             for(int k = 0; k < orderCount; k++) {
                 byte v = tmpOrder[k];
                 if(v == 99 || v == 255) order[k] = 0xFF;
@@ -701,7 +713,7 @@ namespace SharpMod {
 
                 file.Position = sampleOffset;
                 instruments[s].Sample = new byte[instruments[s].Length];
-                file.Read(instruments[s].Sample, 0, sampleBytes);
+                file.ReadExactly(instruments[s].Sample, 0, sampleBytes);
                 instruments[s].Is16Bit = false;
                 instruments[s].IsStereo = false;
             }
@@ -809,7 +821,7 @@ namespace SharpMod {
 
                 for(int row = 0; row < 64; row++) {
                     for(int ch = 0; ch < 8; ch++) {
-                        file.Read(cellBuf, 0, 3);
+                        file.ReadExactly(cellBuf, 0, 3);
                         byte noteInstr = cellBuf[0];
                         byte instrVol = cellBuf[1];
                         byte effParam = cellBuf[2];
@@ -922,7 +934,7 @@ namespace SharpMod {
                     continue;
                 }
                 instruments[s].Sample = new byte[len + 1];
-                file.Read(instruments[s].Sample, 0, len);
+                file.ReadExactly(instruments[s].Sample, 0, len);
                 for(int n = 0; n < len; n++) instruments[s].Sample[n] ^= 0x80;
                 instruments[s].Sample[len] = instruments[s].Sample[len - 1];
                 instruments[s].Length = (uint)len;
@@ -1145,9 +1157,9 @@ namespace SharpMod {
         }
 
         private void CloseFile(bool isValid) {
-            file.Close();
+            if(ownsStream) file.Close();
 
-            // Default settings	
+            // Default settings
             Pattern = 0;
             CurrentPattern = 0;
             NextPattern = 0;
@@ -1157,9 +1169,9 @@ namespace SharpMod {
             IsValid = isValid;
         }
 
-        private static T LoadStruct<T>(FileStream fs) {
+        private static T LoadStruct<T>(Stream fs) {
             byte[] sb = new byte[Marshal.SizeOf(typeof(T))];
-            fs.Read(sb, 0, sb.Length);
+            fs.ReadExactly(sb, 0, sb.Length);
             GCHandle pb = GCHandle.Alloc(sb, GCHandleType.Pinned);
             var s = (T)Marshal.PtrToStructure(pb.AddrOfPinnedObject(), typeof(T));
             pb.Free();

@@ -3,6 +3,7 @@
     "dotnet.preferCSharpExtension": true,
     "cSpell.words": [
         "Ansi",
+        "dotnet",
         "Sourcei",
         "Spacebar",
         "Unqueue"
