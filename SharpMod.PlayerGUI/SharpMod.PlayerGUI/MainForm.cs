@@ -58,6 +58,8 @@ namespace SharpModPlayerGUI {
             Content = Canvas;
 
             this.Shown += (s, e) => {
+                this.Maximize();
+
                 using(Bitmap bmp = new(ClientSize, PixelFormat.Format32bppRgba)) {
                     using(Graphics g = new(bmp)) {
                         monoFontSize = g.MeasureString(monoFont, "W");
@@ -70,13 +72,21 @@ namespace SharpModPlayerGUI {
                 SetSoundFile(new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false));
                 UpdateTitleBarText();
 
-
                 this.SizeChanged += (object s, EventArgs e) => UpdateTitleBarText();
                 Canvas.Paint += RenderUI;
 
                 SetupDragDropSupport();
                 InitUIHandling();
                 StartAudio();
+
+                Task.Run(async() => {
+                    try { // FIXME: This is so lazy!
+                        while(!this.IsDisposed) {
+                            await Task.Delay(1000 / fps);
+                            Application.Instance.Invoke(() => Canvas.Invalidate());
+                        }
+                    } catch { }
+                });
             };
         }
 
@@ -280,11 +290,10 @@ namespace SharpModPlayerGUI {
         }
 
         private void RenderUI(object sender, PaintEventArgs e) {
-            // The following code is just a proof of concept and a huge mess at the same time...
-
             if(sndFile == null) return;
             lock(buffer) {
                 Graphics g = e.Graphics;
+                g.Clear(Colors.Black);
                 try {
                     RenderProgress(g, RenderWaveform(g, DisplayRectangle()));
                     RenderSamples(g);

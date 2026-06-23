@@ -2,8 +2,8 @@
 
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
-		<AssemblyVersion>2026.6.22.2025</AssemblyVersion>
-		<FileVersion>2026.6.22.2025</FileVersion>
+		<AssemblyVersion>2026.6.23.2026</AssemblyVersion>
+		<FileVersion>2026.6.23.2026</FileVersion>
 		<Authors>Xavier Flix</Authors>
 		<Company>xFX JumpStart</Company>
 		<Description>
