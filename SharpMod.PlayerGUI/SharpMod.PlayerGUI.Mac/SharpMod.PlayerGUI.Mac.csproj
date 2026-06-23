@@ -6,9 +6,8 @@
     <RuntimeIdentifiers>osx-x64;osx-arm64</RuntimeIdentifiers>
 	<AssemblyVersion>2026.6.22.2</AssemblyVersion>
 	<FileVersion>2026.6.22.2</FileVersion>
-	<OutputPath>..\..\Release\</OutputPath>
+	<OutputPath>$(MSBuildThisFileDirectory)..\..\Release\</OutputPath>
 	<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-	<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
   </PropertyGroup>
 	
   <ItemGroup>

@@ -116,10 +116,9 @@ namespace SharpModPlayerGUI {
             this.Shown += (s, e) => {
                 this.Maximize();
 
-                FontFamily monoFontFamily = new("Consolas");
-                if(monoFontFamily.LocalizedName == "Consolas") {
-                    monoFont = new Font(monoFontFamily, 12);
-                } else {
+                try {
+                    monoFont = new Font(new FontFamily("Consolas"), 12);
+                } catch(ArgumentOutOfRangeException) {
                     monoFont = new Font(FontFamilies.Monospace, 12);
                 }
 
@@ -361,7 +360,9 @@ namespace SharpModPlayerGUI {
         }
 
         private string GetRandomFile() {
-            FileInfo[] files = (new DirectoryInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mods"))).GetFiles("*.*");
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            if(Platform.IsMac) baseDir = Path.Combine(baseDir, "..", "..", "..", "..", "Release");
+            FileInfo[] files = (new DirectoryInfo(Path.Combine(baseDir, "mods"))).GetFiles("*.*");
             return files[(new Random()).Next(files.Length)].FullName;
         }
 
