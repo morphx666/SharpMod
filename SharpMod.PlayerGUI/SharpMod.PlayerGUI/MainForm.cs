@@ -30,12 +30,25 @@ namespace SharpModPlayerGUI {
                                                 new(Colors.DarkOrange), // effect
                                                ];
 
+        private readonly SolidBrush scrollTrackBrush = new(Color.FromArgb(28, 28, 28));
+        private readonly SolidBrush scrollThumbBrush = new(Color.FromArgb(98, 98, 98));
+        private readonly SolidBrush scrollThumbHotBrush = new(Color.FromArgb(140, 140, 140));
+        private readonly SolidBrush scrollButtonBrush = new(Color.FromArgb(64, 64, 64));
+        private readonly SolidBrush scrollArrowBrush = new(Color.FromArgb(200, 200, 200));
+
         private Font monoFont;
         private SizeF monoFontSize;
 
         private bool userHasDroppedFile = false;
         private uint maxChannels;
         private float channelWidth;
+        private int fromChannel;
+
+        // Custom-rendered horizontal scrollbar at the bottom of the patterns view.
+        private const float PatternsScrollBarHeight = 16f;
+        private bool isDraggingThumb;
+        private float dragThumbStartX;
+        private int dragFromChannelStart;
 
         private byte[] buffer = [];
         private readonly object sync = new();
@@ -89,6 +102,7 @@ namespace SharpModPlayerGUI {
             public RectangleF Samples;
             public RectangleF Waveform;
             public RectangleF Patterns;
+            public RectangleF PatternsScroll;
             public RectangleF Progress;
         }
 
@@ -143,6 +157,7 @@ namespace SharpModPlayerGUI {
             lastRow = uint.MaxValue;
             lastCurrentPattern = uint.MaxValue;
             lastPosition = uint.MaxValue;
+            fromChannel = 0;
         }
 
         private void ResetSampleBitmapCache() {
@@ -160,6 +175,7 @@ namespace SharpModPlayerGUI {
             this.MouseDown += (_, e) => {
                 isLeftMouseButtonDown = (e.Buttons & MouseButtons.Primary) != 0;
                 mouseDownPos = e.Location;
+                if(isLeftMouseButtonDown && IsInsidePatternsScrollBar(e)) HandleScrollBarMouseDown(e.Location);
             };
 
             this.MouseUp += (_, e) => {
@@ -168,11 +184,20 @@ namespace SharpModPlayerGUI {
                     isLeftMouseButtonDown = false;
                 }
                 isResizing = false;
+                if(isDraggingThumb) {
+                    isDraggingThumb = false;
+                    Canvas.Invalidate(ToInt(ComputeLayout().PatternsScroll));
+                }
             };
 
             this.MouseMove += (_, e) => {
                 Cursor c = Cursor;
-                if(IsInsideProgressBar(e)) {
+                if(isDraggingThumb) {
+                    UpdateThumbDrag(e.Location.X);
+                    c = Cursors.Default;
+                } else if(IsInsidePatternsScrollBar(e)) {
+                    c = Cursors.Default;
+                } else if(IsInsideProgressBar(e)) {
                     if(isLeftMouseButtonDown) SetPositionFromMouse(e.Location.X);
                     c = Cursors.IBeam;
                 } else if(IsOverChannelsDiv(e) || isResizing) {
@@ -204,21 +229,29 @@ namespace SharpModPlayerGUI {
 
         private void ResizeChannels(float x) {
             const int minWaveformWidth = 200;
-            float w = (mouseDownPos.X - x) / channelWidth;
-            if(w != 0) {
-                w = w > 0 ? 1 : -1; // Normalize
-                uint newMaxChannels = (uint)(maxChannels + w);
+            float delta = mouseDownPos.X - x;
+            int steps = (int)(delta / channelWidth); // truncates toward zero; one step per channelWidth pixels
+            if(steps == 0) return;
 
-                if((newMaxChannels <= 0) ||
-                    (newMaxChannels > sndFile.ActiveChannels) ||
-                    (w > 0 && DisplayRectangle().Width - 400 - newMaxChannels * channelWidth < minWaveformWidth)) {
-                    return;
-                }
-                maxChannels = newMaxChannels;
-                UpdateTitleBarText();
-
-                mouseDownPos = new(x, mouseDownPos.Y);
+            long target = (long)maxChannels + steps;
+            if(target < 1) target = 1;
+            if(target > sndFile.ActiveChannels) target = sndFile.ActiveChannels;
+            if(steps > 0) {
+                float available = DisplayRectangle().Width - 400 - minWaveformWidth;
+                long maxFit = (long)(available / channelWidth);
+                if(maxFit < (long)maxChannels) return;
+                if(target > maxFit) target = maxFit;
             }
+            if(target == maxChannels) return;
+
+            int applied = (int)(target - maxChannels);
+            maxChannels = (uint)target;
+            ClampFromChannel();
+            UpdateTitleBarText();
+            InvalidateAllAreas();
+
+            // Slide the anchor by the consumed pixels so sub-channel residual movement is preserved.
+            mouseDownPos = new(mouseDownPos.X - applied * channelWidth, mouseDownPos.Y);
         }
 
         private void SetupDragDropSupport() {
@@ -239,6 +272,7 @@ namespace SharpModPlayerGUI {
                     userHasDroppedFile = true;
                     SetSoundFile(sf);
                     if(maxChannels > sndFile.ActiveChannels) maxChannels = sndFile.ActiveChannels;
+                    ClampFromChannel();
                 }
 
                 Application.Instance.AsyncInvoke(UpdateTitleBarText);
@@ -321,20 +355,8 @@ namespace SharpModPlayerGUI {
                 uint m = s / 60;
                 s %= 60;
                 this.Title = $"SharpMod: '{sndFile.Title}' | {sndFile.Type} | {m:00}m {s:00}s";
-
-                //HScrollBarChannels.Anchor = AnchorStyles.None;
-                //HScrollBarChannels.Value = 0;
-                //HScrollBarChannels.Minimum = 0;
-                //HScrollBarChannels.Maximum = (int)(sndFile.ActiveChannels - maxChannels);
-                //HScrollBarChannels.Width = (int)(channelWidth * maxChannels + 8);
-                //HScrollBarChannels.Left = DisplayRectangle.Width - HScrollBarChannels.Width - 6 + 8;
-                //HScrollBarChannels.Top = DisplayRectangle.Height - HScrollBarChannels.Height;
-                //HScrollBarChannels.Visible = (sndFile.ActiveChannels > maxChannels);
-                //HScrollBarChannels.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-                //HScrollBarChannels.Refresh();
             } else {
                 this.Title = $"SharpMod";
-                //HScrollBarChannels.Visible = false;
             }
         }
 
@@ -351,10 +373,13 @@ namespace SharpModPlayerGUI {
             float patternsW = channelWidth * maxChannels + 6;
             float patternsX = w - patternsW;
             float waveLeft = samplesRight + 1;
+            bool hasScroll = sndFile != null && sndFile.ActiveChannels > maxChannels;
+            float scrollH = hasScroll ? PatternsScrollBarHeight : 0;
             return new Layout {
                 Samples = new RectangleF(0, 0, samplesRight + 1, h),
                 Waveform = new RectangleF(waveLeft, 0, Math.Max(0, patternsX - waveLeft), h - 20),
-                Patterns = new RectangleF(patternsX, 0, patternsW, h),
+                Patterns = new RectangleF(patternsX, 0, patternsW, h - scrollH),
+                PatternsScroll = new RectangleF(patternsX, h - scrollH, patternsW, scrollH),
                 Progress = new RectangleF(waveLeft, h - 20, Math.Max(0, patternsX - waveLeft), 20),
             };
         }
@@ -411,6 +436,10 @@ namespace SharpModPlayerGUI {
                         g.FillRectangle(Brushes.Black, L.Patterns);
                         RenderPatterns(g, L);
                     }
+                    if(L.PatternsScroll.Height > 0 && clip.Intersects(L.PatternsScroll)) {
+                        g.FillRectangle(Brushes.Black, L.PatternsScroll);
+                        RenderPatternsScrollBar(g, L);
+                    }
                     if(clip.Intersects(L.Progress)) {
                         g.FillRectangle(Brushes.Black, L.Progress);
                         RenderProgress(g, L);
@@ -423,7 +452,6 @@ namespace SharpModPlayerGUI {
         private void RenderPatterns(Graphics g, Layout L) {
             RectangleF r = new(0, 0, (int)(channelWidth * maxChannels), L.Patterns.Height - monoFontSize.Height - 20);
             r.Y = (int)((r.Height - monoFontSize.Height) / 2.0);
-            int fromChannel = 0;
             uint patternIndex = sndFile.Pattern;
             int sfRow = (int)sndFile.Row;
             if(patternIndex == 0xFF) {
@@ -621,6 +649,99 @@ namespace SharpModPlayerGUI {
 
         private RectangleF DisplayRectangle() {
             return new RectangleF(PointF.Empty, this.ClientSize);
+        }
+
+        private void ClampFromChannel() {
+            if(sndFile == null) { fromChannel = 0; return; }
+            int max = Math.Max(0, (int)sndFile.ActiveChannels - (int)maxChannels);
+            if(fromChannel < 0) fromChannel = 0;
+            else if(fromChannel > max) fromChannel = max;
+        }
+
+        private void SetFromChannel(int v) {
+            if(sndFile == null) return;
+            int max = Math.Max(0, (int)sndFile.ActiveChannels - (int)maxChannels);
+            if(v < 0) v = 0; else if(v > max) v = max;
+            if(v == fromChannel) return;
+            fromChannel = v;
+            InvalidateAllAreas();
+        }
+
+        private void ComputeScrollBarParts(Layout L, out RectangleF leftBtn, out RectangleF rightBtn, out RectangleF track, out RectangleF thumb) {
+            RectangleF bar = L.PatternsScroll;
+            float btnSize = bar.Height;
+            leftBtn = new RectangleF(bar.X + 6, bar.Y, btnSize, bar.Height);
+            rightBtn = new RectangleF(bar.Right - 6 - btnSize, bar.Y, btnSize, bar.Height);
+            float trackX = leftBtn.Right + 1;
+            float trackW = Math.Max(0, rightBtn.X - 1 - trackX);
+            track = new RectangleF(trackX, bar.Y, trackW, bar.Height);
+
+            int active = (int)(sndFile?.ActiveChannels ?? 0);
+            int visible = (int)maxChannels;
+            int range = Math.Max(1, active - visible);
+            float minThumbW = btnSize;
+            float thumbW = active > 0 ? track.Width * visible / active : track.Width;
+            if(thumbW < minThumbW) thumbW = minThumbW;
+            if(thumbW > track.Width) thumbW = track.Width;
+            float travel = track.Width - thumbW;
+            float thumbX = track.X + (travel > 0 ? travel * fromChannel / range : 0);
+            thumb = new RectangleF(thumbX, bar.Y, thumbW, bar.Height);
+        }
+
+        private void RenderPatternsScrollBar(Graphics g, Layout L) {
+            if(L.PatternsScroll.Height <= 0) return;
+            ComputeScrollBarParts(L, out RectangleF leftBtn, out RectangleF rightBtn, out RectangleF track, out RectangleF thumb);
+            g.FillRectangle(scrollButtonBrush, leftBtn);
+            g.FillRectangle(scrollButtonBrush, rightBtn);
+            g.FillRectangle(scrollTrackBrush, track);
+            g.FillRectangle(isDraggingThumb ? scrollThumbHotBrush : scrollThumbBrush, thumb);
+            DrawScrollArrow(g, leftBtn, true);
+            DrawScrollArrow(g, rightBtn, false);
+        }
+
+        private void DrawScrollArrow(Graphics g, RectangleF r, bool left) {
+            float cx = r.X + r.Width / 2f;
+            float cy = r.Y + r.Height / 2f;
+            float s = Math.Min(r.Width, r.Height) * 0.3f;
+            PointF[] pts = left
+                ? [new PointF(cx + s / 2, cy - s), new PointF(cx + s / 2, cy + s), new PointF(cx - s / 2, cy)]
+                : [new PointF(cx - s / 2, cy - s), new PointF(cx - s / 2, cy + s), new PointF(cx + s / 2, cy)];
+            g.FillPolygon(scrollArrowBrush, pts);
+        }
+
+        private bool IsInsidePatternsScrollBar(MouseEventArgs e) {
+            if(sndFile == null || sndFile.ActiveChannels <= maxChannels) return false;
+            Layout L = ComputeLayout();
+            return L.PatternsScroll.Contains(e.Location);
+        }
+
+        private void HandleScrollBarMouseDown(PointF p) {
+            Layout L = ComputeLayout();
+            ComputeScrollBarParts(L, out RectangleF leftBtn, out RectangleF rightBtn, out RectangleF track, out RectangleF thumb);
+            if(leftBtn.Contains(p)) {
+                SetFromChannel(fromChannel - 1);
+            } else if(rightBtn.Contains(p)) {
+                SetFromChannel(fromChannel + 1);
+            } else if(thumb.Contains(p)) {
+                isDraggingThumb = true;
+                dragThumbStartX = p.X;
+                dragFromChannelStart = fromChannel;
+                Canvas.Invalidate(ToInt(L.PatternsScroll));
+            } else if(track.Contains(p)) {
+                int page = Math.Max(1, (int)maxChannels);
+                SetFromChannel(p.X < thumb.X ? fromChannel - page : fromChannel + page);
+            }
+        }
+
+        private void UpdateThumbDrag(float x) {
+            Layout L = ComputeLayout();
+            ComputeScrollBarParts(L, out _, out _, out RectangleF track, out RectangleF thumb);
+            float travel = track.Width - thumb.Width;
+            if(travel <= 0) return;
+            int range = Math.Max(1, (int)sndFile.ActiveChannels - (int)maxChannels);
+            float dx = x - dragThumbStartX;
+            int delta = (int)Math.Round(dx / travel * range);
+            SetFromChannel(dragFromChannelStart + delta);
         }
     }
 }
