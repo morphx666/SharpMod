@@ -249,11 +249,20 @@ button:disabled {
 
 
 /* ─── Patterns view ───────────────────────────────────────────────────── */
+/* Horizontal scrolling is hoisted to the view container so the channel
+   header strip and the pattern columns share a single scrollbar (and stay
+   horizontally aligned by construction). */
+#view-patterns {
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
 .channels-row {
     display: flex;
     gap: var(--channel-gap);
     padding: 0.3em 0 0.4em;
-    overflow-x: auto;
+    width: max-content;
+    min-width: 100%;
     border-bottom: 1px solid var(--border);
 }
 
@@ -288,6 +297,8 @@ button:disabled {
     overflow: hidden;
     position: relative;
     min-height: 0;
+    width: max-content;
+    min-width: 100%;
 }
 
 /* Persistent play-line band: a horizontal stripe at the vertical center of
@@ -313,7 +324,6 @@ button:disabled {
     gap: var(--channel-gap);
     height: 100%;
     align-items: flex-start;
-    overflow-x: auto;
     overflow-y: hidden;
     position: relative;
     z-index: 1;
