@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMod.ConsolePlayer.Test
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "GUI", "GUI", "{EF6DD0FD-E73E-48FF-97A0-5A7B35D48252}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMod.PlayerGUI", "SharpMod.PlayerGUI\SharpMod.PlayerGUI\SharpMod.dPlayerGUI.csproj", "{79A6C48C-13AD-50BC-2461-9B14026B75B5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMod.PlayerGUI", "SharpMod.PlayerGUI\SharpMod.PlayerGUI\SharpMod.PlayerGUI.csproj", "{79A6C48C-13AD-50BC-2461-9B14026B75B5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMod.PlayerGUI.Gtk", "SharpMod.PlayerGUI\SharpMod.PlayerGUI.Gtk\SharpMod.PlayerGUI.Gtk.csproj", "{6341D564-FAB3-06DF-99F3-B3BB62F491F7}"
 EndProject
