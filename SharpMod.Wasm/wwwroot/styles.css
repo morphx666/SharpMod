@@ -25,6 +25,7 @@
     --rows-per-pattern: 64;
     --pat-block-h: calc(var(--row-h) * var(--rows-per-pattern));
     --pat-col-h: calc(var(--pat-block-h) * 3);
+    --channel-gap: 2ch;
 }
 
 * {
@@ -250,7 +251,7 @@ button:disabled {
 /* ─── Patterns view ───────────────────────────────────────────────────── */
 .channels-row {
     display: flex;
-    gap: 1ch;
+    gap: var(--channel-gap);
     padding: 0.3em 0 0.4em;
     overflow-x: auto;
     border-bottom: 1px solid var(--border);
@@ -309,7 +310,7 @@ button:disabled {
 
 .patterns {
     display: flex;
-    gap: 1ch;
+    gap: var(--channel-gap);
     height: 100%;
     align-items: flex-start;
     overflow-x: auto;
