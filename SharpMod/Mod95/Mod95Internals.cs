@@ -2,11 +2,6 @@
 
 namespace SharpMod {
     public partial class SoundFile {
-        private uint GetNumPatterns() {
-            for(uint i = 0; i < 128; i++) if(order[i] >= 64) return i;
-            return 128;
-        }
-
         private void SimulateSong(out uint elapsedMs, out uint tickCount) {
             elapsedMs = 0;
             tickCount = 0;
