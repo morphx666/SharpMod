@@ -29,15 +29,16 @@ namespace SharpModPlayerGUI {
                                                 new(Colors.DarkOrange), // effect
                                                ];
 
-        private Font monoFont = Fonts.Monospace(15);
+        private Font monoFont;
         private SizeF monoFontSize;
-        // private readonly StringFormat sf = new StringFormat() { Alignment = StringAlignment.Center };
 
         private bool userHasDroppedFile = false;
         private uint maxChannels;
         private float channelWidth;
 
         private byte[] buffer = [];
+        private readonly object sync = new();
+        private static readonly string[] supportedExtensions = [".mod", ".stm", ".s3m", ".xm", ".669"];
         private const int sampleRate = 44100;
         private const int bitDepth = 16; // 8 | 15
         private const int channels = 2;  // 1 | 2
@@ -49,6 +50,8 @@ namespace SharpModPlayerGUI {
         private bool isResizing;
 
         private int fps = 30;
+        private UITimer renderTimer;
+        const int sampleCharsCount = 26;
 
         public MainForm() {
             Title = "SharpModPlayer";
@@ -59,6 +62,13 @@ namespace SharpModPlayerGUI {
 
             this.Shown += (s, e) => {
                 this.Maximize();
+
+                FontFamily monoFontFamily = new("Consolas");
+                if(monoFontFamily.LocalizedName == "Consolas") {
+                    monoFont = new Font(monoFontFamily, 12);
+                } else {
+                    monoFont = new Font(FontFamilies.Monospace, 12);
+                }
 
                 using(Bitmap bmp = new(ClientSize, PixelFormat.Format32bppRgba)) {
                     using(Graphics g = new(bmp)) {
@@ -72,27 +82,23 @@ namespace SharpModPlayerGUI {
                 SetSoundFile(new SoundFile(GetRandomFile(), sampleRate, bitDepth == 16, channels == 2, false));
                 UpdateTitleBarText();
 
-                this.SizeChanged += (object s, EventArgs e) => UpdateTitleBarText();
+                this.SizeChanged += (s, e) => UpdateTitleBarText();
                 Canvas.Paint += RenderUI;
 
                 SetupDragDropSupport();
                 InitUIHandling();
                 StartAudio();
 
-                Task.Run(async() => {
-                    try { // FIXME: This is so lazy!
-                        while(!this.IsDisposed) {
-                            await Task.Delay(1000 / fps);
-                            Application.Instance.Invoke(() => Canvas.Invalidate());
-                        }
-                    } catch { }
-                });
+                renderTimer = new UITimer { Interval = 1.0 / fps };
+                renderTimer.Elapsed += (_, _) => Canvas.Invalidate();
+                renderTimer.Start();
             };
         }
 
         private void SetSoundFile(SoundFile soundFile) {
             sndFile = soundFile;
             fps = (int)Math.Max(30, Math.Floor(5000.0 / sndFile.MusicTempo));
+            if(renderTimer != null) renderTimer.Interval = 1.0 / fps;
         }
 
         private void InitUIHandling() {
@@ -161,42 +167,35 @@ namespace SharpModPlayerGUI {
         }
 
         private void SetupDragDropSupport() {
-            this.AllowDrop = true;
+            Canvas.AllowDrop = true;
 
-            this.DragOver += (object sender, DragEventArgs e) => e.Effects = DropFileIsValid(e) ? DragEffects.Copy : DragEffects.None;
+            Canvas.DragOver += (object sender, DragEventArgs e) => e.Effects = DropFileIsValid(e) ? DragEffects.Copy : DragEffects.None;
 
-            this.DragDrop += (object sender, DragEventArgs e) => {
-                if(DropFileIsValid(e)) {
-                    lock(buffer) {
-                        userHasDroppedFile = true;
-                        Uri[] uris = e.Data.Uris;
+            Canvas.DragDrop += (object sender, DragEventArgs e) => {
+                if(!DropFileIsValid(e)) return;
 
-                        try {
-                            SetSoundFile(new SoundFile(uris[0].LocalPath, sampleRate, bitDepth == 16, channels == 2, false));
-                            if(maxChannels > sndFile.ActiveChannels) maxChannels = sndFile.ActiveChannels;
-                        } catch { }
-                        ;
+                SoundFile sf;
+                try {
+                    sf = new SoundFile(e.Data.Uris[0].LocalPath, sampleRate, bitDepth == 16, channels == 2, false);
+                } catch { return; }
+                if(!sf.IsValid) return;
 
-                        Application.Instance.AsyncInvoke(UpdateTitleBarText);
-                    }
+                lock(sync) {
+                    userHasDroppedFile = true;
+                    SetSoundFile(sf);
+                    if(maxChannels > sndFile.ActiveChannels) maxChannels = sndFile.ActiveChannels;
                 }
+
+                Application.Instance.AsyncInvoke(UpdateTitleBarText);
             };
         }
 
-        private bool DropFileIsValid(DragEventArgs e) {
-            bool isValid = false;
-            if(e.Data.ContainsUris) {
-                Uri[] uris = e.Data.Uris;
-                if(uris != null && uris.Length == 1 && uris[0].IsFile) {
-                    SoundFile tmpSf = null;
-                    try {
-                        tmpSf = new SoundFile(uris[0].LocalPath, sampleRate, bitDepth == 16, channels == 2, false);
-                    } catch { }
-                    ;
-                    if(tmpSf != null) isValid = tmpSf.IsValid;
-                }
-            }
-            return isValid;
+        private static bool DropFileIsValid(DragEventArgs e) {
+            if(!e.Data.ContainsUris) return false;
+            Uri[] uris = e.Data.Uris;
+            if(uris == null || uris.Length != 1 || !uris[0].IsFile) return false;
+            string ext = Path.GetExtension(uris[0].LocalPath).ToLowerInvariant();
+            return supportedExtensions.Contains(ext);
         }
 
         private void StartAudio() {
@@ -291,7 +290,7 @@ namespace SharpModPlayerGUI {
 
         private void RenderUI(object sender, PaintEventArgs e) {
             if(sndFile == null) return;
-            lock(buffer) {
+            lock(sync) {
                 Graphics g = e.Graphics;
                 g.Clear(Colors.Black);
                 try {
@@ -329,14 +328,13 @@ namespace SharpModPlayerGUI {
         }
 
         private void RenderSamples(Graphics g) {
-            const int mn = 22;
             // FIXME: This is VERY inefficient!
             // Since the sample doesn't change, we should "cache it" and then simply paste the bitmap, instead of re-drawing it every time.
             // Even better, when the surface is invalidated, we could just simply invalidate the output waveform area.
-            RectangleF r = new(200, (int)(monoFontSize.Height * 1.5), 200, monoFontSize.Height + 2);
+            RectangleF r = new(monoFontSize.Width * sampleCharsCount, (int)(monoFontSize.Height * 1.5), 200, monoFontSize.Height + 2);
             for(int i = 1; i < sndFile.Instruments.Length; i++) {
                 string n = sndFile.Instruments[i].Name;
-                if(n.Length > mn) n = string.Concat(n.AsSpan(0, mn - 1), "…");
+                if(n.Length >= sampleCharsCount) n = string.Concat(n.AsSpan(0, sampleCharsCount - 2), "…");
                 g.DrawText(monoFont, Brushes.White, 0, r.Y - r.Height, n);
                 if(sndFile.Instruments[i].Sample != null) {
                     Renderer.RenderInstrument(sndFile, i, g, cWfPen, r);
@@ -345,7 +343,8 @@ namespace SharpModPlayerGUI {
                 r.Y += (r.Height + 4);
             }
             g.DrawLine(Pens.DimGray, r.X - 4, 0, r.X - 4, DisplayRectangle().Bottom);
-            g.DrawLine(Pens.DimGray, 400, 0, 400, DisplayRectangle().Bottom);
+            r.X = monoFontSize.Width * sampleCharsCount + 200;
+            g.DrawLine(Pens.DimGray, r.X, 0, r.X, DisplayRectangle().Bottom);
         }
 
         private void RenderProgress(Graphics g, RectangleF r) {
@@ -358,7 +357,7 @@ namespace SharpModPlayerGUI {
         }
 
         private RectangleF RenderWaveform(Graphics g, RectangleF r) {
-            r.X = 400;
+            r.X = monoFontSize.Width * sampleCharsCount + 200;
             r.Width -= r.X + channelWidth * maxChannels + 6;
             r.Height -= 20;
             if(!userHasDroppedFile) g.DrawText(monoFont, Brushes.Gray, r.Location, "Drop a new MOD file\nto start playing it");
