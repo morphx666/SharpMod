@@ -339,17 +339,7 @@ ASALocalRun/
 # BeatPulse healthcheck temp database
 healthchecksdb
 
-!**/Release
-
-**/Release/*.dll
-**/Release/*.xml
-**/Release/*.exe
-**/Release/*.config
-**/Release/*.manifest
-**/Release/netstandard2.0/
-**/Release/netstandard2.1/
-**/Release/runtimes/
-**/Release/SharpModConsolePlayer
+!**/Release/mods
 
 **/openmpt-master
 **/scripts
