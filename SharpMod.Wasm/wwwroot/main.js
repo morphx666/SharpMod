@@ -39,19 +39,14 @@ $('file').addEventListener('change', async (e) => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     const buf = new Uint8Array(await f.arrayBuffer());
-    const rate = parseInt($('rate').value, 10);
-    const is16 = $('bits16').checked;
-    const stereo = $('stereo').checked;
-    const loop = $('loop').checked;
 
     stopPlayback();
-    const err = sm.Load(buf, rate, is16, stereo, loop);
+    const err = sm.Load(buf, 44100, true, true, false);
     if (err) { status('Load failed: ' + err); return; }
     loadedToken++;
     resetPatternsView();
     resetSamplesView();
-    $('play').disabled = false;
-    $('stop').disabled = false;
+    $('playPause').disabled = false;
     $('pos').disabled = false;
     $('pos').max = String(sm.GetPositionCount());
     $('s-filename').textContent = f.name;
@@ -59,8 +54,7 @@ $('file').addEventListener('change', async (e) => {
     ensureRenderLoop();
 });
 
-$('play').addEventListener('click', () => startPlayback());
-$('stop').addEventListener('click', () => { stopPlayback(); status('Paused'); });
+$('playPause').addEventListener('click', () => togglePlayback());
 $('pos').addEventListener('input', (e) => sm.SetPosition(parseInt(e.target.value, 10)));
 
 document.querySelectorAll('.tab').forEach(btn => {
@@ -71,8 +65,7 @@ window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
     if (e.code === 'Space') {
         e.preventDefault();
-        if (audioCtx) { stopPlayback(); status('Paused'); }
-        else if (sm.IsLoaded()) startPlayback();
+        togglePlayback();
     } else if (e.code === 'Tab') {
         e.preventDefault();
         setView(view === 'patterns' ? 'samples' : 'patterns');
@@ -91,9 +84,15 @@ function setView(v) {
     document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.view === v));
 }
 
+function togglePlayback() {
+    if (audioCtx) { stopPlayback(); status('Paused'); }
+    else if (sm.IsLoaded()) startPlayback();
+}
+
 async function startPlayback() {
     stopPlayback();
     if (!sm.IsLoaded()) return;
+    setPlayPauseUi(true);
     const rate = sm.GetSampleRate();
     activeIs16Bit = sm.GetIs16Bit();
     activeChannels = sm.GetIsStereo() ? 2 : 1;
@@ -121,6 +120,13 @@ function stopPlayback() {
     if (pumpTimer) { clearInterval(pumpTimer); pumpTimer = 0; }
     if (workletNode) { try { workletNode.port.postMessage({ type: 'stop' }); workletNode.disconnect(); } catch {} workletNode = null; }
     if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
+    setPlayPauseUi(false);
+}
+
+function setPlayPauseUi(playing) {
+    const btn = $('playPause');
+    btn.querySelector('.icon').className = `icon fa-solid ${playing ? 'fa-pause' : 'fa-play'}`;
+    btn.querySelector('.label').textContent = playing ? 'Pause' : 'Play';
 }
 
 function pump() {

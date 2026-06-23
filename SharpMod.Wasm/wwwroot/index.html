@@ -8,6 +8,10 @@
     <link rel="preload" id="webassembly" />
     <script type="importmap"></script>
     <script type="module" src="main.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
     <link rel="stylesheet" href="styles.css" />
 </head>
 
@@ -22,22 +26,10 @@
                 <span class="lbl">Module file</span>
                 <input type="file" id="file" accept=".mod,.s3m,.xm,.stm,.669" disabled />
             </label>
-            <div class="ctrl-group">
-                <label>Rate
-                    <select id="rate">
-                        <option>22050</option>
-                        <option selected>44100</option>
-                        <option>48000</option>
-                    </select>
-                </label>
-                <label><input type="checkbox" id="bits16" checked /> 16-bit</label>
-                <label><input type="checkbox" id="stereo" checked /> Stereo</label>
-                <label><input type="checkbox" id="loop" /> Loop</label>
-            </div>
-            <span class="buttons">
-                <button id="play" disabled>▶ Play</button>
-                <button id="stop" disabled>⏸ Pause</button>
-            </span>
+            <button id="playPause" disabled>
+                <i class="icon fa-solid fa-play"></i>
+                <span class="label">Play</span>
+            </button>
         </div>
     </header>
 

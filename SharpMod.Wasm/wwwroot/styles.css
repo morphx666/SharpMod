@@ -18,7 +18,7 @@
     --c-red: #e06c75;
     --c-blue: #61afef;
     --border: #21262d;
-    --mono: ui-monospace, "Cascadia Mono", Consolas, "Lucida Console", "Courier New", "DejaVu Sans Mono", monospace;
+    --mono: "Roboto Mono", ui-monospace, "Cascadia Mono", Consolas, "Lucida Console", "Courier New", "DejaVu Sans Mono", monospace;
     /* Pattern row height — single source of truth. view-patterns.js reads --row-h
        from computed styles, so changing this value here is enough. */
     --row-h: 26px;
@@ -124,12 +124,6 @@ body {
     font-family: inherit;
 }
 
-.transport .ctrl-group {
-    display: flex;
-    flex-direction: row;
-    gap: 0.5rem;
-}
-
 button {
     background: var(--bg);
     color: var(--c-green);
@@ -147,6 +141,14 @@ button:hover:not(:disabled) {
 button:disabled {
     color: var(--fg-dim);
     cursor: not-allowed;
+}
+
+#playPause {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 1rem;
 }
 
 /* ─── Tabs ────────────────────────────────────────────────────────────── */
