@@ -5,13 +5,13 @@ using SharpMod;
 
 public static partial class SharpModInterop {
     private static SoundFile? sf;
-    private static byte[] readBuffer = Array.Empty<byte>();
+    private static byte[] readBuffer = [];
 
     [JSExport]
     public static string Load(byte[] data, int sampleRate, bool is16Bit, bool stereo, bool loop) {
         try {
             sf = new SoundFile(data, (uint)sampleRate, is16Bit, stereo, loop);
-            readBuffer = Array.Empty<byte>();
+            readBuffer = [];
             return sf.IsValid ? "" : "Unrecognized or invalid module file.";
         } catch(Exception ex) {
             sf = null;
@@ -21,10 +21,10 @@ public static partial class SharpModInterop {
 
     [JSExport]
     public static byte[] Read(int byteCount) {
-        if(sf is null || byteCount <= 0) return Array.Empty<byte>();
+        if(sf is null || byteCount <= 0) return [];
         if(readBuffer.Length != byteCount) readBuffer = new byte[byteCount];
         uint read = sf.Read(readBuffer, (uint)byteCount);
-        if(read == 0) return Array.Empty<byte>();
+        if(read == 0) return [];
         if(read == (uint)byteCount) return readBuffer;
         byte[] trimmed = new byte[read];
         Array.Copy(readBuffer, trimmed, (int)read);
@@ -81,7 +81,7 @@ public static partial class SharpModInterop {
     //   [muted(0/1), instrumentIndex, currentVolume, pan(0..256), isStereoSample(0/1), isActive(0/1)]
     [JSExport]
     public static int[] GetChannelStates() {
-        if(sf is null) return Array.Empty<int>();
+        if(sf is null) return [];
         var ch = sf.Channels;
         int n = Math.Min((int)sf.ActiveChannels, ch.Length);
         int[] r = new int[n * 6];
@@ -140,9 +140,9 @@ public static partial class SharpModInterop {
     // Per-instrument metadata. Layout: [length, volume, is16(0/1), isStereo(0/1), loopStart, loopEnd].
     [JSExport]
     public static int[] GetInstrumentMeta(int index) {
-        if(sf is null) return Array.Empty<int>();
+        if(sf is null) return [];
         var ins = sf.Instruments;
-        if(index < 0 || index >= ins.Length) return Array.Empty<int>();
+        if(index < 0 || index >= ins.Length) return [];
         var i = ins[index];
         return new int[] {
             (int)i.Length,
@@ -160,11 +160,11 @@ public static partial class SharpModInterop {
     // resolution. Returns an empty array for empty / missing instruments.
     [JSExport]
     public static double[] GetWaveformEnvelope(int index, int width) {
-        if(sf is null || width <= 0) return Array.Empty<double>();
+        if(sf is null || width <= 0) return [];
         var ins = sf.Instruments;
-        if(index < 0 || index >= ins.Length) return Array.Empty<double>();
+        if(index < 0 || index >= ins.Length) return [];
         var i = ins[index];
-        if(i.Sample is null || i.Length == 0) return Array.Empty<double>();
+        if(i.Sample is null || i.Length == 0) return [];
         bool is16 = i.Is16Bit;
         bool stereo = i.IsStereo;
         int stride = (is16 ? 2 : 1) * (stereo ? 2 : 1);
@@ -195,7 +195,7 @@ public static partial class SharpModInterop {
     // the waveform.
     [JSExport]
     public static double[] GetInstrumentCursors(int index) {
-        if(sf is null) return Array.Empty<double>();
+        if(sf is null) return [];
         var channels = sf.Channels;
         Span<double> tmp = stackalloc double[32];
         int n = 0;

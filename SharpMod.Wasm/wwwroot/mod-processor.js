@@ -17,11 +17,11 @@ class ModProcessor extends AudioWorkletProcessor {
 
         this.port.onmessage = (e) => {
             const msg = e.data;
-            if (msg && msg.type === 'samples') {
+            if(msg && msg.type === 'samples') {
                 this._enqueue(msg.data);
-            } else if (msg && msg.type === 'stop') {
+            } else if(msg && msg.type === 'stop') {
                 this.stopped = true;
-            } else if (msg && msg.type === 'reset') {
+            } else if(msg && msg.type === 'reset') {
                 this.read = this.write = this.size = 0;
                 this.stopped = false;
             }
@@ -31,7 +31,7 @@ class ModProcessor extends AudioWorkletProcessor {
     _enqueue(data) {
         const free = this.capacity - this.size;
         const n = Math.min(free, data.length);
-        for (let i = 0; i < n; i++) {
+        for(let i = 0; i < n; i++) {
             this.ring[this.write] = data[i];
             this.write = (this.write + 1) % this.capacity;
         }
@@ -44,9 +44,9 @@ class ModProcessor extends AudioWorkletProcessor {
         const ch = out.length;
         const interleavedChannels = this.channels;
 
-        for (let f = 0; f < frames; f++) {
-            if (this.size >= interleavedChannels) {
-                for (let c = 0; c < ch; c++) {
+        for(let f = 0; f < frames; f++) {
+            if(this.size >= interleavedChannels) {
+                for(let c = 0; c < ch; c++) {
                     const src = c < interleavedChannels ? c : interleavedChannels - 1;
                     // Read sample for channel src; only advance read pointer once we've
                     // consumed all source channels for this frame.
@@ -55,7 +55,7 @@ class ModProcessor extends AudioWorkletProcessor {
                 this.read = (this.read + interleavedChannels) % this.capacity;
                 this.size -= interleavedChannels;
             } else {
-                for (let c = 0; c < ch; c++) out[c][f] = 0;
+                for(let c = 0; c < ch; c++) out[c][f] = 0;
             }
         }
 

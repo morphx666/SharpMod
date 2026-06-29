@@ -26,15 +26,15 @@ export function resetSamplesView() {
 }
 
 export function renderSamplesView(sm, token) {
-    if (token !== lastToken) { resetSamplesView(); lastToken = token; }
+    if(token !== lastToken) { resetSamplesView(); lastToken = token; }
     const total = sm.GetInstrumentCount();
     const count = Math.max(0, total - 1); // entry 0 is the engine's "no instrument" slot
-    if (count <= 0) return;
-    if (count !== lastCount) buildRows(sm, count);
+    if(count <= 0) return;
+    if(count !== lastCount) buildRows(sm, count);
 
     updateSummary(sm);
 
-    for (let i = 0; i < count; i++) {
+    for(let i = 0; i < count; i++) {
         const r = rows[i];
         ensureWaveform(sm, i + 1, r);
         drawCursors(sm, i + 1, r);
@@ -45,7 +45,7 @@ export function renderSamplesView(sm, token) {
 function buildRows(sm, count) {
     listRoot.innerHTML = '';
     rows = new Array(count);
-    for (let i = 0; i < count; i++) {
+    for(let i = 0; i < count; i++) {
         const idx = i + 1;
         const meta = sm.GetInstrumentMeta(idx);
         const name = sanitize(sm.GetInstrumentName(idx) || '');
@@ -72,9 +72,9 @@ function buildRows(sm, count) {
         const ls = meta ? meta[4] : 0;
         const le = meta ? meta[5] : 0;
 
-        const colL = span('col-l',  String(length));
-        const colV = span('col-v',  String(vol));
-        const colF = span('col-f',  fmt);
+        const colL = span('col-l', String(length));
+        const colV = span('col-v', String(vol));
+        const colF = span('col-f', fmt);
         const colLs = span('col-ls', String(ls));
         const colLe = span('col-le', String(le));
 
@@ -105,7 +105,7 @@ function span(cls, text) {
 
 function updateSummary(sm) {
     const len = sm.GetLengthSeconds();
-    if (len !== lengthShown) {
+    if(len !== lengthShown) {
         const h = Math.floor(len / 3600), m = Math.floor((len % 3600) / 60), s = len % 60;
         summaryEls.length.textContent = h > 0
             ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
@@ -113,30 +113,30 @@ function updateSummary(sm) {
         lengthShown = len;
     }
     const bpm = sm.GetAverageTempo();
-    if (bpm !== bpmShown) { summaryEls.bpm.textContent = String(bpm); bpmShown = bpm; }
+    if(bpm !== bpmShown) { summaryEls.bpm.textContent = String(bpm); bpmShown = bpm; }
 }
 
 function ensureWaveform(sm, idx, r) {
     const dpr = window.devicePixelRatio || 1;
     const wCss = r.canvas.clientWidth;
     const hCss = r.canvas.clientHeight;
-    if (wCss <= 0 || hCss <= 0) return;
+    if(wCss <= 0 || hCss <= 0) return;
     const w = Math.floor(wCss * dpr);
     const h = Math.floor(hCss * dpr);
-    if (r.canvas.width !== w || r.canvas.height !== h) {
+    if(r.canvas.width !== w || r.canvas.height !== h) {
         r.canvas.width = w; r.canvas.height = h;
         r.cachedW = 0;
     }
-    if (r.empty) { r.ctx.clearRect(0, 0, w, h); return; }
-    if (r.cachedW === w && r.envelope) return;
+    if(r.empty) { r.ctx.clearRect(0, 0, w, h); return; }
+    if(r.cachedW === w && r.envelope) return;
     const env = sm.GetWaveformEnvelope(idx, w);
     r.envelope = env;
     r.cachedW = w;
     const ctx = r.ctx;
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = '#56b6c2'; // cyan
-    if (env.length === 0) return;
-    for (let x = 0; x < w; x++) {
+    if(env.length === 0) return;
+    for(let x = 0; x < w; x++) {
         const vmin = env[x * 2], vmax = env[x * 2 + 1];
         const y0 = Math.round((1 - vmax) * 0.5 * (h - 1));
         const y1 = Math.round((1 - vmin) * 0.5 * (h - 1));
@@ -148,30 +148,30 @@ function ensureWaveform(sm, idx, r) {
 }
 
 function drawCursors(sm, idx, r) {
-    if (r.empty || !r.bg) return;
+    if(r.empty || !r.bg) return;
     const ctx = r.ctx;
     const w = r.canvas.width, h = r.canvas.height;
     ctx.putImageData(r.bg, 0, 0);
     const cursors = sm.GetInstrumentCursors(idx);
-    if (!cursors || cursors.length === 0) return;
+    if(!cursors || cursors.length === 0) return;
     ctx.fillStyle = '#e5c07b'; // yellow
-    for (let i = 0; i < cursors.length; i++) {
+    for(let i = 0; i < cursors.length; i++) {
         const x = Math.max(0, Math.min(w - 1, Math.floor(cursors[i] * w)));
         ctx.fillRect(x, 0, Math.max(1, Math.round(w / 200)), h);
     }
 }
 
 function updateNameProgress(sm, idx, r) {
-    if (r.empty) return;
+    if(r.empty) return;
     const cursors = sm.GetInstrumentCursors(idx);
     let maxR = 0;
-    for (let i = 0; i < cursors.length; i++) if (cursors[i] > maxR) maxR = cursors[i];
+    for(let i = 0; i < cursors.length; i++) if(cursors[i] > maxR) maxR = cursors[i];
     r.overlayEl.style.width = `${(maxR * 100).toFixed(2)}%`;
 }
 
 function sanitize(s) {
     let out = '';
-    for (let i = 0; i < s.length; i++) {
+    for(let i = 0; i < s.length; i++) {
         const c = s.charCodeAt(i);
         out += (c < 0x20 || c === 0x7F) ? ' ' : s[i];
     }

@@ -37,12 +37,12 @@ status('Ready. Pick a module to load.');
 
 $('file').addEventListener('change', async (e) => {
     const f = e.target.files && e.target.files[0];
-    if (!f) return;
+    if(!f) return;
     const buf = new Uint8Array(await f.arrayBuffer());
 
     stopPlayback();
     const err = sm.Load(buf, 44100, true, true, false);
-    if (err) { status('Load failed: ' + err); return; }
+    if(err) { status('Load failed: ' + err); return; }
     loadedToken++;
     resetPatternsView();
     resetSamplesView();
@@ -62,14 +62,14 @@ document.querySelectorAll('.tab').forEach(btn => {
 });
 
 window.addEventListener('keydown', (e) => {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
-    if (e.code === 'Space') {
+    if(e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+    if(e.code === 'Space') {
         e.preventDefault();
         togglePlayback();
-    } else if (e.code === 'Tab') {
+    } else if(e.code === 'Tab') {
         e.preventDefault();
         setView(view === 'patterns' ? 'samples' : 'patterns');
-    } else if (sm.IsLoaded() && /^Digit[1-9]$/.test(e.code)) {
+    } else if(sm.IsLoaded() && /^Digit[1-9]$/.test(e.code)) {
         const n = parseInt(e.code.slice(5), 10) - 1;
         const bank = e.ctrlKey ? 2 : e.shiftKey ? 1 : 0;
         sm.ToggleChannelMute(bank * 9 + n);
@@ -85,13 +85,13 @@ function setView(v) {
 }
 
 function togglePlayback() {
-    if (audioCtx) { stopPlayback(); status('Paused'); }
-    else if (sm.IsLoaded()) startPlayback();
+    if(audioCtx) { stopPlayback(); status('Paused'); }
+    else if(sm.IsLoaded()) startPlayback();
 }
 
 async function startPlayback() {
     stopPlayback();
-    if (!sm.IsLoaded()) return;
+    if(!sm.IsLoaded()) return;
     setPlayPauseUi(true);
     const rate = sm.GetSampleRate();
     activeIs16Bit = sm.GetIs16Bit();
@@ -117,9 +117,9 @@ async function startPlayback() {
 }
 
 function stopPlayback() {
-    if (pumpTimer) { clearInterval(pumpTimer); pumpTimer = 0; }
-    if (workletNode) { try { workletNode.port.postMessage({ type: 'stop' }); workletNode.disconnect(); } catch {} workletNode = null; }
-    if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
+    if(pumpTimer) { clearInterval(pumpTimer); pumpTimer = 0; }
+    if(workletNode) { try { workletNode.port.postMessage({ type: 'stop' }); workletNode.disconnect(); } catch { } workletNode = null; }
+    if(audioCtx) { audioCtx.close().catch(() => { }); audioCtx = null; }
     setPlayPauseUi(false);
 }
 
@@ -130,45 +130,45 @@ function setPlayPauseUi(playing) {
 }
 
 function pump() {
-    if (pumping || !workletNode || !audioCtx) return;
+    if(pumping || !workletNode || !audioCtx) return;
     const elapsedFrames = (audioCtx.currentTime - queueStartTime) * audioCtx.sampleRate;
     const pendingFrames = queuedFrames - elapsedFrames;
     const targetFrames = audioCtx.sampleRate * TARGET_LEAD_SEC;
-    if (pendingFrames >= targetFrames) return;
+    if(pendingFrames >= targetFrames) return;
     pumping = true;
     try { pumpChunk(Math.ceil(targetFrames - pendingFrames)); }
     finally { pumping = false; }
 }
 
 function pumpChunk(frames) {
-    if (!workletNode || frames <= 0) return;
+    if(!workletNode || frames <= 0) return;
     const bytes = frames * activeBytesPerFrame;
     const raw = sm.Read(bytes);
-    if (!raw || raw.length === 0) return;
+    if(!raw || raw.length === 0) return;
     const float = convertToFloat32(raw, activeIs16Bit);
     queuedFrames += float.length / activeChannels;
     workletNode.port.postMessage({ type: 'samples', data: float }, [float.buffer]);
 }
 
 function convertToFloat32(bytes, is16Bit) {
-    if (is16Bit) {
+    if(is16Bit) {
         const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
         const n = bytes.byteLength >> 1;
         const out = new Float32Array(n);
-        for (let i = 0; i < n; i++) out[i] = dv.getInt16(i * 2, true) / 32768;
+        for(let i = 0; i < n; i++) out[i] = dv.getInt16(i * 2, true) / 32768;
         return out;
     }
     const n = bytes.byteLength;
     const out = new Float32Array(n);
-    for (let i = 0; i < n; i++) out[i] = (bytes[i] - 128) / 128;
+    for(let i = 0; i < n; i++) out[i] = (bytes[i] - 128) / 128;
     return out;
 }
 
 function ensureRenderLoop() {
-    if (rafId) return;
+    if(rafId) return;
     const tick = () => {
         rafId = requestAnimationFrame(tick);
-        if (!sm.IsLoaded()) return;
+        if(!sm.IsLoaded()) return;
         const pos = sm.GetPosition();
         const total = sm.GetPositionCount();
         $('m-title').textContent = sm.GetTitle() || '(untitled)';
@@ -178,7 +178,7 @@ function ensureRenderLoop() {
         $('m-row').textContent = sm.GetRow();
         $('m-tempo').textContent = `${sm.GetMusicTempo()} / ${sm.GetMusicSpeed()}`;
         $('pos').value = String(pos);
-        if (view === 'patterns') renderPatternsView(sm, loadedToken);
+        if(view === 'patterns') renderPatternsView(sm, loadedToken);
         else renderSamplesView(sm, loadedToken);
     };
     rafId = requestAnimationFrame(tick);
